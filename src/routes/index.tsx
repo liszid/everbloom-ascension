@@ -1,24 +1,40 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { AuthScreen } from "@/game/AuthScreen";
+import { Game } from "@/game/Game";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Thornvale — Tower of a Thousand Floors" },
+      { name: "description", content: "A pixel RPG: gather materials, craft unique gear from any combination, and climb a 1000-floor dungeon tower." },
+      { property: "og:title", content: "Thornvale — Tower of a Thousand Floors" },
+      { property: "og:description", content: "Gather, craft one-of-a-kind gear, level skills by doing, and conquer floor 1000." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <ClientOnly fallback={<div className="min-h-screen" />}>
+      <App />
+    </ClientOnly>
   );
+}
+
+function App() {
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess));
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  if (session === undefined) return <div className="flex min-h-screen items-center justify-center font-display text-primary">Loading…</div>;
+  if (!session) return <AuthScreen />;
+  return <Game key={session.user.id} userId={session.user.id} />;
 }
