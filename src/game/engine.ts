@@ -6,7 +6,7 @@ import {
 
 export type Slot = "weapon" | "armor" | "charm";
 export interface Gear {
-  id: string; name: string; slot: Slot; wtype?: WeaponType; grade: string; gradeIdx: number;
+  id: string; name: string; slot: Slot; wtype?: WeaponType | undefined; grade: string; gradeIdx: number;
   stats: Stats; elements: Element[]; traits: { t: Trait; v: number }[]; materials: { id: string; qty: number }[];
 }
 export interface Food { name: string; icon: string; heal: number; qty: number }
@@ -20,10 +20,10 @@ export interface Dungeon {
 export interface Combat { mon: string; log: string[]; dots: { burn: number; poison: number } }
 export interface GameState {
   v: 1; step: number; inv: Record<string, number>; foods: Food[]; gear: Gear[];
-  equip: Partial<Record<Slot, string>>; skills: Record<string, number>; hp: number; maxFloor: number;
+  equip: Partial<Record<Slot, string | undefined>>; skills: Record<string, number>; hp: number; maxFloor: number;
   loc: "village" | "dungeon"; pos: { x: number; y: number };
   village: { nodes: Record<string, number>; plots: Record<string, { crop: string; readyAt: number }>; animals: Record<string, number> };
-  dungeon?: Dungeon; bag: Record<string, number>; combat?: Combat; log: string[]; kills: number; won?: boolean;
+  dungeon?: Dungeon | undefined; bag: Record<string, number>; combat?: Combat | undefined; log: string[]; kills: number; won?: boolean;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -78,7 +78,7 @@ export function takeMat(s: GameState, id: string, qty: number) {
 }
 
 // ---------- player stats ----------
-export interface PStats { atk: number; def: number; spd: number; mag: number; maxHp: number; crit: number; dodge: number; elements: Element[]; traits: Record<Trait, number>; wtype?: WeaponType }
+export interface PStats { atk: number; def: number; spd: number; mag: number; maxHp: number; crit: number; dodge: number; elements: Element[]; traits: Record<Trait, number>; wtype?: WeaponType | undefined }
 export function playerStats(s: GameState): PStats {
   const tot: Stats = { atk: 0, def: 0, spd: 0, mag: 0, hp: 0, crit: 0 };
   const traits = { lifesteal: 0, burn: 0, poison: 0, thorns: 0, regen: 0, keen: 0, swift: 0, guard: 0 } as Record<Trait, number>;
