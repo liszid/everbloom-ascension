@@ -299,9 +299,11 @@ export const floorTier = (f: number) => Math.min(10, Math.floor((f - 1) / 100));
 
 export function makeMonster(f: number, x: number, y: number, boss = false): Mon {
   const t = floorTier(f);
-  const pool = MONSTERS.filter((m) => m.tier === t && (f === 1000 ? m.id === "sovereign" : m.id !== "sovereign" || boss));
-  const lower = MONSTERS.filter((m) => m.tier === Math.max(0, t - 1));
-  const d = f === 1000 && boss ? MONSTERS.find((m) => m.id === "sovereign")! : (Math.random() < 0.2 && t > 0 ? lower : pool)[ri(0, (Math.random() < 0.2 && t > 0 ? lower : pool).length - 1)] ?? pool[0]!;
+  const pool = MONSTERS.filter((m) => m.tier === t && m.id !== "sovereign");
+  const lower = MONSTERS.filter((m) => m.tier === Math.max(0, t - 1) && m.id !== "sovereign");
+  let d = pool[0]!;
+  if (f === 1000 && boss) d = MONSTERS.find((m) => m.id === "sovereign")!;
+  else { const src = Math.random() < 0.2 && t > 0 ? lower : pool; d = src[ri(0, src.length - 1)] ?? pool[0]!; }
   const P = power(f) * rand(0.9, 1.1);
   const bm = boss ? (f === 1000 ? 6 : 3) : 1;
   const hp = Math.round(30 * P * bm);
