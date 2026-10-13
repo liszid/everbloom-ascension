@@ -1,0 +1,114 @@
+import { useEffect, useRef, useState } from "react";
+import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES } from "./data";
+import { classActives, computeClass, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
+import { fmt } from "./Panels";
+import { useSettings } from "./settings";
+
+export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) => void }) {
+  const c = s.combat!; const m = c.mon; const p = playerStats(s);
+  const st = useSettings();
+  const [menu, setMenu] = useState<"main" | "skill" | "eat">("main");
+  const [floats, setFloats] = useState<{ id: number; t: string; me: boolean }[]>([]);
+  const [shake, setShake] = useState(false);
+  const prev = useRef({ dealt: c.dealt, taken: c.taken });
+  useEffect(() => {
+    const dd = c.dealt - prev.current.dealt, dt = c.taken - prev.current.taken;
+    prev.current = { dealt: c.dealt, taken: c.taken };
+    const add: { id: number; t: string; me: boolean }[] = [];
+    if (dd > 0) add.push({ id: Math.random(), t: `-${fmt(dd)}`, me: false });
+    if (dt > 0) { add.push({ id: Math.random(), t: `-${fmt(dt)}`, me: true }); if (st.shake && !st.reducedMotion) { setShake(true); setTimeout(() => setShake(false), 250); } }
+    if (add.length && st.dmgNumbers) { setFloats((f) => [...f, ...add]); setTimeout(() => setFloats((f) => f.filter((x) => !add.includes(x))), 900); }
+  }, [c.dealt, c.taken, st.dmgNumbers, st.shake, st.reducedMotion]);
+  const race = RACES.find((r) => r.id === s.char.race)!;
+  const acts = classActives(computeClass(s));
+  const logLines = st.detailedLog ? c.log.slice(0, 6) : c.log.slice(0, 2);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
+      <div className={`pixel-panel w-full max-w-md p-3 ${shake ? "shake" : ""}`}>
+        <div className="relative text-center">
+          <div className={`text-6xl ${m.boss ? "tile-boss" : ""}`}>{m.icon}</div>
+          {floats.filter((f) => !f.me).map((f) => <span key={f.id} className="float-num text-gold">{f.t}</span>)}
+          <h2 className="mt-1 text-base text-accent">{m.name}</h2>
+          <div className="text-xs text-muted-foreground">Floor {s.dungeon!.floor} · {m.magical ? "Magic" : "Physical"} · weak {ELEMENT_ICON[m.weak]}{m.weak}{c.charging ? " · ⚠️ CHARGING" : ""}</div>
+          <div className="bar bar-hp mt-1"><div style={{ width: `${Math.max(0, (m.hp / m.maxHp) * 100)}%` }} /></div>
+          <div className="text-sm">{fmt(Math.max(0, m.hp))}/{fmt(m.maxHp)}</div>
+        </div>
+        <div className="relative mt-2 space-y-1 text-sm">
+          {floats.filter((f) => f.me).map((f) => <span key={f.id} className="float-num text-destructive">{f.t}</span>)}
+          <Bar icon="❤️" cls="bar-hp" v={s.hp} max={p.hp} /><Bar icon="🔷" cls="bar-mp" v={s.mp} max={p.mp} /><Bar icon="⚡" cls="bar-sta" v={s.sta} max={p.sta} />
+        </div>
+        <div className="mt-2 h-24 overflow-hidden text-sm leading-tight">{logLines.map((l, i) => <div key={i} className={i ? "text-muted-foreground" : ""}>{l}</div>)}</div>
+        {menu === "main" && <div className="mt-2 grid grid-cols-3 gap-2">
+          <button className="pixel-btn pixel-btn-primary col-span-2 py-4" onClick={() => onAct("attack")}>⚔️ Attack</button>
+          <button className="pixel-btn py-4" onClick={() => onAct("defend")}>🛡️ Defend</button>
+          <button className="pixel-btn py-3" onClick={() => setMenu("skill")}>✨ Skills</button>
+          <button className="pixel-btn py-3" disabled={c.raceUsed} onClick={() => onAct("race")}>{race.icon} {race.active.name.split(" ")[0]}</button>
+          <button className="pixel-btn py-3" disabled={c.eats >= 2} onClick={() => setMenu("eat")}>🍖 Eat {2 - c.eats}</button>
+          <button className="pixel-btn col-span-3 py-2" disabled={m.boss > 0} onClick={() => onAct("flee")}>🏃 Flee</button>
+        </div>}
+        {menu === "skill" && <div className="mt-2 space-y-1">
+          {acts.map((a, i) => <button key={i} className="pixel-btn w-full py-3 text-left" disabled={(a.res === "mp" ? s.mp : s.sta) < a.cost} onClick={() => { onAct({ skill: i }); setMenu("main"); }}>
+            {a.name} <span className="text-xs">· {a.cost} {a.res === "mp" ? "MP" : "STA"} · {a.kind}{a.el ? ` ${ELEMENT_ICON[a.el]}` : ""}</span></button>)}
+          <button className="pixel-btn w-full py-2" onClick={() => setMenu("main")}>Back</button>
+        </div>}
+        {menu === "eat" && <div className="mt-2 space-y-1">
+          {s.foods.map((f, i) => <button key={i} className="pixel-btn w-full py-3 text-left" onClick={() => { onAct({ eat: i }); setMenu("main"); }}>{f.icon} {f.name} ×{f.qty} (+{fmt(f.heal)})</button>)}
+          {!s.foods.length && <p className="text-muted-foreground">No food!</p>}
+          <button className="pixel-btn w-full py-2" onClick={() => setMenu("main")}>Back</button>
+        </div>}
+      </div>
+    </div>
+  );
+}
+function Bar({ icon, cls, v, max }: { icon: string; cls: string; v: number; max: number }) {
+  return <div className="flex items-center gap-2"><span className="w-5">{icon}</span><div className={`bar ${cls} flex-1`}><div style={{ width: `${Math.max(0, (v / max) * 100)}%` }} /></div><span className="w-24 text-right">{fmt(Math.max(0, v))}/{fmt(max)}</span></div>;
+}
+
+export function ResultView({ s, onCollect, onContinue }: { s: GameState; onCollect: () => void; onContinue: () => void }) {
+  const r = s.result!;
+  const title = r.died ? "☠️ Defeated" : r.fled ? "🏃 Escaped" : "🏆 Victory!";
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
+      <div className="pixel-panel max-h-[92dvh] w-full max-w-md overflow-y-auto p-3">
+        <div className="text-center"><div className="text-5xl">{r.icon}</div>
+          <h2 className={`text-lg ${r.died ? "text-destructive" : "text-primary"} title-glow`}>{title}</h2>
+          <div className="text-sm text-muted-foreground">{r.name} · Floor {r.floor} · {r.turns} turns</div></div>
+        <div className="mt-2 grid grid-cols-2 gap-1 text-sm">
+          <div className="pixel-panel p-2">⚔️ Dealt <b className="block text-base text-gold">{fmt(r.dealt)}</b></div>
+          <div className="pixel-panel p-2">💢 Taken <b className="block text-base text-destructive">{fmt(r.taken)}</b></div>
+          <div className="pixel-panel p-2">🌟 XP <b className="block text-base text-xp">+{fmt(r.xp)}</b></div>
+          <div className="pixel-panel p-2">💰 Gold <b className="block text-base text-gold">+{fmt(r.gold)}{r.sold ? ` (+${r.sold} sold)` : ""}</b></div>
+        </div>
+        <div className="mt-1 text-sm">❤️ {fmt(r.hp)}/{fmt(r.maxHp)}</div>
+        {r.loot.length > 0 && <><h3 className="mt-2 text-accent">Loot</h3>
+          <div className="grid grid-cols-2 gap-1">{r.loot.map((l) => { const m = getMat(l.id); return <div key={l.id} className={`text-sm ${m.tier >= 5 ? "grade-5" : m.tier >= 3 ? "grade-3" : ""}`}>{m.icon} {m.name} ×{l.qty} <span className="text-muted-foreground">T{m.tier}</span></div>; })}</div></>}
+        {r.gains.length > 0 && <><h3 className="mt-2 text-accent">Skill progress</h3>
+          {r.gains.slice(0, 6).map((g) => <div key={g.k} className="flex justify-between text-sm"><span>{SKILLS[g.k]?.icon} {SKILLS[g.k]?.name ?? g.k}</span><span>+{fmt(g.xp)} xp {g.to > g.from ? <b className="text-xp">Lv {g.from}→{g.to}</b> : `Lv ${g.to}`}</span></div>)}</>}
+        {r.died && <p className="mt-2 text-sm text-destructive">You lost your expedition loot and 10% of your gold, and woke up in the village.</p>}
+        <div className="mt-3 grid gap-2">
+          {r.won && !r.collected && <button className="pixel-btn w-full py-3" onClick={onCollect}>🎒 Collect loot</button>}
+          <button className="pixel-btn pixel-btn-primary w-full py-4" onClick={onContinue}>{r.died ? "Return to village" : r.won && !r.collected ? "Leave loot & continue" : "Continue crawling"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function EvoModal({ evo, onOk }: { evo: Evo; onOk: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/90 p-3">
+      <div className={`pixel-panel evo-burst w-full max-w-md p-4 text-center ${evo.major ? "evo-major" : ""}`}>
+        <div className="text-4xl">{evo.major ? "🌟" : "✨"}</div>
+        <h2 className="mt-1 text-lg text-gold title-glow">Congratulations!</h2>
+        <p className="text-sm text-muted-foreground">Your actions and experience have forged a new path.</p>
+        <div className="my-3 text-sm">Class {evo.major ? "Evolved" : "Changed"}:</div>
+        <div className="text-base"><span className="text-muted-foreground">{evo.from}</span> → <b className="text-primary">{evo.to}</b></div>
+        {evo.bonuses.length > 0 && <div className="mt-3 text-sm"><div className="text-accent">New bonuses</div>{evo.bonuses.join(" · ")}</div>}
+        {evo.skills.length > 0 && <div className="mt-2 text-sm"><div className="text-accent">Skills unlocked</div>{evo.skills.join(", ")}</div>}
+        {evo.delta.length > 0 && <div className="mt-2 text-sm"><div className="text-accent">Stat changes</div>
+          {evo.delta.map((d) => <span key={d.k} className={`mr-2 ${d.d > 0 ? "text-xp" : "text-destructive"}`}>{STAT_LABEL[d.k]} {d.d > 0 ? "+" : ""}{fmt(d.d)}</span>)}</div>}
+        <button className="pixel-btn pixel-btn-primary mt-4 w-full py-4" onClick={onOk}>Embrace the path</button>
+      </div>
+    </div>
+  );
+}
