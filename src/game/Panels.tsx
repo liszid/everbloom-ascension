@@ -1,74 +1,90 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  ELEMENT_ICON, SKILLS, STAT_KEYS, STAT_LABEL, TRAIT_INFO, WEAPON_INFO, WEAPON_TYPES, getMat,
-  type WeaponType,
+  ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat,
+  type Slot, type Stats,
 } from "./data";
 import {
-  cookPreview, craftPreview, elementLabel, levelOf, lvl, playerStats, xpFor,
-  type GameState, type Gear, type Slot,
+  CASINO_PLAYS, EFFECT_INFO, GEAR_CAP, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
+  forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice,
+  type GameState, type Gear,
 } from "./engine";
+import { useSettings, updateSettings, type Settings, type Speed } from "./settings";
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export const fmt = (n: number) => {
+  const a = Math.abs(n);
+  if (a >= 1e9) return `${(n / 1e9).toFixed(1)}B`; if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e4) return `${(n / 1e3).toFixed(1)}k`; if (a >= 100) return Math.round(n).toString();
+  return (Math.round(n * 10) / 10).toString();
+};
+
+export function Sheet({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/70 sm:items-center" onClick={onClose}>
-      <div className="pixel-panel flex max-h-[88vh] w-full max-w-lg flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b-2 border-border px-3 py-2">
-          <h2 className="text-base text-primary">{title}</h2>
-          <button className="pixel-btn" onClick={onClose}>✕</button>
+      <div className={`pixel-panel flex max-h-[90dvh] w-full ${wide ? "max-w-2xl" : "max-w-lg"} flex-col`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-2 border-b-2 border-border px-3 py-2">
+          <h2 className="min-w-0 truncate text-base text-primary">{title}</h2>
+          <button className="pixel-btn h-10 w-10 shrink-0" aria-label="Close" onClick={onClose}>✕</button>
         </div>
-        <div className="overflow-y-auto p-3">{children}</div>
+        <div className="overflow-y-auto overscroll-contain p-3">{children}</div>
       </div>
     </div>
   );
 }
-
-export function StatLine({ stats }: { stats: Record<string, number> }) {
+export function Tabs<T extends string>({ tabs, cur, set }: { tabs: [T, string][]; cur: T; set: (t: T) => void }) {
+  return (
+    <div className="mb-2 flex gap-1 overflow-x-auto pb-1">
+      {tabs.map(([t, l]) => <button key={t} className={`pixel-btn shrink-0 py-2 ${cur === t ? "pixel-btn-active" : ""}`} onClick={() => set(t)}>{l}</button>)}
+    </div>
+  );
+}
+export function StatLine({ stats }: { stats: Stats }) {
   return (
     <div className="flex flex-wrap gap-x-3 text-sm text-muted-foreground">
-      {STAT_KEYS.filter((k) => (stats[k] ?? 0) > 0.05).map((k) => (
-        <span key={k}><span className="text-foreground">{STAT_LABEL[k]}</span> {fmt(stats[k]!)}</span>
+      {STAT_KEYS.filter((k) => Math.abs(stats[k]) > 0.05).map((k) => (
+        <span key={k}><span className="text-foreground">{STAT_LABEL[k]}</span> {stats[k] > 0 && PCT_STATS.includes(k) ? "+" : ""}{fmt(stats[k])}</span>
       ))}
     </div>
   );
 }
-export const fmt = (n: number) => (n >= 10000 ? `${(n / 1000).toFixed(1)}k` : n >= 100 ? Math.round(n).toString() : (Math.round(n * 10) / 10).toString());
+export function GradeTag({ g }: { g: number }) { return <span className={`grade-${g}`}>{GRADES[g]}</span>; }
 
-function MatInfo({ id }: { id: string }) {
-  const m = getMat(id);
+export function GearCard({ g, actions, equipped }: { g: Gear; actions?: ReactNode; equipped?: boolean }) {
   return (
-    <div className="text-sm text-muted-foreground">
-      <span>T{m.tier}</span>
-      {m.element !== "none" && <span> · {ELEMENT_ICON[m.element]} {m.element}</span>}
-      {m.trait && <span> · ✦{m.trait}</span>}
-      {m.food && <span> · 🍽 {m.food}</span>}
+    <div className={`border-2 p-2 ${equipped ? "border-primary" : "border-border/60"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate"><span className="mr-1">{SLOT_INFO[g.slot].icon}</span><span className={`grade-${g.grade}`}>{g.name}{g.enh ? ` +${g.enh}` : ""}</span> {ELEMENT_ICON[g.element]}</div>
+          <div className="text-sm text-muted-foreground"><GradeTag g={g.grade} /> · {SLOT_INFO[g.slot].name} · T{g.avgTier.toFixed(1)} · 🔧 {g.dura}/{g.maxDura}{g.dura <= 0 ? " BROKEN" : ""}</div>
+        </div>
+        {equipped && <span className="shrink-0 text-xs text-primary">EQUIPPED</span>}
+      </div>
+      <StatLine stats={gearStats(g)} />
+      {g.effects.length > 0 && <div className="text-sm text-accent">{g.effects.map((e) => `${e.id} ${fmt(e.v)}%`).join(" · ")}</div>}
+      <div className="text-xs text-muted-foreground">{g.materials.map((m) => `${getMat(m.id).icon}${m.qty}`).join(" ")}</div>
+      {actions && <div className="mt-1 flex flex-wrap gap-1">{actions}</div>}
     </div>
   );
 }
 
-function Qty({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+function MatPicker({ s, sel, setSel, filter }: { s: GameState; sel: Record<string, number>; setSel: (f: (p: Record<string, number>) => Record<string, number>) => void; filter?: (id: string) => boolean }) {
+  const ids = Object.keys(s.inv).filter((id) => (s.inv[id] ?? 0) > 0 && (!filter || filter(id))).sort((a, b) => getMat(b).tier - getMat(a).tier);
+  if (!ids.length) return <p className="text-muted-foreground">No suitable materials.</p>;
   return (
-    <div className="flex items-center gap-1">
-      <button className="pixel-btn px-2" disabled={value <= 0} onClick={() => onChange(value - 1)}>−</button>
-      <span className="w-7 text-center text-lg">{value}</span>
-      <button className="pixel-btn px-2" disabled={value >= max} onClick={() => onChange(value + 1)}>+</button>
-      <button className="pixel-btn px-2" disabled={value >= max} onClick={() => onChange(max)}>Max</button>
-    </div>
-  );
-}
-
-function MatPicker({ ids, inv, sel, setSel }: { ids: string[]; inv: Record<string, number>; sel: Record<string, number>; setSel: (s: Record<string, number>) => void }) {
-  if (!ids.length) return <p className="text-muted-foreground">You have no suitable materials. Go gather some!</p>;
-  return (
-    <div className="space-y-1">
+    <div className="grid grid-cols-1 gap-1">
       {ids.map((id) => {
-        const m = getMat(id);
+        const mt = getMat(id); const have = s.inv[id] ?? 0; const q = sel[id] ?? 0;
         return (
-          <div key={id} className="flex items-center justify-between gap-2 border-b border-border/50 py-1">
+          <div key={id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/40 py-1 ${q ? "text-primary" : ""}`}>
             <div className="min-w-0">
-              <div className="truncate">{m.icon} {m.name} <span className="text-muted-foreground">×{inv[id]}</span></div>
-              <MatInfo id={id} />
+              <div className="truncate">{mt.icon} {mt.name} <span className="text-muted-foreground">T{mt.tier} ×{have}</span> {ELEMENT_ICON[mt.element]}</div>
+              <div className="truncate text-xs text-muted-foreground">{PROPS.filter((p) => mt.props[p] >= 6).map((p) => PROP_LABEL[p]).join(" · ")}</div>
             </div>
-            <Qty value={sel[id] ?? 0} max={inv[id] ?? 0} onChange={(v) => setSel({ ...sel, [id]: v })} />
+            <div className="flex shrink-0 items-center gap-1">
+              <button className="pixel-btn h-9 w-9" disabled={!q} onClick={() => setSel((p) => ({ ...p, [id]: Math.max(0, q - 1) }))}>−</button>
+              <span className="w-6 text-center">{q}</span>
+              <button className="pixel-btn h-9 w-9" disabled={q >= have} onClick={() => setSel((p) => ({ ...p, [id]: q + 1 }))}>+</button>
+              <button className="pixel-btn h-9 px-2" disabled={q >= have} onClick={() => setSel((p) => ({ ...p, [id]: have }))}>All</button>
+            </div>
           </div>
         );
       })}
@@ -76,240 +92,332 @@ function MatPicker({ ids, inv, sel, setSel }: { ids: string[]; inv: Record<strin
   );
 }
 
-const sortedInv = (inv: Record<string, number>, f: (id: string) => boolean = () => true) =>
-  Object.keys(inv).filter((id) => (inv[id] ?? 0) > 0 && f(id)).sort((a, b) => getMat(b).tier - getMat(a).tier || a.localeCompare(b));
-
-export function ForgePanel({ s, onCraft, onClose }: { s: GameState; onCraft: (mats: { id: string; qty: number }[], slot: Slot, w: WeaponType) => Gear | null; onClose: () => void }) {
-  const [slot, setSlot] = useState<Slot>("weapon");
-  const [wtype, setW] = useState<WeaponType>("sword");
-  const [sel, setSel] = useState<Record<string, number>>({});
-  const [last, setLast] = useState<Gear | null>(null);
-  const mats = Object.entries(sel).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty }));
-  const prev = useMemo(() => craftPreview(mats, slot, wtype, lvl(s, "crafting")), [JSON.stringify(mats), slot, wtype, s]);
-  return (
-    <Sheet title="⚒️ Forge" onClose={onClose}>
-      <p className="mb-2 text-sm text-muted-foreground">Combine any materials. More kinds and more quantity = higher grade. Every forging turns out a little different.</p>
-      <div className="mb-2 flex flex-wrap gap-1">
-        {WEAPON_TYPES.map((w) => (
-          <button key={w} className={`pixel-btn ${slot === "weapon" && wtype === w ? "pixel-btn-active" : ""}`} onClick={() => { setSlot("weapon"); setW(w); }}>{WEAPON_INFO[w].icon} {WEAPON_INFO[w].name}</button>
-        ))}
-        <button className={`pixel-btn ${slot === "armor" ? "pixel-btn-active" : ""}`} onClick={() => setSlot("armor")}>🛡️ Armor</button>
-        <button className={`pixel-btn ${slot === "charm" ? "pixel-btn-active" : ""}`} onClick={() => setSlot("charm")}>📿 Charm</button>
-      </div>
-      <MatPicker ids={sortedInv(s.inv)} inv={s.inv} sel={sel} setSel={setSel} />
-      <div className="pixel-panel mt-3 p-2">
-        {mats.length ? (
-          <>
-            <div className="flex items-baseline justify-between">
-              <span>Predicted grade</span>
-              <span className={`font-display text-2xl grade-${prev.gradeIdx}`}>{prev.grade}</span>
-            </div>
-            <div className="text-sm text-muted-foreground">{prev.kinds} kinds · {prev.totalQty} pieces</div>
-            <StatLine stats={prev.stats} />
-            {prev.elements.length > 0 && <div className="text-sm">Element: {elementLabel(prev.elements)}</div>}
-            {prev.traits.length > 0 && <div className="text-sm">Traits: {prev.traits.map((t) => `${t.t} ${Math.round(t.v * 100)}%`).join(", ")}</div>}
-          </>
-        ) : <span className="text-muted-foreground">Add materials to see a preview.</span>}
-      </div>
-      <button className="pixel-btn pixel-btn-primary mt-3 w-full py-2 text-base" disabled={!mats.length}
-        onClick={() => { const g = onCraft(mats, slot, wtype); setLast(g); setSel({}); }}>Forge!</button>
-      {last && <div className="mt-3"><GearCard g={last} /></div>}
-    </Sheet>
-  );
-}
-
-export function GearCard({ g, children }: { g: Gear; children?: ReactNode }) {
-  return (
-    <div className="pixel-panel p-2">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className={`font-display text-sm grade-${g.gradeIdx}`}>[{g.grade}] {g.name}</div>
-          <div className="text-sm text-muted-foreground">{g.slot === "weapon" ? `${WEAPON_INFO[g.wtype!].icon} ${WEAPON_INFO[g.wtype!].name}` : g.slot === "armor" ? "🛡️ Armor" : "📿 Charm"}</div>
-        </div>
-        {children}
-      </div>
-      <StatLine stats={g.stats} />
-      {g.elements.length > 0 && <div className="text-sm">{elementLabel(g.elements)}</div>}
-      {g.traits.map((t) => <div key={t.t} className="text-sm text-xp">✦ {t.t} {Math.round(t.v * 100)}% — {TRAIT_INFO[t.t]}</div>)}
-      <div className="text-xs text-muted-foreground">{g.materials.map((m) => `${getMat(m.id).icon}${m.qty}`).join(" ")}</div>
-    </div>
-  );
-}
-
-export function GearPanel({ s, onEquip, onScrap, onClose }: { s: GameState; onEquip: (g: Gear) => void; onScrap: (g: Gear) => void; onClose: () => void }) {
-  const p = playerStats(s);
-  return (
-    <Sheet title="🎒 Gear" onClose={onClose}>
-      <div className="pixel-panel mb-3 grid grid-cols-3 gap-1 p-2 text-sm">
-        <span>❤️ {s.hp}/{p.maxHp}</span><span>⚔️ {fmt(p.atk)}</span><span>🛡️ {fmt(p.def)}</span>
-        <span>✨ {fmt(p.mag)}</span><span>💥 {Math.round(p.crit * 100)}%</span><span>💨 {Math.round(p.dodge * 100)}%</span>
-        {p.elements.length > 0 && <span className="col-span-3">Weapon element: {elementLabel(p.elements)}</span>}
-      </div>
-      {!s.gear.length && <p className="text-muted-foreground">No gear yet. Visit the forge ⚒️ in the village.</p>}
-      <div className="space-y-2">
-        {[...s.gear].sort((a, b) => b.gradeIdx - a.gradeIdx).map((g) => {
-          const on = s.equip[g.slot] === g.id;
-          return (
-            <GearCard key={g.id} g={g}>
-              <div className="flex flex-col gap-1">
-                <button className={`pixel-btn ${on ? "pixel-btn-active" : "pixel-btn-primary"}`} onClick={() => onEquip(g)}>{on ? "Equipped" : "Equip"}</button>
-                {!on && <button className="pixel-btn pixel-btn-danger" onClick={() => onScrap(g)}>Scrap</button>}
-              </div>
-            </GearCard>
-          );
-        })}
-      </div>
-    </Sheet>
-  );
-}
-
-export function BagPanel({ s, onClose }: { s: GameState; onClose: () => void }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const ids = sortedInv(s.inv);
-  const bag = sortedInv(s.bag);
-  return (
-    <Sheet title="👜 Inventory" onClose={onClose}>
-      {s.loc === "dungeon" && (
-        <div className="mb-3">
-          <h3 className="text-sm text-accent">Loot bag (lost if you fall)</h3>
-          {bag.length ? bag.map((id) => <div key={id}>{getMat(id).icon} {getMat(id).name} ×{s.bag[id]}</div>) : <p className="text-muted-foreground">Empty</p>}
-        </div>
-      )}
-      <h3 className="text-sm text-primary">Materials</h3>
-      {!ids.length && <p className="text-muted-foreground">Nothing yet.</p>}
-      <div className="grid grid-cols-1 gap-1">
-        {ids.map((id) => {
-          const m = getMat(id);
-          return (
-            <button key={id} className="border-b border-border/50 py-1 text-left font-body" onClick={() => setOpen(open === id ? null : id)}>
-              <div>{m.icon} {m.name} <span className="text-muted-foreground">×{s.inv[id]}</span></div>
-              {open === id && (
-                <div className="pl-6">
-                  <MatInfo id={id} />
-                  <StatLine stats={m.stats} />
-                  {m.trait && <div className="text-sm text-xp">✦ {TRAIT_INFO[m.trait]}</div>}
-                  {m.refine && <div className="text-sm">Can be {m.refine.station === "carve" ? "carved" : "smelted"} into {getMat(m.refine.to).name}</div>}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <h3 className="mt-3 text-sm text-primary">Meals</h3>
-      {s.foods.length ? s.foods.map((f, i) => <div key={i}>{f.icon} {f.name} ×{f.qty} <span className="text-muted-foreground">(+{f.heal} HP)</span></div>) : <p className="text-muted-foreground">No food. Cook at the kitchen 🍳.</p>}
-    </Sheet>
-  );
-}
-
-export function SkillsPanel({ s, onClose }: { s: GameState; onClose: () => void }) {
-  const known = Object.keys(SKILLS).filter((k) => s.skills[k] !== undefined);
-  return (
-    <Sheet title="📜 Skills" onClose={onClose}>
-      <p className="mb-2 text-sm text-muted-foreground">Skills are learned by doing. {Object.keys(SKILLS).length - known.length} skills still undiscovered.</p>
-      <div className="space-y-2">
-        {known.sort((a, b) => (s.skills[b] ?? 0) - (s.skills[a] ?? 0)).map((k) => {
-          const xp = s.skills[k]!; const L = levelOf(xp);
-          const pct = ((xp - xpFor(L)) / (xpFor(L + 1) - xpFor(L))) * 100;
-          return (
-            <div key={k}>
-              <div className="flex justify-between"><span>{SKILLS[k]!.icon} {SKILLS[k]!.name}</span><span className="text-primary">Lv {L}</span></div>
-              <div className="bar bar-xp"><div style={{ width: `${pct}%` }} /></div>
-              <div className="text-xs text-muted-foreground">{SKILLS[k]!.desc}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-3 text-sm text-muted-foreground">Monsters slain: {s.kills} · Highest floor: {s.maxFloor}/1000</div>
-    </Sheet>
-  );
-}
-
-export function KitchenPanel({ s, onCook, onClose }: { s: GameState; onCook: (m: { id: string; qty: number }[]) => void; onClose: () => void }) {
+// ======================= FORGE =======================
+export function ForgePanel({ s, onClose, onCraft, onEnhance, onRepair, onUpgrade }: {
+  s: GameState; onClose: () => void; onCraft: (m: { id: string; qty: number }[], slot: Slot) => void;
+  onEnhance: (id: string) => void; onRepair: (id: string) => void; onUpgrade: () => void;
+}) {
+  const [tab, setTab] = useState<"craft" | "enh" | "repair" | "forge">("craft");
+  const [slot, setSlot] = useState<Slot>("one_hand");
   const [sel, setSel] = useState<Record<string, number>>({});
   const mats = Object.entries(sel).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty }));
-  const p = cookPreview(mats, lvl(s, "cooking"));
+  const pv = useMemo(() => craftPreview(mats, slot, s), [JSON.stringify(mats), slot, s]);
+  const fc = forgeUpgradeCost(s.forgeLvl);
+  return (
+    <Sheet title={`⚒️ Forge · Lv ${s.forgeLvl}`} onClose={onClose}>
+      <Tabs tabs={[["craft", "Craft"], ["enh", "Enhance"], ["repair", "Repair"], ["forge", "Upgrade Forge"]]} cur={tab} set={setTab} />
+      {tab === "craft" && <>
+        <div className="mb-2 grid grid-cols-4 gap-1 sm:grid-cols-6">
+          {SLOTS.map((sl) => <button key={sl} className={`pixel-btn flex flex-col items-center py-2 ${slot === sl ? "pixel-btn-active" : ""}`} onClick={() => setSlot(sl)}>
+            <span className="text-lg">{SLOT_INFO[sl].icon}</span><span className="text-[0.6rem] leading-tight">{SLOT_INFO[sl].name.replace("-Handed Weapon", "-Hand")}</span></button>)}
+        </div>
+        <div className="pixel-panel mb-2 p-2">
+          {mats.length ? <>
+            <div><GradeTag g={pv.grade} /> <span className={`grade-${pv.grade}`}>{pv.name}</span> {ELEMENT_ICON[pv.element]}</div>
+            <div className="text-sm text-muted-foreground">{pv.kinds} kinds · {pv.qty} units · avg T{pv.avgTier.toFixed(1)} · 🔧 {pv.maxDura} · ±10% roll</div>
+            <StatLine stats={pv.base} />
+            {pv.effects.length > 0 && <div className="text-sm text-accent">{pv.effects.map((e) => `${e.id} ${fmt(e.v)}%`).join(" · ")}</div>}
+            {pv.cap < 7 && pv.reasons.length > 0 && <div className="text-xs text-muted-foreground">Next grade ({GRADES[pv.cap + 1]}) needs: {pv.reasons.join(", ")}</div>}
+            {pv.needMore && <div className="text-xs text-muted-foreground">Add {pv.needMore} to reach {GRADES[pv.cap]}.</div>}
+          </> : <p className="text-muted-foreground">Pick any materials — every combination makes a unique item. Higher tiers, more variety and quantity raise the grade.</p>}
+          <button className="pixel-btn pixel-btn-primary mt-2 w-full py-3" disabled={!mats.length || s.gear.length >= GEAR_CAP} onClick={() => { onCraft(mats, slot); setSel({}); }}>
+            {s.gear.length >= GEAR_CAP ? "Gear bag full" : `Forge ${SLOT_INFO[slot].name}`}
+          </button>
+        </div>
+        <MatPicker s={s} sel={sel} setSel={setSel} filter={(id) => !getMat(id).seedOf} />
+      </>}
+      {tab === "enh" && <div className="space-y-2">
+        {!s.gear.length && <p className="text-muted-foreground">No gear yet.</p>}
+        {s.gear.map((g) => { const c = enhanceCost(g); return (
+          <GearCard key={g.id} g={g} equipped={Object.values(s.equip).includes(g.id)} actions={<>
+            <button className="pixel-btn pixel-btn-primary py-2" disabled={g.enh >= 20 || s.gold < c.gold || (s.inv[c.mat] ?? 0) < c.qty} onClick={() => onEnhance(g.id)}>
+              ✨ +{g.enh + 1} · {fmt(c.gold)}g + {getMat(c.mat).icon}{c.qty} ({s.inv[c.mat] ?? 0}) · {Math.round(enhanceChance(s, g) * 100)}%
+            </button></>} />); })}
+        <p className="text-xs text-muted-foreground">Failure above +5 drops a level; above +10 cracks durability. Every +5 empowers special effects.</p>
+      </div>}
+      {tab === "repair" && <div className="space-y-2">
+        {s.gear.filter((g) => g.dura < g.maxDura).map((g) => <GearCard key={g.id} g={g} actions={<button className="pixel-btn py-2" disabled={s.gold < repairCost(g)} onClick={() => onRepair(g.id)}>🔧 Repair · {fmt(repairCost(g))}g</button>} />)}
+        {!s.gear.some((g) => g.dura < g.maxDura) && <p className="text-muted-foreground">All gear is in perfect shape.</p>}
+      </div>}
+      {tab === "forge" && <div className="space-y-2">
+        <p>Forge level gates the highest grade you can craft: <b>Lv {s.forgeLvl}</b> → up to <GradeTag g={Math.min(7, s.forgeLvl)} />.</p>
+        {s.forgeLvl < 7 ? <>
+          <p className="text-sm text-muted-foreground">Next: {fmt(fc.gold)}g {fc.mats.map(([id, q]) => `· ${getMat(id).icon} ${getMat(id).name} ×${q} (have ${s.inv[id] ?? 0})`).join(" ")}</p>
+          <button className="pixel-btn pixel-btn-primary w-full py-3" onClick={onUpgrade}>🔥 Upgrade Forge to Lv {s.forgeLvl + 1}</button>
+          <p className="text-xs text-muted-foreground">Guardian Sigils drop from every 10th-floor Guardian; Warden Crests from every 100th-floor Arch-Warden.</p>
+        </> : <p className="text-gold">Your forge is legendary. Only EX remains — and it demands an Ancient Schematic.</p>}
+      </div>}
+    </Sheet>
+  );
+}
+
+// ======================= BAG =======================
+export function BagPanel({ s, onClose, onEat, onEquip, onSell }: { s: GameState; onClose: () => void; onEat: (i: number) => void; onEquip: (id: string) => void; onSell: (id: string) => void }) {
+  const [tab, setTab] = useState<"mats" | "gear" | "food">("gear");
+  const st = useSettings();
+  const inD = s.loc === "dungeon";
+  return (
+    <Sheet title={`🎒 Bag · ${s.gold.toLocaleString()}g · 🎟️${s.tokens}`} onClose={onClose}>
+      <Tabs tabs={[["gear", `Gear ${s.gear.length}/${GEAR_CAP}`], ["mats", "Materials"], ["food", `Food ${s.foods.reduce((a, f) => a + f.qty, 0)}`]]} cur={tab} set={setTab} />
+      {tab === "mats" && <>
+        {inD && Object.keys(s.bag).length > 0 && <><h3 className="text-sm text-accent">Expedition loot (lost on death)</h3>
+          <div className="mb-2 flex flex-wrap gap-2">{Object.entries(s.bag).map(([id, q]) => <span key={id}>{getMat(id).icon}{q}</span>)}</div></>}
+        {Object.keys(s.inv).length === 0 && <p className="text-muted-foreground">Empty.</p>}
+        {Object.entries(s.inv).sort((a, b) => getMat(b[0]).tier - getMat(a[0]).tier).map(([id, q]) => { const m = getMat(id); return (
+          <details key={id} className="border-b border-border/40 py-1">
+            <summary className="cursor-pointer">{m.icon} {m.name} ×{q} <span className="text-sm text-muted-foreground">T{m.tier} {ELEMENT_ICON[m.element]} · {m.src}</span></summary>
+            <div className="grid grid-cols-2 gap-x-3 text-sm text-muted-foreground">{PROPS.map((p) => <span key={p}>{PROP_LABEL[p]} <span className="text-foreground">{m.props[p]}</span></span>)}</div>
+          </details>); })}
+      </>}
+      {tab === "gear" && <div className="space-y-2">
+        {!s.gear.length && <p className="text-muted-foreground">No gear. Craft some at the Forge ⚒️.</p>}
+        {s.gear.slice().sort((a, b) => SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot)).map((g) => { const eq = s.equip[g.slot] === g.id; return (
+          <GearCard key={g.id} g={g} equipped={eq} actions={<>
+            <button className={`pixel-btn py-2 ${eq ? "" : "pixel-btn-primary"}`} onClick={() => onEquip(g.id)}>{eq ? "Unequip" : "Equip"}</button>
+            {!inD && <button className="pixel-btn pixel-btn-danger py-2" onClick={() => { if (g.grade >= 2 && st.confirmRareSell && !confirm(`Sell ${GRADES[g.grade]} ${g.name} for ${gearValue(g)}g?`)) return; onSell(g.id); }}>Sell {fmt(gearValue(g))}g</button>}
+          </>} />); })}
+      </div>}
+      {tab === "food" && <>
+        {!s.foods.length && <p className="text-muted-foreground">No meals. Cook at the Kitchen 🍳 or buy at the Shop.</p>}
+        {s.foods.map((f, i) => (
+          <div key={i} className="flex items-center justify-between gap-2 border-b border-border/50 py-1">
+            <span className="min-w-0 truncate">{f.icon} {f.name} ×{f.qty} <span className="text-muted-foreground">(+{fmt(f.heal)})</span></span>
+            <button className="pixel-btn pixel-btn-primary shrink-0 py-2" onClick={() => onEat(i)}>Eat</button>
+          </div>))}
+        <p className="mt-1 text-xs text-muted-foreground">A meal heals at most 45% of max HP.</p>
+      </>}
+    </Sheet>
+  );
+}
+
+export function KitchenPanel({ s, onClose, onCook }: { s: GameState; onClose: () => void; onCook: (m: { id: string; qty: number }[]) => void }) {
+  const [sel, setSel] = useState<Record<string, number>>({});
+  const mats = Object.entries(sel).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty }));
+  const pv = cookPreview(mats, s);
   return (
     <Sheet title="🍳 Kitchen" onClose={onClose}>
-      <p className="mb-2 text-sm text-muted-foreground">Mix any ingredients. More variety makes better meals.</p>
-      <MatPicker ids={sortedInv(s.inv, (id) => !!getMat(id).food)} inv={s.inv} sel={sel} setSel={setSel} />
-      {p.qty > 0 && <div className="pixel-panel mt-3 p-2">{p.portions}× {p.name} — +{p.heal} HP each</div>}
-      <button className="pixel-btn pixel-btn-primary mt-3 w-full py-2" disabled={!p.qty} onClick={() => { onCook(mats); setSel({}); }}>Cook</button>
+      <div className="pixel-panel mb-2 p-2">
+        {pv.kinds ? <div>{pv.icon} {pv.servings}× {pv.name} · heals {fmt(pv.heal)}</div> : <p className="text-muted-foreground">Combine ingredients. More variety = tastier meals.</p>}
+        <button className="pixel-btn pixel-btn-primary mt-2 w-full py-3" disabled={!pv.kinds} onClick={() => { onCook(mats); setSel({}); }}>Cook</button>
+      </div>
+      <MatPicker s={s} sel={sel} setSel={setSel} filter={(id) => !!getMat(id).food} />
     </Sheet>
   );
 }
-
-export function RefinePanel({ s, station, onRefine, onClose }: { s: GameState; station: "carve" | "smelt"; onRefine: (id: string, n: number) => void; onClose: () => void }) {
-  const ids = sortedInv(s.inv, (id) => getMat(id).refine?.station === station);
+export function RefinePanel({ s, station, onClose, onRefine }: { s: GameState; station: "carve" | "smelt"; onClose: () => void; onRefine: (id: string, n: number) => void }) {
+  const ids = Object.keys(s.inv).filter((id) => getMat(id).refine?.station === station);
   return (
-    <Sheet title={station === "carve" ? "🪚 Carving Bench" : "🔥 Furnace"} onClose={onClose}>
-      <p className="mb-2 text-sm text-muted-foreground">Turn 2 raw pieces into 1 stronger, higher-tier material.</p>
-      {!ids.length && <p className="text-muted-foreground">{station === "carve" ? "Bring logs from the trees." : "Bring ore from the rocks."}</p>}
-      {ids.map((id) => {
-        const m = getMat(id); const to = getMat(m.refine!.to); const have = s.inv[id] ?? 0;
-        return (
-          <div key={id} className="flex items-center justify-between border-b border-border/50 py-1">
-            <span>{m.icon}{m.name} ×{have} → {to.icon}{to.name}</span>
-            <div className="flex gap-1">
-              <button className="pixel-btn" disabled={have < 2} onClick={() => onRefine(id, 1)}>×1</button>
-              <button className="pixel-btn pixel-btn-primary" disabled={have < 2} onClick={() => onRefine(id, 999)}>All</button>
-            </div>
-          </div>
-        );
-      })}
+    <Sheet title={station === "carve" ? "🪚 Carpentry" : "🔥 Smelter"} onClose={onClose}>
+      <p className="mb-2 text-sm text-muted-foreground">2 raw → 1 refined material (+1 tier).</p>
+      {!ids.length && <p className="text-muted-foreground">Nothing to {station === "carve" ? "carve" : "smelt"}.</p>}
+      {ids.map((id) => { const m = getMat(id); const to = getMat(m.refine!.to); const n = Math.floor((s.inv[id] ?? 0) / 2); return (
+        <div key={id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
+          <span className="min-w-0 truncate">{m.icon} {m.name} ×{s.inv[id]} → {to.icon} {to.name}</span>
+          <span className="flex shrink-0 gap-1"><button className="pixel-btn py-2" disabled={!n} onClick={() => onRefine(id, 1)}>×1</button><button className="pixel-btn py-2" disabled={!n} onClick={() => onRefine(id, n)}>All {n}</button></span>
+        </div>); })}
     </Sheet>
   );
 }
-
-export function PlotPanel({ s, onPlant, onClose }: { s: GameState; onPlant: (seed: string) => void; onClose: () => void }) {
-  const seeds = sortedInv(s.inv, (id) => !!getMat(id).seedOf);
+export function PlotPanel({ s, onClose, onPlant }: { s: GameState; onClose: () => void; onPlant: (seed: string) => void }) {
+  const seeds = Object.keys(s.inv).filter((id) => getMat(id).seedOf);
   return (
-    <Sheet title="🌱 Garden Plot" onClose={onClose}>
-      {!seeds.length && <p className="text-muted-foreground">No seeds. Picking flowers sometimes yields seeds.</p>}
-      {seeds.map((id) => (
-        <div key={id} className="flex items-center justify-between border-b border-border/50 py-1">
-          <span>{getMat(id).icon} {getMat(id).name} ×{s.inv[id]}</span>
-          <button className="pixel-btn pixel-btn-primary" onClick={() => onPlant(id)}>Plant</button>
-        </div>
-      ))}
+    <Sheet title="🌱 Farm Plot" onClose={onClose}>
+      {!seeds.length && <p className="text-muted-foreground">No seeds. Pick flowers or visit the Shop.</p>}
+      {seeds.map((id) => <button key={id} className="pixel-btn mb-1 w-full py-3 text-left" onClick={() => onPlant(id)}>{getMat(id).icon} Plant {getMat(id).name} (×{s.inv[id]})</button>)}
     </Sheet>
   );
 }
-
-export function TowerPanel({ s, onEnter, onClose }: { s: GameState; onEnter: (f: number) => void; onClose: () => void }) {
+export function TowerPanel({ s, onClose, onEnter }: { s: GameState; onClose: () => void; onEnter: (f: number) => void }) {
+  const [f, setF] = useState(Math.min(1000, s.maxFloor + 1));
   const next = Math.min(1000, s.maxFloor + 1);
-  const [f, setF] = useState(next);
-  const clamp = (v: number) => Math.max(1, Math.min(next, v));
+  const kind = (n: number) => (n === 1000 ? "👑 Final Floor" : n % 100 === 0 ? "☠️ Arch-Warden" : n % 10 === 0 ? "💀 Guardian" : "");
   return (
     <Sheet title="🗼 The Tower" onClose={onClose}>
-      <p className="text-sm text-muted-foreground">Reach the stairs 🪜 on each floor. Every 10th floor is guarded. Fall and you lose that floor's loot.</p>
-      <div className="my-3 bar bar-xp"><div style={{ width: `${(s.maxFloor / 1000) * 100}%` }} /></div>
-      <div className="text-center">Highest floor cleared: <span className="text-primary">{s.maxFloor}</span> / 1000</div>
-      <button className="pixel-btn pixel-btn-primary mt-3 w-full py-2 text-base" onClick={() => onEnter(next)}>Climb to Floor {next}</button>
-      {s.maxFloor > 0 && (
-        <div className="mt-3 flex items-center justify-center gap-1">
-          <button className="pixel-btn" onClick={() => setF(clamp(f - 10))}>-10</button>
-          <button className="pixel-btn" onClick={() => setF(clamp(f - 1))}>-1</button>
-          <span className="w-12 text-center text-lg">{f}</span>
-          <button className="pixel-btn" onClick={() => setF(clamp(f + 1))}>+1</button>
-          <button className="pixel-btn" onClick={() => setF(clamp(f + 10))}>+10</button>
-          <button className="pixel-btn" onClick={() => onEnter(f)}>Revisit</button>
-        </div>
-      )}
+      <p>Highest cleared: <b className="text-primary">{s.maxFloor}</b> / 1000 · Danger tier {floorTier(next)}</p>
+      <button className="pixel-btn pixel-btn-primary my-2 w-full py-4 text-base" onClick={() => onEnter(next)}>Climb to Floor {next} {kind(next)}</button>
+      {s.maxFloor > 0 && <div className="pixel-panel p-2">
+        <p className="text-sm">Revisit a cleared floor to farm materials:</p>
+        <input type="range" min={1} max={next} value={f} onChange={(e) => setF(Number(e.target.value))} className="w-full" />
+        <button className="pixel-btn w-full py-3" onClick={() => onEnter(f)}>Enter Floor {f} {kind(f)}</button>
+      </div>}
+      <p className="mt-2 text-xs text-muted-foreground">Monsters grow stronger every floor. HP doesn't regenerate in the Tower and you may eat at most twice per fight. Bosses telegraph heavy blows — Defend!</p>
+    </Sheet>
+  );
+}
+export function HousePanel({ s, saving, onClose, onRest, onSave, onSignOut }: { s: GameState; saving: string; onClose: () => void; onRest: () => void; onSave: () => void; onSignOut: () => void }) {
+  return (
+    <Sheet title="🏠 Home" onClose={onClose}>
+      <button className="pixel-btn pixel-btn-primary mb-2 w-full py-3" onClick={onRest}>🛌 Rest (full restore, time passes)</button>
+      <button className="pixel-btn mb-2 w-full py-3" onClick={onSave}>💾 Save now</button>
+      <p className="mb-3 text-center text-sm text-muted-foreground">{saving || "Autosaves regularly."}</p>
+      {s.decos.length > 0 && <p className="mb-2 text-sm">Village decorations: {s.decos.join(" ")}</p>}
+      <button className="pixel-btn pixel-btn-danger w-full py-3" onClick={onSignOut}>Sign out</button>
     </Sheet>
   );
 }
 
-export function HousePanel({ s, onRest, onSave, onSignOut, saving, onClose }: { s: GameState; onRest: () => void; onSave: () => void; onSignOut: () => void; saving: string; onClose: () => void }) {
+// ======================= ECONOMY =======================
+export function ShopPanel({ s, onClose, onBuy, onSell }: { s: GameState; onClose: () => void; onBuy: (i: number) => void; onSell: (id: string, q: number) => void }) {
+  const [tab, setTab] = useState<"buy" | "sell">("buy");
   return (
-    <Sheet title="🏠 Home" onClose={onClose}>
-      <p className="text-sm text-muted-foreground">A warm bed and a safe chest. Your progress is saved to your account automatically.</p>
-      <div className="mt-3 grid gap-2">
-        <button className="pixel-btn pixel-btn-primary py-2" onClick={onRest}>Rest (full heal)</button>
-        <button className="pixel-btn py-2" onClick={onSave}>Save now</button>
-        <span className="text-center text-sm text-muted-foreground">{saving}</span>
-        <button className="pixel-btn pixel-btn-danger py-2" onClick={onSignOut}>Sign out</button>
-      </div>
-      <div className="mt-3 text-sm text-muted-foreground">Steps walked: {s.step} · Monsters slain: {s.kills}</div>
+    <Sheet title={`🏪 Shop · ${s.gold.toLocaleString()}g`} onClose={onClose}>
+      <Tabs tabs={[["buy", "Buy"], ["sell", "Sell"]]} cur={tab} set={setTab} />
+      {tab === "buy" && SHOP_ITEMS.map((it, i) => (
+        <div key={it.id} className="flex items-center justify-between border-b border-border/40 py-1">
+          <span>{it.icon} {it.name}{it.heal ? ` (+${it.heal})` : ""}</span>
+          <button className="pixel-btn py-2" disabled={s.gold < it.price} onClick={() => onBuy(i)}>{it.price}g</button>
+        </div>))}
+      {tab === "sell" && Object.entries(s.inv).map(([id, q]) => (
+        <div key={id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
+          <span className="min-w-0 truncate">{getMat(id).icon} {getMat(id).name} ×{q}</span>
+          <span className="flex shrink-0 gap-1"><button className="pixel-btn py-2" onClick={() => onSell(id, 1)}>{sellPrice(s, id)}g</button><button className="pixel-btn py-2" onClick={() => onSell(id, q)}>All</button></span>
+        </div>))}
+    </Sheet>
+  );
+}
+export function MarketPanel({ s, onClose, onBuy, onSell }: { s: GameState; onClose: () => void; onBuy: (i: number) => void; onSell: (id: string, q: number, mult: number) => void }) {
+  const o = marketOffers(s);
+  return (
+    <Sheet title="⚖️ Market" onClose={onClose}>
+      <p className="text-sm text-muted-foreground">Traders rotate stock after every expedition.</p>
+      <h3 className="mt-2 text-accent">For sale</h3>
+      {o.buy.map((b, i) => { const done = !!s.stats[`mkt:${s.marketSeed}:${i}`]; const price = Math.round(b.price * b.qty); return (
+        <div key={i} className="flex items-center justify-between border-b border-border/40 py-1">
+          <span>{getMat(b.id).icon} {getMat(b.id).name} ×{b.qty} <span className="text-muted-foreground">T{getMat(b.id).tier}</span></span>
+          <button className="pixel-btn py-2" disabled={done || s.gold < price} onClick={() => onBuy(i)}>{done ? "Sold" : `${fmt(price)}g`}</button>
+        </div>); })}
+      <h3 className="mt-3 text-accent">In demand (premium prices)</h3>
+      {o.demand.map((d) => { const q = s.inv[d.id] ?? 0; return (
+        <div key={d.id} className="flex items-center justify-between border-b border-border/40 py-1">
+          <span>{getMat(d.id).icon} {getMat(d.id).name} ×{d.mult.toFixed(1)} <span className="text-muted-foreground">(have {q})</span></span>
+          <button className="pixel-btn py-2" disabled={!q} onClick={() => onSell(d.id, q, d.mult)}>Sell all {fmt(sellPrice(s, d.id) * d.mult * q)}g</button>
+        </div>); })}
+    </Sheet>
+  );
+}
+export function TavernPanel({ s, onClose, onClaim, onReroll }: { s: GameState; onClose: () => void; onClaim: (id: string) => void; onReroll: () => void }) {
+  const rumors = ["They say Guardians wind up before their deadliest blows. Brace yourself.", "A smith told me EX gear needs an Ancient Schematic from the Arch-Wardens.",
+    "Mixing many materials gives finer gear — but only high-tier ones break the Legendary ceiling.", "Elves find more loot; dwarves pull more ore. Choose your path wisely.",
+    "Neglect your gear and the Tower will outgrow you."];
+  return (
+    <Sheet title="🍺 Tavern" onClose={onClose}>
+      <p className="mb-2 italic text-muted-foreground">“{rumors[s.step % rumors.length]}”</p>
+      <h3 className="text-accent">Quest board</h3>
+      {s.quests.map((q) => { const p = questProgress(s, q); return (
+        <div key={q.id} className="border-b border-border/40 py-2">
+          <div>{q.text}</div>
+          <div className="bar bar-xp my-1"><div style={{ width: `${(Math.max(0, p) / q.need) * 100}%` }} /></div>
+          <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">{Math.max(0, p)}/{q.need} · {fmt(q.gold)}g{q.tokens ? ` · 🎟️${q.tokens}` : ""}</span>
+            <button className="pixel-btn pixel-btn-primary py-2" disabled={p < q.need} onClick={() => onClaim(q.id)}>Claim</button></div>
+        </div>); })}
+      <button className="pixel-btn mt-2 w-full py-2" disabled={s.gold < 20} onClick={onReroll}>New quests (20g)</button>
+    </Sheet>
+  );
+}
+export function CasinoPanel({ s, onClose, onDice, onSlots, onHL, onToken }: {
+  s: GameState; onClose: () => void; onDice: (b: number, high: boolean) => void; onSlots: (b: number) => void;
+  onHL: (b: number, cur: number, higher: boolean) => number | null; onToken: (i: number) => void;
+}) {
+  const [bet, setBet] = useState(10);
+  const [card, setCard] = useState(7);
+  const [tab, setTab] = useState<"dice" | "slots" | "cards" | "tokens">("dice");
+  const mb = maxBet(s); const b = Math.min(bet, mb, s.gold);
+  const left = CASINO_PLAYS - s.casinoPlays;
+  return (
+    <Sheet title={`🎰 Casino · ${s.gold.toLocaleString()}g · 🎟️${s.tokens}`} onClose={onClose}>
+      <p className="text-sm text-muted-foreground">Plays left this visit: {left}. Max bet {fmt(mb)}g. The house always wins in the long run.</p>
+      <div className="my-2 flex items-center gap-2"><span>Bet</span>
+        <input type="range" min={1} max={Math.max(1, Math.min(mb, s.gold))} value={b} onChange={(e) => setBet(Number(e.target.value))} className="flex-1" />
+        <span className="w-16 text-right">{b}g</span></div>
+      <Tabs tabs={[["dice", "🎲 Dice"], ["slots", "🎰 Slots"], ["cards", "🃏 High-Low"], ["tokens", "🎟️ Tokens"]]} cur={tab} set={setTab} />
+      {tab === "dice" && <div className="grid grid-cols-2 gap-2"><button className="pixel-btn py-4" disabled={!left || b < 1} onClick={() => onDice(b, false)}>Under 7 (×1.9)</button><button className="pixel-btn py-4" disabled={!left || b < 1} onClick={() => onDice(b, true)}>Over 7 (×1.9)</button></div>}
+      {tab === "slots" && <button className="pixel-btn pixel-btn-primary w-full py-4" disabled={!left || b < 1} onClick={() => onSlots(b)}>Spin! (🍀🍀🍀 = ×25 + tokens)</button>}
+      {tab === "cards" && <div className="text-center">
+        <div className="my-2 text-5xl">🂠 {card}</div>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="pixel-btn py-4" disabled={!left || b < 1} onClick={() => { const n = onHL(b, card, false); if (n) setCard(n); }}>Lower (×1.85)</button>
+          <button className="pixel-btn py-4" disabled={!left || b < 1} onClick={() => { const n = onHL(b, card, true); if (n) setCard(n); }}>Higher (×1.85)</button>
+        </div></div>}
+      {tab === "tokens" && TOKEN_SHOP.map((t, i) => (
+        <div key={t.id} className="flex items-center justify-between border-b border-border/40 py-1">
+          <span>{getMat(t.id).icon} {getMat(t.id).name}</span>
+          <button className="pixel-btn py-2" disabled={s.tokens < t.cost} onClick={() => onToken(i)}>🎟️ {t.cost}</button>
+        </div>))}
+      <div className="mt-2 text-sm">{s.log[0]}</div>
+    </Sheet>
+  );
+}
+export function WarehousePanel({ s, onClose, onStoreGear, onTakeGear, onStoreAll, onTake }: {
+  s: GameState; onClose: () => void; onStoreGear: (id: string) => void; onTakeGear: (id: string) => void; onStoreAll: () => void; onTake: (id: string) => void;
+}) {
+  const [tab, setTab] = useState<"gear" | "mats">("gear");
+  const eq = new Set(Object.values(s.equip));
+  return (
+    <Sheet title="📦 Warehouse" onClose={onClose}>
+      <Tabs tabs={[["gear", `Gear (${s.whGear.length})`], ["mats", "Materials"]]} cur={tab} set={setTab} />
+      {tab === "gear" && <>
+        <h3 className="text-accent">Carried ({s.gear.length}/{GEAR_CAP})</h3>
+        {s.gear.filter((g) => !eq.has(g.id)).map((g) => <div key={g.id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
+          <span className="min-w-0 truncate"><span className={`grade-${g.grade}`}>{g.name}{g.enh ? ` +${g.enh}` : ""}</span> <span className="text-xs text-muted-foreground">{SLOT_INFO[g.slot].name}</span></span>
+          <button className="pixel-btn shrink-0 py-2" onClick={() => onStoreGear(g.id)}>Store</button></div>)}
+        <h3 className="mt-2 text-accent">Stored</h3>
+        {s.whGear.map((g) => <div key={g.id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
+          <span className="min-w-0 truncate"><span className={`grade-${g.grade}`}>{g.name}{g.enh ? ` +${g.enh}` : ""}</span> <span className="text-xs text-muted-foreground">{SLOT_INFO[g.slot].name}</span></span>
+          <button className="pixel-btn shrink-0 py-2" disabled={s.gear.length >= GEAR_CAP} onClick={() => onTakeGear(g.id)}>Take</button></div>)}
+      </>}
+      {tab === "mats" && <>
+        <button className="pixel-btn mb-2 w-full py-2" onClick={onStoreAll}>Store all materials</button>
+        {Object.entries(s.wh).map(([id, q]) => <div key={id} className="flex items-center justify-between border-b border-border/40 py-1">
+          <span>{getMat(id).icon} {getMat(id).name} ×{q}</span><button className="pixel-btn py-2" onClick={() => onTake(id)}>Take all</button></div>)}
+        {!Object.keys(s.wh).length && <p className="text-muted-foreground">Nothing stored.</p>}
+      </>}
+    </Sheet>
+  );
+}
+
+// ======================= SETTINGS =======================
+export function SettingsPanel({ onClose }: { onClose: () => void }) {
+  const st = useSettings();
+  const [tab, setTab] = useState<"display" | "audio" | "game" | "access">("display");
+  const T = ({ k, label }: { k: keyof Settings; label: string }) => (
+    <label className="flex min-h-11 items-center justify-between border-b border-border/40 py-1">
+      <span>{label}</span>
+      <button role="switch" aria-checked={!!st[k]} className={`pixel-btn w-16 py-2 ${st[k] ? "pixel-btn-primary" : ""}`} onClick={() => updateSettings({ [k]: !st[k] } as Partial<Settings>)}>{st[k] ? "ON" : "OFF"}</button>
+    </label>
+  );
+  const S = ({ k, label, min = 0, max = 100 }: { k: keyof Settings; label: string; min?: number; max?: number }) => (
+    <label className="block border-b border-border/40 py-2">
+      <div className="flex justify-between"><span>{label}</span><span>{st[k] as number}</span></div>
+      <input type="range" min={min} max={max} value={st[k] as number} onChange={(e) => updateSettings({ [k]: Number(e.target.value) } as Partial<Settings>)} className="w-full" />
+    </label>
+  );
+  const Sp = ({ k, label }: { k: "promptSpeed" | "dialogueSpeed" | "combatSpeed"; label: string }) => (
+    <div className="border-b border-border/40 py-2"><div>{label}</div>
+      <div className="mt-1 grid grid-cols-4 gap-1">{(["slow", "normal", "fast", "instant"] as Speed[]).map((v) =>
+        <button key={v} className={`pixel-btn py-2 capitalize ${st[k] === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ [k]: v })}>{v}</button>)}</div></div>
+  );
+  return (
+    <Sheet title="⚙️ Settings" onClose={onClose}>
+      <Tabs tabs={[["display", "Display"], ["audio", "Audio"], ["game", "Gameplay"], ["access", "Accessibility"]]} cur={tab} set={setTab} />
+      {tab === "display" && <>
+        <T k="fullscreen" label="Fullscreen" />
+        <S k="resScale" label="Resolution scaling (map) %" min={70} max={130} />
+        <T k="shake" label="Screen shake" /><T k="dmgNumbers" label="Damage numbers" /><T k="lootToasts" label="Floating loot notifications" /><T k="detailedLog" label="Detailed combat log" />
+        <div className="py-2"><div>UI scale</div><div className="mt-1 grid grid-cols-3 gap-1">{(["small", "medium", "large"] as const).map((v) =>
+          <button key={v} className={`pixel-btn py-2 capitalize ${st.uiScale === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ uiScale: v })}>{v}</button>)}</div></div>
+      </>}
+      {tab === "audio" && <>
+        <T k="musicOn" label="Enable music" /><T k="sfxOn" label="Enable sound effects" />
+        <S k="master" label="Master volume" /><S k="music" label="Music volume" /><S k="sfx" label="Sound effect volume" /><S k="ambient" label="Ambient volume" /><S k="ui" label="UI volume" />
+      </>}
+      {tab === "game" && <>
+        <Sp k="promptSpeed" label="Prompt speed" /><Sp k="dialogueSpeed" label="Dialogue speed" /><Sp k="combatSpeed" label="Combat message speed" />
+        <T k="autoLoot" label="Auto loot" /><T k="autoSellCommon" label="Auto sell low-tier monster drops" /><T k="confirmRareSell" label="Confirm before selling Rare+ items" /><T k="confirmNextFloor" label="Confirm before taking the stairs" />
+      </>}
+      {tab === "access" && <>
+        <T k="largeText" label="Larger text" /><T k="colorblind" label="Colorblind mode" /><T k="highContrast" label="High contrast" /><T k="reducedMotion" label="Reduced animation" />
+      </>}
+      <p className="mt-2 text-xs text-muted-foreground">Settings save automatically on this device.</p>
     </Sheet>
   );
 }
