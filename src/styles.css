@@ -134,11 +134,11 @@
   .tile-player { animation: bob 0.8s steps(2) infinite; filter: drop-shadow(0 2px 0 var(--ink)); }
   .tile-boss { animation: pulse-boss 1s steps(2) infinite; }
 
-  .grade-0, .grade-1, .grade-2 { color: var(--grade-low); }
-  .grade-3, .grade-4 { color: var(--grade-mid); }
-  .grade-5, .grade-6 { color: var(--grade-high); }
-  .grade-7, .grade-8 { color: var(--grade-epic); }
-  .grade-9 { color: var(--grade-legend); text-shadow: 0 0 6px var(--gold); }
+
+
+
+
+
 
   .title-glow { text-shadow: 3px 3px 0 var(--ink), 0 0 18px var(--accent); }
   .hero-fade { background: linear-gradient(to bottom, transparent 0%, var(--background) 92%); }
@@ -146,3 +146,33 @@
 
 @keyframes bob { 0% { transform: translateY(0); } 100% { transform: translateY(-2px); } }
 @keyframes pulse-boss { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
+
+@layer components {
+  .bar-mp > div { background: oklch(0.65 0.15 250); }
+  .bar-sta > div { background: oklch(0.8 0.15 95); }
+  .map-wrap { position: relative; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .map-wrap .map-grid { width: min(100%, calc((100dvh - 15rem) * var(--tile-scale, 1))); max-width: 100%; }
+  .tile.tap { cursor: pointer; }
+  .tile-label { position: absolute; bottom: 0; left: 0; right: 0; font-size: 7px; text-align: center; color: var(--ink); font-family: var(--font-display); line-height: 1; pointer-events: none; }
+  .joy-base { position: absolute; width: 100px; height: 100px; border-radius: 9999px; border: 3px solid color-mix(in oklab, var(--foreground) 50%, transparent); background: color-mix(in oklab, var(--ink) 35%, transparent); pointer-events: none; display: flex; align-items: center; justify-content: center; z-index: 20; }
+  .joy-knob { width: 42px; height: 42px; border-radius: 9999px; background: color-mix(in oklab, var(--primary) 75%, transparent); border: 2px solid var(--gold); }
+  .joy-hint { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 0.7rem; color: var(--foreground); opacity: 0.6; pointer-events: none; text-shadow: 1px 1px 0 var(--ink); }
+  .toast { animation: toast-in 200ms ease-out; }
+  .float-num { position: absolute; left: 50%; top: 10%; font-family: var(--font-display); font-size: 1.3rem; animation: float-up 900ms ease-out forwards; pointer-events: none; text-shadow: 2px 2px 0 var(--ink); }
+  .shake { animation: shake 250ms; }
+  .evo-burst { animation: evo-pop 500ms ease-out; box-shadow: 0 0 30px var(--gold), var(--shadow-pixel); }
+  .evo-major { animation: evo-pop 500ms ease-out, evo-glow 1.4s ease-in-out infinite alternate; }
+  .grade-0 { color: var(--grade-low); } .grade-1 { color: var(--grade-mid); } .grade-2 { color: var(--grade-high); }
+  .grade-3 { color: var(--grade-epic); } .grade-4 { color: var(--grade-legend); }
+  .grade-5 { color: oklch(0.7 0.22 25); } .grade-6 { color: oklch(0.8 0.12 190); text-shadow: 0 0 6px currentColor; }
+  .grade-7 { color: var(--gold); text-shadow: 0 0 8px var(--accent), 0 0 2px var(--gold); }
+}
+.cb .grade-1::before { content: "◆"; } .cb .grade-2::before { content: "◆◆"; } .cb .grade-3::before { content: "★"; }
+.cb .grade-4::before { content: "★★"; } .cb .grade-5::before { content: "✦"; } .cb .grade-6::before { content: "✦✦"; } .cb .grade-7::before { content: "✪"; }
+.hc { --background: oklch(0.08 0 0); --card: oklch(0.12 0 0); --foreground: oklch(1 0 0); --muted-foreground: oklch(0.88 0 0); --border: oklch(0.95 0 0); }
+.rm *, .rm *::before, .rm *::after { animation: none !important; transition: none !important; }
+@keyframes float-up { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -40px); } }
+@keyframes shake { 0%,100% { transform: translate(0); } 25% { transform: translate(-5px, 2px); } 75% { transform: translate(5px, -2px); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes evo-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes evo-glow { from { box-shadow: 0 0 20px var(--gold); } to { box-shadow: 0 0 50px var(--accent); } }
