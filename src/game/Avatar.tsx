@@ -59,7 +59,6 @@ export function Avatar({ race, gender, classId, size = "100%" }: { race: string;
   if (race === "halfling") { px(4, 4, 1, 1, skin); px(11, 4, 1, 1, skin); }
   if (race === "gnome") { px(7, 5, 2, 1, "#e0907a"); px(4, 4, 1, 1, skin); px(11, 4, 1, 1, skin); }
   if (race === "orc" || race === "halforc") { px(6, 7, 1, 1, "#f4f0dc"); px(9, 7, 1, 1, "#f4f0dc"); if (race === "orc") { px(5, 6, 1, 1, "#f4f0dc"); px(10, 6, 1, 1, "#f4f0dc"); } }
-  if (race === "tiefling") { px(5, 0, 1, 2, "#3a1a1a"); px(10, 0, 1, 2, "#3a1a1a"); px(4, 0, 1, 1, "#3a1a1a"); px(11, 0, 1, 1, "#3a1a1a"); }
   if (race === "dragonborn") { px(5, 6, 6, 2, "#2f7a66"); px(7, 7, 2, 1, "#e8d080"); px(4, 1, 1, 3, "#e8d080"); px(11, 1, 1, 3, "#e8d080"); px(5, 1, 6, 1, "#2b6b5a"); }
   if (race === "aasimar") { px(5, 0, 6, 1, "#ffe680"); px(4, 1, 1, 1, "#ffe680"); px(11, 1, 1, 1, "#ffe680"); }
   // hair top / fringe
@@ -77,6 +76,7 @@ export function Avatar({ race, gender, classId, size = "100%" }: { race: string;
   if (p === "might" || p === "shield" || p === "sword") { if (tier >= 1) { px(5, 1, 6, 1, "#9aa4b4"); px(4, 2, 1, 2, "#9aa4b4"); px(11, 2, 1, 2, "#9aa4b4"); } }
   if (p === "culinary") { px(5, -1, 6, 2, "#f8f8f8"); px(6, -2, 4, 1, "#f8f8f8"); }
   if (p === "fortune") { px(4, 1, 8, 1, "#1a1a1a"); px(6, -1, 4, 2, "#1a1a1a"); px(6, 0, 4, 1, "#f0c040"); }
+  if (race === "tiefling") { px(5, 0, 1, 2, "#3a1a1a"); px(10, 0, 1, 2, "#3a1a1a"); px(4, 0, 1, 1, "#3a1a1a"); px(11, 0, 1, 1, "#3a1a1a"); }
   if (tier >= 3) { px(6, -1, 1, 1, "#ffd23a"); px(8, -2, 1, 2, "#ffd23a"); px(10, -1, 1, 1, "#ffd23a"); }
 
   // held item (right hand at x=12..15)
