@@ -218,12 +218,36 @@ export function RefinePanel({ s, station, onClose, onRefine }: { s: GameState; s
     </Sheet>
   );
 }
-export function PlotPanel({ s, onClose, onPlant }: { s: GameState; onClose: () => void; onPlant: (seed: string) => void }) {
+export function PlotPanel({ s, onClose, onPlant, onHarvest }: { s: GameState; onClose: () => void; onPlant: (cells: [number, number][], seed: string) => void; onHarvest: (cells: [number, number][]) => void }) {
   const seeds = Object.keys(s.inv).filter((id) => getMat(id).seedOf);
+  const [seed, setSeed] = useState<string | null>(seeds[0] ?? null);
+  const cur = seed && s.inv[seed] ? seed : null;
+  const cells: [number, number][] = [];
+  VILLAGE.forEach((row, y) => [...row].forEach((c, x) => { if (c === "G") cells.push([x, y]); }));
+  const xs = [...new Set(cells.map((c) => c[0]))].sort((a, b) => a - b), ys = [...new Set(cells.map((c) => c[1]))].sort((a, b) => a - b);
+  const plot = (x: number, y: number) => s.village.plots[key(x, y)];
+  const empty = cells.filter(([x, y]) => !plot(x, y)), ready = cells.filter(([x, y]) => { const p = plot(x, y); return p && p.readyAt <= s.step; });
   return (
-    <Sheet title="🌱 Farm Plot" onClose={onClose}>
+    <Sheet title="🌱 Crop Field" onClose={onClose}>
+      <p className="mb-1 text-sm text-muted-foreground">Pick a seed, then tap empty soil to plant. Tap ripe crops to harvest.</p>
       {!seeds.length && <p className="text-muted-foreground">No seeds. Pick flowers or visit the Shop.</p>}
-      {seeds.map((id) => <button key={id} className="pixel-btn mb-1 w-full py-3 text-left" onClick={() => onPlant(id)}>{getMat(id).icon} Plant {getMat(id).name} (×{s.inv[id]})</button>)}
+      <div className="mb-2 flex flex-wrap gap-1">{seeds.map((id) => <button key={id} className={`pixel-btn px-2 py-2 text-sm ${cur === id ? "pixel-btn-active" : ""}`} onClick={() => setSeed(id)}>{getMat(id).icon} {getMat(id).name} ×{s.inv[id]}</button>)}</div>
+      <div className="mx-auto mb-2 grid max-w-xs gap-1" style={{ gridTemplateColumns: `repeat(${xs.length}, 1fr)` }}>
+        {ys.flatMap((y) => xs.map((x) => {
+          const isG = cells.some((c) => c[0] === x && c[1] === y); const p = plot(x, y);
+          if (!isG) return <div key={x + "," + y} />;
+          const rdy = p && p.readyAt <= s.step;
+          return <button key={x + "," + y} className={`tile tile-soil pixel-btn flex-col p-0 ${rdy ? "pixel-btn-active" : ""}`} disabled={!!p && !rdy || (!p && !cur)}
+            onClick={() => (rdy ? onHarvest([[x, y]]) : !p && cur ? onPlant([[x, y]], cur) : undefined)}>
+            <span className="text-2xl">{p ? (rdy ? getMat(p.crop).icon : "🌱") : ""}</span>
+            {p && !rdy && <span className="text-[0.6rem]">{p.readyAt - s.step}</span>}
+          </button>;
+        }))}
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        <button className="pixel-btn py-3" disabled={!cur || !empty.length} onClick={() => cur && onPlant(empty, cur)}>Plant all empty ({empty.length})</button>
+        <button className="pixel-btn pixel-btn-primary py-3" disabled={!ready.length} onClick={() => onHarvest(ready)}>Harvest all ({ready.length})</button>
+      </div>
     </Sheet>
   );
 }
@@ -322,10 +346,10 @@ export function CasinoPanel({ s, onClose, onDice, onSlots, onHL, onToken }: {
   const [card, setCard] = useState(7);
   const [tab, setTab] = useState<"dice" | "slots" | "cards" | "tokens">("dice");
   const mb = maxBet(s); const b = Math.min(bet, mb, s.gold);
-  const left = CASINO_PLAYS - s.casinoPlays;
+  const left = s.gold > 0;
   return (
     <Sheet title={`🎰 Casino · ${s.gold.toLocaleString()}g · 🎟️${s.tokens}`} onClose={onClose}>
-      <p className="text-sm text-muted-foreground">Plays left this visit: {left}. Max bet {fmt(mb)}g. The house always wins in the long run.</p>
+      <p className="text-sm text-muted-foreground">Play as long as your gold lasts. Max bet {fmt(mb)}g. The house always wins in the long run.</p>
       <div className="my-2 flex items-center gap-2"><span>Bet</span>
         <input type="range" min={1} max={Math.max(1, Math.min(mb, s.gold))} value={b} onChange={(e) => setBet(Number(e.target.value))} className="flex-1" />
         <span className="w-16 text-right">{b}g</span></div>

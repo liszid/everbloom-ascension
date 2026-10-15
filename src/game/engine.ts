@@ -102,7 +102,7 @@ function growth(s: GameState, aff: string) {
 }
 // Agility is fed by constant walking, so it grows on a much stricter curve than other affinities.
 export function addAff(s: GameState, a: string, pts: number) { s.aff[a] = (s.aff[a] ?? 0) + pts * growth(s, a) * (a === "agility" ? 0.4 : 1); }
-const AFF_RATE: Record<string, number> = { mobility: 0.03 };
+const AFF_RATE: Record<string, number> = { mobility: 0.03, gambling: 1.5 };
 export function addXp(s: GameState, k: string, amt: number) {
   const info = SKILLS[k];
   const aff = info?.aff ?? "agility";
