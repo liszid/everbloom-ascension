@@ -52,7 +52,7 @@ export interface GameState {
   stats: Record<string, number>; usage: { weapon: Record<string, number>; skill: Record<string, number>; mat: Record<string, number>; monster: Record<string, number> };
   ach: Record<string, number>; titles: string[]; title?: string | undefined; decos: string[];
   classId: string; className: string; classHistory: { from: string; to: string; floor: number; at: number }[]; classesSeen: string[];
-  pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number;
+  pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number; agiFix?: boolean;
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
 }
 
@@ -100,7 +100,9 @@ function growth(s: GameState, aff: string) {
   const g = race(s).growth;
   return (g[aff] ?? 1) * (g["all"] ?? 1);
 }
-export function addAff(s: GameState, a: string, pts: number) { s.aff[a] = (s.aff[a] ?? 0) + pts * growth(s, a); }
+// Agility is fed by constant walking, so it grows on a much stricter curve than other affinities.
+export function addAff(s: GameState, a: string, pts: number) { s.aff[a] = (s.aff[a] ?? 0) + pts * growth(s, a) * (a === "agility" ? 0.4 : 1); }
+const AFF_RATE: Record<string, number> = { mobility: 0.03, gambling: 1.5 };
 export function addXp(s: GameState, k: string, amt: number) {
   const info = SKILLS[k];
   const aff = info?.aff ?? "agility";
@@ -109,7 +111,7 @@ export function addXp(s: GameState, k: string, amt: number) {
   const oldL = levelOf(before ?? 0);
   s.skills[k] = (before ?? 0) + amt * mult;
   const newL = levelOf(s.skills[k]!);
-  addAff(s, aff, amt * 0.35);
+  addAff(s, aff, amt * (AFF_RATE[k] ?? 0.35));
   if (before === undefined && info) { log(s, `✨ New skill learned: ${info.name}!`); note(s, `✨ Learned ${info.name}`); }
   else if (newL > oldL && info) log(s, `⬆️ ${info.name} → Lv ${newL}`);
 }
@@ -121,7 +123,7 @@ export function addCharXp(s: GameState, n: number) {
 // ======================= classes (emergent) =======================
 const HYBRID_PREFIX: Record<string, string> = {
   fire: "Flame", water: "Tide", wind: "Storm", earth: "Stone", light: "Holy", dark: "Shadow", sword: "Blade", might: "Iron",
-  shield: "Bastion", agility: "Swift", arcane: "Arcane", crafting: "Forged", nature: "Wild", hunting: "Stalker", culinary: "Feast",
+  shield: "Bastion", agility: "Swift", arcane: "Arcane", crafting: "Forged", nature: "Wild", hunting: "Stalker", culinary: "Feast", fortune: "Lucky",
 };
 const TIER_LVLS = [3, 10, 22, 40];
 export function computeClass(s: GameState): ClassInfo {
@@ -167,7 +169,7 @@ export function newGame(char: GameState["char"]): GameState {
     log: [`Welcome to Thornvale, ${char.name}. The Tower looms to the south.`], notes: [],
     stats: {}, usage: { weapon: {}, skill: {}, mat: {}, monster: {} }, ach: {}, titles: [], decos: [],
     classId: "adventurer", className: "Adventurer", classHistory: [], classesSeen: ["Adventurer"],
-    quests: [], marketSeed: Date.now(), casinoPlays: 0, relentlessUsed: false, playTime: 0, createdAt: Date.now(),
+    quests: [], marketSeed: Date.now(), casinoPlays: 0, agiFix: true, relentlessUsed: false, playTime: 0, createdAt: Date.now(),
   };
   const c = computeClass(s); s.classId = c.id; s.className = c.name; s.classesSeen = [c.name];
   const p = playerStats(s); s.hp = p.hp; s.mp = p.mp; s.sta = p.sta;
@@ -896,7 +898,6 @@ export function claimQuest(s: GameState, id: string) {
 export const maxBet = (s: GameState) => 20 + s.maxFloor * 12;
 export const CASINO_PLAYS = 25;
 function casinoGuard(s: GameState, bet: number) {
-  if (s.casinoPlays >= CASINO_PLAYS) { log(s, "🎰 The casino closes for you until your next expedition."); return false; }
   if (bet <= 0 || bet > maxBet(s) || !spend(s, bet)) { log(s, "Invalid bet."); return false; }
   s.casinoPlays++; addXp(s, "gambling", 1); bump(s, "gambled", bet); return true;
 }

@@ -279,6 +279,7 @@ export const AFFINITIES: AffinityDef[] = [
   { id: "crafting", name: "Crafting", icon: "⚒️", titles: ["Tinkerer", "Artisan", "Master Smith", "Runeforger"], active: { name: "Field Repair", kind: "buff", mult: 0.2, cost: 10, res: "sta" }, passive: { pdef: 0.03, luck: 0.05 } },
   { id: "nature", name: "Nature", icon: "🍃", element: "nature", titles: ["Forager", "Druid", "Grove Keeper", "Worldroot"], active: { name: "Thornlash", kind: "mag", mult: 1.5, cost: 10, res: "mp", el: "nature" }, passive: { hp: 0.05, sta: 0.05 } },
   { id: "hunting", name: "Hunting", icon: "🏹", titles: ["Trapper", "Hunter", "Beastslayer", "Apex Predator"], active: { name: "Weakpoint Shot", kind: "phys", mult: 1.6, cost: 10, res: "sta" }, passive: { acc: 0.06, crit: 0.03 } },
+  { id: "fortune", name: "Fortune", icon: "🎲", titles: ["Gambler", "High Roller", "Fortune's Favored", "Lady Luck's Chosen"], active: { name: "Lucky Strike", kind: "phys", mult: 1.7, cost: 10, res: "sta" }, passive: { luck: 0.1, crit: 0.03 } },
   { id: "culinary", name: "Culinary", icon: "🍳", titles: ["Kitchen Hand", "Chef", "Master Chef", "Gourmet Legend"], active: { name: "Hearty Snack", kind: "heal", mult: 0.12, cost: 14, res: "sta" }, passive: { hp: 0.04, sta: 0.08 } },
 ];
 export const AFF_BY_ID: Record<string, AffinityDef> = Object.fromEntries(AFFINITIES.map((a) => [a.id, a]));
@@ -306,7 +307,7 @@ export const SKILLS: Record<string, { name: string; icon: string; desc: string; 
   smithing: { name: "Smithing", icon: "⚒️", desc: "Crafting gear. Gates grades.", aff: "crafting" },
   enhancing: { name: "Enhancing", icon: "✨", desc: "Upgrading gear.", aff: "crafting" },
   trading: { name: "Trading", icon: "💰", desc: "Buying & selling. Better prices.", aff: "crafting" },
-  gambling: { name: "Gambling", icon: "🎲", desc: "Casino games.", aff: "agility" },
+  gambling: { name: "Gambling", icon: "🎲", desc: "Casino games.", aff: "fortune" },
 };
 
 // ---------- village ----------

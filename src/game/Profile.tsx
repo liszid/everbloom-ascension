@@ -1,3 +1,4 @@
+import { Avatar } from "./Avatar";
 import { useState } from "react";
 import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, RACES, BACKGROUNDS, type StatKey } from "./data";
 import {
@@ -18,7 +19,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
     <Sheet title={`👤 ${s.char.name}${s.title ? ` "${s.title}"` : ""}`} onClose={onClose} wide>
       <Tabs tabs={[["info", "Info"], ["stats", "Stats"], ["equip", "Equipment"], ["aff", "Affinity"], ["skills", "Skills"], ["class", "Classes"], ["journal", "Journal"]]} cur={tab} set={setTab} />
       {tab === "info" && <div>
-        <div className="mb-2 flex items-center gap-3"><span className="text-5xl">{race.icon}</span>
+        <div className="mb-2 flex items-center gap-3"><span className="h-16 w-16 shrink-0"><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} /></span>
           <div className="min-w-0"><div className="text-lg text-primary">{s.className}</div><div className="text-sm text-muted-foreground">Lv {L} {s.char.gender} {race.name} · {bg?.name}</div></div></div>
         <div className="bar bar-xp mb-2"><div style={{ width: `${((s.xp - charXpFor(L)) / (charXpFor(L + 1) - charXpFor(L))) * 100}%` }} /></div>
         <Row k="Experience" v={`${fmt(s.xp)} / ${fmt(charXpFor(L + 1))}`} /><Row k="Highest floor" v={`${s.maxFloor} / 1000`} />
