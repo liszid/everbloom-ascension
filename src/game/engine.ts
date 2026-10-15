@@ -52,7 +52,7 @@ export interface GameState {
   stats: Record<string, number>; usage: { weapon: Record<string, number>; skill: Record<string, number>; mat: Record<string, number>; monster: Record<string, number> };
   ach: Record<string, number>; titles: string[]; title?: string | undefined; decos: string[];
   classId: string; className: string; classHistory: { from: string; to: string; floor: number; at: number }[]; classesSeen: string[];
-  pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number;
+  pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number; agiFix?: boolean;
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
 }
 
@@ -169,7 +169,7 @@ export function newGame(char: GameState["char"]): GameState {
     log: [`Welcome to Thornvale, ${char.name}. The Tower looms to the south.`], notes: [],
     stats: {}, usage: { weapon: {}, skill: {}, mat: {}, monster: {} }, ach: {}, titles: [], decos: [],
     classId: "adventurer", className: "Adventurer", classHistory: [], classesSeen: ["Adventurer"],
-    quests: [], marketSeed: Date.now(), casinoPlays: 0, relentlessUsed: false, playTime: 0, createdAt: Date.now(),
+    quests: [], marketSeed: Date.now(), casinoPlays: 0, agiFix: true, relentlessUsed: false, playTime: 0, createdAt: Date.now(),
   };
   const c = computeClass(s); s.classId = c.id; s.className = c.name; s.classesSeen = [c.name];
   const p = playerStats(s); s.hp = p.hp; s.mp = p.mp; s.sta = p.sta;

@@ -1,3 +1,4 @@
+import type React from "react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPE } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ANIMALS, BUILDINGS, TREES, getMat } from "./data";
@@ -15,6 +16,7 @@ import {
 import { ProfilePanel } from "./Profile";
 import { CombatView, EvoModal, ResultView } from "./Combat";
 import { CreateCharacter } from "./CreateCharacter";
+import { Avatar } from "./Avatar";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
 
 type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse";
@@ -42,7 +44,11 @@ export function Game({ userId }: { userId: string }) {
     supabase.from("game_saves").select("data").eq("user_id", userId).maybeSingle().then(({ data }) => {
       if (!alive) return;
       const loaded = data?.data as unknown as GameState | undefined;
-      if (loaded && loaded.v === 2) { ref.current = loaded; loaded.notes = []; setS(loaded); }
+      if (loaded && loaded.v === 2) {
+        // one-time rebalance: agility used to grow far too fast from walking
+        if (!loaded.agiFix) { loaded.aff["agility"] = (loaded.aff["agility"] ?? 0) * 0.3; loaded.agiFix = true; dirty.current = true; }
+        ref.current = loaded; loaded.notes = []; setS(loaded);
+      }
       else setNeedChar({ hadOld: !!loaded });
     });
     return () => { alive = false; };
@@ -91,7 +97,7 @@ export function Game({ userId }: { userId: string }) {
       if (n.loc === "village") {
         const t = villageTile(tx, ty);
         if (WALKABLE_V.has(t)) {
-          n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 1);
+          n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 0.5);
           const p = playerStats(n); n.sta = Math.min(p.sta, n.sta + 1); if (n.hp < p.hp) n.hp = Math.min(p.hp, n.hp + 1);
           return null;
         }
@@ -107,7 +113,7 @@ export function Game({ userId }: { userId: string }) {
       else if (t === ">") {
         if (d.bossAlive) { log(n, "🔒 The Guardian must fall before the stairs open!"); return null; }
         return { t: "tower", x: -1 };
-      } else { n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 1); }
+      } else { n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 0.5); }
       const attacker = moveMonsters(n);
       if (attacker) startCombat(n, attacker);
       return null;
@@ -122,12 +128,7 @@ export function Game({ userId }: { userId: string }) {
   function interactVillage(n: GameState, tx: number, ty: number): { t: PanelT; x?: number; y?: number } | null {
     const t = villageTile(tx, ty);
     if (STATIONS[t]) return { t: STATIONS[t]! };
-    if (t === "G") {
-      const p = n.village.plots[key(tx, ty)];
-      if (p && p.readyAt <= n.step) { harvest(n, tx, ty); n.step++; return null; }
-      if (p) { log(n, `🌱 ${getMat(p.crop).name} ready in ${p.readyAt - n.step} steps.`); return null; }
-      return { t: "plot", x: tx, y: ty };
-    }
+    if (t === "G") return { t: "plot" };
     if (gather(n, tx, ty)) { n.step++; sfx("ui"); }
     return null;
   }
@@ -140,6 +141,7 @@ export function Game({ userId }: { userId: string }) {
     if (c.loc === "village") {
       const t = villageTile(x, y);
       if (STATIONS[t]) { setPanel({ t: STATIONS[t]! }); sfx("ui"); return; }
+      if (t === "G") { setPanel({ t: "plot" }); sfx("ui"); return; }
       if (WALKABLE_V.has(t)) { walkTo(x, y, null); return; }
       if (t === "#") return;
       if (near === 1) { const o = act((n) => interactVillage(n, x, y)); if (o) setPanel(o); return; }
@@ -147,12 +149,16 @@ export function Game({ userId }: { userId: string }) {
       walkTo(x, y, () => { const o = act((n) => interactVillage(n, x, y)); if (o) setPanel(o); }, true);
       return;
     }
-    if (near === 1) move(x - c.pos.x, y - c.pos.y);
+    if (near === 1) { move(x - c.pos.x, y - c.pos.y); return; }
+    const d = c.dungeon!; const t = d.tiles[y]?.[x];
+    const target = d.monsters.some((m) => m.x === x && m.y === y) || t === "V" || t === ">";
+    if (target) walkTo(x, y, () => { const n = ref.current!; if (Math.abs(n.pos.x - x) + Math.abs(n.pos.y - y) === 1) move(x - n.pos.x, y - n.pos.y); }, true);
     else walkTo(x, y, null);
   };
   const walkTo = (x: number, y: number, then: (() => void) | null, adjacent = false) => {
     const c = ref.current!; const path = bfs(c, x, y, adjacent);
     if (!path) return;
+    if (!path.length) { pathRef.current = []; pathAction.current = null; if (then) then(); return; }
     pathRef.current = path; pathAction.current = then;
   };
   useEffect(() => {
@@ -170,10 +176,11 @@ export function Game({ userId }: { userId: string }) {
   }, [move, panel]);
 
   // ---- joystick ----
-  const joy = useRef<{ dir: [number, number] | null }>({ dir: null });
+  const joy = useRef<{ dir: [number, number] | null; last: number }>({ dir: null, last: 0 });
   const [stick, setStick] = useState<{ ox: number; oy: number; dx: number; dy: number } | null>(null);
   useEffect(() => {
-    const id = setInterval(() => { const d = joy.current.dir; if (d) { pathRef.current = []; move(d[0], d[1]); } }, Math.round(170 * 100 / Math.max(60, playerSpd())));
+    const ms = Math.round(170 * 100 / Math.max(60, playerSpd()));
+    const id = setInterval(() => { const d = joy.current.dir; if (d && Date.now() - joy.current.last >= ms - 20) { joy.current.last = Date.now(); pathRef.current = []; move(d[0], d[1]); } }, 40);
     return () => clearInterval(id);
   }, [move, s?.skills?.["mobility"]]);
   const playerSpd = () => (ref.current ? playerStats(ref.current).spd : 100);
@@ -184,16 +191,24 @@ export function Game({ userId }: { userId: string }) {
     const target = e.target as HTMLElement;
     const onMove = (ev: PointerEvent) => {
       const dx = ev.clientX - start.x, dy = ev.clientY - start.y; const dist = Math.hypot(dx, dy);
-      if (dist > 14) {
+      if (dist > 18 || (start.moved && dist > 8)) {
         start.moved = true;
         const cl = Math.min(dist, 44); setStick({ ox: start.ox, oy: start.oy, dx: (dx / dist) * cl, dy: (dy / dist) * cl });
-        joy.current.dir = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+        const nd: [number, number] = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+        const od = joy.current.dir;
+        joy.current.dir = nd;
+        // step immediately on a new direction so short flicks and bumps register on the first try
+        if (!od || od[0] !== nd[0] || od[1] !== nd[1]) { pathRef.current = []; joy.current.last = Date.now(); move(nd[0], nd[1]); }
       }
     };
-    const onUp = () => {
+    const onUp = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
       joy.current.dir = null; setStick(null);
-      if (!start.moved) { const cell = target.closest("[data-x]") as HTMLElement | null; if (cell) tapTile(Number(cell.dataset["x"]), Number(cell.dataset["y"])); }
+      if (!start.moved) {
+        const hit = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null) ?? target;
+        const cell = (hit.closest("[data-x]") ?? target.closest("[data-x]")) as HTMLElement | null;
+        if (cell) tapTile(Number(cell.dataset["x"]), Number(cell.dataset["y"]));
+      }
     };
     window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
   };
@@ -217,8 +232,9 @@ export function Game({ userId }: { userId: string }) {
   const W = inV ? 20 : s.dungeon!.w, H = inV ? 15 : s.dungeon!.h;
   const cx = Math.max(0, Math.min(W - VW, s.pos.x - Math.floor(VW / 2)));
   const cy = Math.max(0, Math.min(H - VH, s.pos.y - Math.floor(VH / 2)));
+  const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} />;
   const cells = [];
-  for (let y = cy; y < cy + VH; y++) for (let x = cx; x < cx + VW; x++) cells.push(renderTile(s, x, y));
+  for (let y = cy; y < cy + VH; y++) for (let x = cx; x < cx + VW; x++) cells.push(renderTile(s, x, y, avatar));
   const close = () => setPanel(null);
 
   return (
@@ -226,7 +242,7 @@ export function Game({ userId }: { userId: string }) {
       <header className="pixel-panel p-1.5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <button className="flex min-w-0 items-center gap-1 text-left" onClick={() => setPanel({ t: "profile" })}>
-            <span className="shrink-0 text-xl">👤</span>
+            <span className="h-9 w-9 shrink-0"><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} /></span>
             <span className="min-w-0"><span className="block truncate text-sm text-primary">{s.char.name} · Lv {p.level}</span><span className="block truncate text-xs text-muted-foreground">{s.className}</span></span>
           </button>
           <div className="text-right text-xs"><div className="text-gold">💰 {fmt(s.gold)}</div><div className="text-muted-foreground">{inV ? "Thornvale" : `Floor ${s.dungeon!.floor}`} · best {s.maxFloor}</div></div>
@@ -269,7 +285,8 @@ export function Game({ userId }: { userId: string }) {
       {panel?.t === "settings" && <SettingsPanel onClose={close} />}
       {panel?.t === "kitchen" && <KitchenPanel s={s} onClose={close} onCook={(m) => act((n) => cook(n, m))} />}
       {(panel?.t === "carve" || panel?.t === "smelt") && <RefinePanel s={s} station={panel.t} onClose={close} onRefine={(id, k) => act((n) => refine(n, id, k, panel.t as "carve" | "smelt"))} />}
-      {panel?.t === "plot" && <PlotPanel s={s} onClose={close} onPlant={(seed) => { act((n) => plant(n, panel.x!, panel.y!, seed)); close(); }} />}
+      {panel?.t === "plot" && <PlotPanel s={s} onClose={close} onPlant={(cells, seed) => act((n) => { for (const [x, y] of cells) { if (!n.inv[seed]) break; if (!n.village.plots[key(x, y)]) plant(n, x, y, seed); } })}
+        onHarvest={(cells) => { act((n) => { for (const [x, y] of cells) { harvest(n, x, y); n.step++; } }); sfx("loot"); }} />}
       {panel?.t === "tower" && <TowerPanel s={s} onClose={close} onEnter={(f) => { act((n) => enterDungeon(n, f)); close(); }} />}
       {panel?.t === "house" && <HousePanel s={s} saving={saving} onClose={close} onRest={() => act(restAtHome)} onSave={() => void save()} onSignOut={async () => { await save(); await supabase.auth.signOut(); }} />}
       {panel?.t === "shop" && <ShopPanel s={s} onClose={close} onBuy={(i) => act((n) => buyShop(n, i))} onSell={(id, q) => { act((n) => sellMat(n, id, q)); sfx("coin"); }} />}
@@ -323,7 +340,7 @@ function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
 const DECO_SPOTS: [number, number][] = [];
 VILLAGE.forEach((r, y) => [...r].forEach((c, x) => { if (c === "o") DECO_SPOTS.push([x, y]); }));
 
-function renderTile(s: GameState, x: number, y: number) {
+function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode) {
   const k = `${x},${y}`;
   const isP = s.pos.x === x && s.pos.y === y;
   let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "";
@@ -353,7 +370,7 @@ function renderTile(s: GameState, x: number, y: number) {
   }
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`}>
-      {isP ? <span className="tile-player">🧙</span> : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
+      {isP ? <span className="tile-player h-[90%] w-[90%]">{avatar}</span> : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
     </div>
   );
