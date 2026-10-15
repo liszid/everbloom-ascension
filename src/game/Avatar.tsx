@@ -27,8 +27,8 @@ export function parseClass(classId: string) {
 
 export function Avatar({ race, gender, classId, size = "100%" }: { race: string; gender: string; classId: string; size?: number | string }) {
   const { p, q, tier } = parseClass(classId);
-  const skin = SKIN[race] ?? SKIN.human!, hair = HAIR[race] ?? HAIR.human!;
-  const [main, trim0] = OUTFIT[p] ?? OUTFIT.none!;
+  const skin = SKIN[race] ?? SKIN["human"]!, hair = HAIR[race] ?? HAIR["human"]!;
+  const [main, trim0] = OUTFIT[p] ?? OUTFIT["none"]!;
   const trim = q ? (OUTFIT[q]?.[0] ?? trim0) : trim0;
   const fem = gender === "Female", nb = gender === "Non-binary";
   const r: Px[] = [];
