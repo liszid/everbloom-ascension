@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as RPE } fr
 import { supabase } from "@/integrations/supabase/client";
 import { ANIMALS, BUILDINGS, TREES, getMat } from "./data";
 import {
-  addMat, addXp, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
+  addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
   setCombatPrefs, spend, startCombat, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE,
