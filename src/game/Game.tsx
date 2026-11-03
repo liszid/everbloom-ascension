@@ -1,3 +1,4 @@
+import { titleStars } from "./titles";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPE } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,7 +65,8 @@ export function Game({ userId }: { userId: string }) {
 
   useEffect(() => {
     const id = setInterval(() => { if (dirty.current) void save(); }, 12000);
-    const pt = setInterval(() => { if (ref.current && document.visibilityState === "visible") { ref.current.playTime += 5; dirty.current = true; } }, 5000);
+    const pt = setInterval(() => { if (ref.current && document.visibilityState === "visible") { ref.current.playTime += 5; dirty.current = true;
+      const c = ref.current; if (c.title) { c.titleTime ??= {}; const t0 = c.titleTime[c.title] ?? 0; const b = titleStars(c.title, t0); c.titleTime[c.title] = t0 + 5; const a = titleStars(c.title, t0 + 5); if (a > b) note(c, `⭐ Title "${c.title}" rose to ${a} stars!`); } } }, 5000);
     const vis = () => { if (document.visibilityState === "hidden" && dirty.current) void save(); };
     document.addEventListener("visibilitychange", vis);
     return () => { clearInterval(id); clearInterval(pt); document.removeEventListener("visibilitychange", vis); };
