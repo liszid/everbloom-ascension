@@ -2,7 +2,7 @@ import { Avatar } from "./Avatar";
 import { useState } from "react";
 import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, RACES, BACKGROUNDS, type StatKey } from "./data";
 import {
-  affLevel, charLevel, charXpFor, classActives, computeClass, describePassives, favorite, levelOf, playerStats, statValue, xpForLevel,
+  affLevel, charLevel, charXpFor, classActives, classInputs, computeClass, describePassives, favorite, levelOf, playerStats, statValue, xpForLevel,
   type GameState,
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
@@ -48,9 +48,18 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
               <span className={`w-full truncate text-[0.65rem] ${g ? `grade-${g.grade}` : "text-muted-foreground"}`}>{g ? g.name : SLOT_INFO[sl].name}</span>
             </button>); })}
         </div>
-        {sel && (() => { const g = s.gear.find((x) => x.id === s.equip[sel as keyof typeof s.equip]); return g
-          ? <div className="mt-2"><GearCard g={g} equipped actions={<button className="pixel-btn py-2" onClick={() => onEquip(g.id)}>Unequip</button>} /><p className="text-xs text-muted-foreground">Grade {GRADES[g.grade]} · materials listed above · durability {g.dura}/{g.maxDura}</p></div>
-          : <p className="mt-2 text-muted-foreground">Empty slot. {sel === "shield" && s.equip.two_hand ? "Two-handed weapon equipped." : "Equip from the Bag."}</p>; })()}
+        {sel && (() => {
+          const g = s.gear.find((x) => x.id === s.equip[sel as keyof typeof s.equip]);
+          const spare = s.gear.filter((x) => x.slot === sel && x.id !== g?.id).sort((a, b) => b.grade - a.grade || b.enh - a.enh);
+          return <>
+            {g
+              ? <div className="mt-2"><GearCard g={g} equipped actions={<button className="pixel-btn py-2" onClick={() => onEquip(g.id)}>Unequip</button>} /><p className="text-xs text-muted-foreground">Grade {GRADES[g.grade]} · durability {g.dura}/{g.maxDura}</p></div>
+              : <p className="mt-2 text-muted-foreground">Empty slot.{sel === "shield" && s.equip.two_hand ? " Two-handed weapon equipped." : ""}</p>}
+            <h3 className="mt-2 text-accent">Available ({spare.length})</h3>
+            {spare.map((x) => <GearCard key={x.id} g={x} actions={<button className="pixel-btn pixel-btn-primary py-2" onClick={() => onEquip(x.id)}>{g ? "Swap" : "Equip"}</button>} />)}
+            {!spare.length && <p className="text-sm text-muted-foreground">No other gear of this type in your bag.</p>}
+          </>;
+        })()}
       </div>}
       {tab === "aff" && <div>
         {AFFINITIES.map((a) => { const pts = s.aff[a.id] ?? 0; const l = affLevel(pts); const next = 8 * (l + 1) * (l + 1); const cur = 8 * l * l; return (
@@ -73,6 +82,12 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
         <div className="pixel-panel mb-2 p-2"><div className="text-primary">{c.name}</div>
           <div className="text-sm">Passives: {describePassives(c).join(", ") || "none yet"}</div>
           <div className="text-sm">Skills: {classActives(c).map((a) => a.name).join(", ")}</div></div>
+        {(() => { const ci = classInputs(s); return <div className="pixel-panel mb-2 p-2 text-sm">
+          <div className="text-accent">What shapes your class</div>
+          <div>Top skills: {ci.skills.map((k) => `${SKILLS[k.k]?.name ?? k.k} ${k.l}`).join(", ") || "none"}</div>
+          <div>Top affinities: {ci.affs.map((a) => `${AFFINITIES.find((x) => x.id === a.id)?.name} ${a.l}`).join(", ") || "none"}</div>
+          <div>Title: {ci.title ? `"${ci.title}" (${AFFINITIES.find((x) => x.id === ci.titleAff)?.name})` : "none"}</div>
+        </div>; })()}
         <h3 className="text-accent">Evolution history</h3>
         {!s.classHistory.length && <p className="text-muted-foreground">Your path has not yet diverged.</p>}
         {s.classHistory.slice().reverse().map((h, i) => <div key={i} className="border-b border-border/30 py-1 text-sm">{h.from} → <b className="text-primary">{h.to}</b> <span className="text-muted-foreground">· floor {h.floor} · {new Date(h.at).toLocaleDateString()}</span></div>)}
