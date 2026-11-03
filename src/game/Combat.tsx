@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES } from "./data";
-import { classActives, computeClass, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
+import { combatActives, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
 import { useSettings } from "./settings";
 
@@ -20,7 +20,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
     if (add.length && st.dmgNumbers) { setFloats((f) => [...f, ...add]); setTimeout(() => setFloats((f) => f.filter((x) => !add.includes(x))), 900); }
   }, [c.dealt, c.taken, st.dmgNumbers, st.shake, st.reducedMotion]);
   const race = RACES.find((r) => r.id === s.char.race)!;
-  const acts = classActives(computeClass(s));
+  const acts = combatActives(s);
   const logLines = st.detailedLog ? c.log.slice(0, 6) : c.log.slice(0, 2);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
