@@ -6,6 +6,7 @@ import {
   type GameState,
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
+import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 
@@ -28,8 +29,15 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
         <Row k="Race active" v={race.active.name} /><p className="text-xs text-muted-foreground">{race.active.desc}</p>
         <div className="mt-2"><div className="text-sm">Title</div><div className="flex flex-wrap gap-1">
           <button className={`pixel-btn py-1 ${!s.title ? "pixel-btn-active" : ""}`} onClick={() => onTitle(undefined)}>None</button>
-          {s.titles.map((t) => <button key={t} className={`pixel-btn py-1 ${s.title === t ? "pixel-btn-active" : ""}`} onClick={() => onTitle(t)}>{t}</button>)}
-          {!s.titles.length && <span className="text-sm text-muted-foreground">Earn titles from achievements.</span>}</div></div>
+          {s.titles.map((t) => <button key={t} className={`pixel-btn py-1 ${s.title === t ? "pixel-btn-active" : ""}`} onClick={() => onTitle(t)}>{t} <span className="text-gold">{"★".repeat(titleStars(t, s.titleTime?.[t] ?? 0))}</span></button>)}
+          {!s.titles.length && <span className="text-sm text-muted-foreground">Earn titles from achievements.</span>}</div>
+          {s.title && (() => { const secs = s.titleTime?.[s.title] ?? 0; const kit = titleKit(s.title, secs); const nx = nextStarAt(s.title, secs); return (
+            <div className="pixel-panel mt-2 p-2 text-sm">
+              <div className="flex justify-between"><span className="text-accent">{s.title}</span><span className="text-gold">{starStr(kit.stars)}</span></div>
+              <div className="text-xs text-muted-foreground">{nx ? `Next star: ${time(Math.max(0, nx - secs))} more equipped` : "Max stars"} · equipped {time(secs)}</div>
+              {kit.skills.map((sk) => <div key={sk.name} className="border-b border-border/30 py-0.5"><b>{sk.type === "active" ? "⚔️" : "◆"} {sk.name}</b> <span className="text-xs text-muted-foreground">{sk.type === "active" ? `${sk.cost} ${sk.res === "mp" ? "MP" : "STA"} · ` : "passive · "}{sk.desc}{sk.type === "active" && sk.kind === "lock" ? ` (${lockTurns(kit.stars)} turns)` : ""}</span></div>)}
+              {kit.locked.map((sk) => <div key={sk.name} className="py-0.5 text-muted-foreground">🔒 {sk.name} <span className="text-xs">· unlocks at more stars</span></div>)}
+            </div>); })()}</div>
       </div>}
       {tab === "stats" && <div className="grid gap-x-6 sm:grid-cols-2">
         <div><h3 className="text-accent">Primary</h3>

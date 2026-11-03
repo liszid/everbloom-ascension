@@ -1,3 +1,4 @@
+import { titleKit } from "./titles";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
   MONSTERS, ORES, PCT_STATS, POND, PROPS, RACES, SKILLS, SLOTS, SLOT_INFO, STAT_KEYS, TREES, VEINS, VILLAGE_MAP, MATERIALS,
@@ -27,7 +28,7 @@ export interface Dungeon { floor: number; w: number; h: number; tiles: string[];
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
-  charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number;
+  lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
@@ -50,7 +51,7 @@ export interface GameState {
   dungeon?: Dungeon | undefined; bag: Record<string, number>; combat?: Combat | undefined; result?: BattleResult | undefined;
   log: string[]; notes: string[];
   stats: Record<string, number>; usage: { weapon: Record<string, number>; skill: Record<string, number>; mat: Record<string, number>; monster: Record<string, number> };
-  ach: Record<string, number>; titles: string[]; title?: string | undefined; decos: string[];
+  ach: Record<string, number>; titles: string[]; title?: string | undefined; titleTime?: Record<string, number> | undefined; decos: string[];
   classId: string; className: string; classHistory: { from: string; to: string; floor: number; at: number }[]; classesSeen: string[];
   pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number; agiFix?: boolean;
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
@@ -152,6 +153,12 @@ export function computeClass(s: GameState): ClassInfo {
   if (q && q[1] >= 8 && q[1] >= pS * 0.5) return { id: `${pId}+${q[0]}:${tier}`, name: `${HYBRID_PREFIX[q[0]]} ${base}`, tier, primary: pId, secondary: q[0] };
   return { id: `${pId}:${tier}`, name: base, tier, primary: pId };
 }
+export type ActiveSkill = ReturnType<typeof classActives>[number];
+/** Skills usable in combat: class skills followed by equipped-title skills. */
+export function combatActives(s: GameState): ActiveSkill[] {
+  const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
+  return [...classActives(computeClass(s)), ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el }))];
+}
 export function classActives(c: ClassInfo) {
   const out = [] as { aff: string; name: string; kind: string; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined }[];
   for (const a of [c.primary, c.secondary]) {
@@ -240,6 +247,9 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   };
   applyMods(race(s).mods);
   applyMods(classPassives(classOverride ?? computeClass(s)));
+  const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
+  applyMods(kit.mods);
+  for (const [e, v] of Object.entries(kit.effects)) effects[e as EffectId] += v;
   if (s.char.race === "dragonborn") { st.pdef *= 1.1; st.mdef *= 1.1; }
   if (s.char.race === "halfling") st.luck += 10;
   st.crit = Math.min(75, st.crit); st.dodge = Math.max(0, Math.min(60, st.dodge)); effects.guard = Math.min(50, effects.guard);
@@ -652,7 +662,7 @@ export function startCombat(s: GameState, m: Mon) {
   s.combat = {
     mon: m, log: [`⚔️ ${m.name} engages!${m.affix ? ` (${m.affix})` : ""}`], turn: 0, dealt: 0, taken: 0,
     xp0: { ...s.skills }, charXp0: s.xp, gold0: s.gold, stoneskin: 0, guardT: 0, roar: 0, stun: 0, monBurn: 0, monBleed: 0, pPoison: 0,
-    charging: false, shieldT: 0, frenzy: 0, raceUsed: false, eats: 0, healed: 0,
+    lockT: 0, lockHp: 0, charging: false, shieldT: 0, frenzy: 0, raceUsed: false, eats: 0, healed: 0,
   };
 }
 const clog = (c: Combat, msg: string) => { c.log = [msg, ...c.log].slice(0, 20); };
@@ -717,7 +727,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       case "radiance": { const h = Math.round(p.hp * 0.25); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; clog(c, `😇 Radiance heals ${h}.`); break; }
     }
   } else if ("skill" in a) {
-    const sk = classActives(computeClass(s))[a.skill]; if (!sk) return null;
+    const sk = combatActives(s)[a.skill]; if (!sk) return null;
     const have = sk.res === "mp" ? s.mp : s.sta;
     if (have < sk.cost) { clog(c, `Not enough ${sk.res === "mp" ? "mana" : "stamina"}!`); c.turn--; return null; }
     if (sk.res === "mp") s.mp -= sk.cost; else s.sta -= sk.cost;
@@ -727,6 +737,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     else if (sk.kind === "mag") { playerHit(s, c, p, sk.mult, { magic: true, el: sk.el, label: sk.name }); addXp(s, "spellcasting", 5); }
     else if (sk.kind === "heal") { const h = Math.round(p.hp * sk.mult); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "healing", h); clog(c, `💚 ${sk.name} restores ${h} HP.`); addXp(s, "spellcasting", 3); }
     else if (sk.kind === "guard") { c.guardT = 2; defending = true; clog(c, `🛡️ ${sk.name}! Damage greatly reduced.`); addXp(s, "defense", 4); }
+    else if (sk.kind === "lock") { c.lockT = sk.mult; c.lockHp = Math.max(1, s.hp); clog(c, `♾️ ${sk.name}! Your HP is locked for ${sk.mult} turns.`); addXp(s, "endurance", 4); }
     else { equipped(s).forEach((g) => { g.dura = Math.min(g.maxDura, g.dura + Math.round(g.maxDura * 0.1)); }); clog(c, "🔧 Field Repair restores gear durability."); }
   } else if ("eat" in a) {
     if (c.eats >= 2) { clog(c, "🤢 You can't eat more during this fight."); c.turn--; return null; }
@@ -771,6 +782,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
   if (p.effects.manaflow) s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * p.effects.manaflow / 100));
   s.sta = Math.min(p.sta, s.sta + 2);
   c.roar = Math.max(0, c.roar - 1); c.stoneskin = Math.max(0, c.stoneskin - 1); c.guardT = Math.max(0, c.guardT - 1); c.shieldT = Math.max(0, c.shieldT - 1);
+  if (c.lockT > 0) { if (s.hp < c.lockHp) s.hp = c.lockHp; c.lockT--; }
   if (s.hp <= 0) {
     if (s.char.race === "halforc" && !s.relentlessUsed) { s.relentlessUsed = true; s.hp = 1; clog(c, "🔥 Relentless! You refuse to fall."); return null; }
     return finishCombat(s, "lose");
