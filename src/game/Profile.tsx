@@ -48,9 +48,18 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
               <span className={`w-full truncate text-[0.65rem] ${g ? `grade-${g.grade}` : "text-muted-foreground"}`}>{g ? g.name : SLOT_INFO[sl].name}</span>
             </button>); })}
         </div>
-        {sel && (() => { const g = s.gear.find((x) => x.id === s.equip[sel as keyof typeof s.equip]); return g
-          ? <div className="mt-2"><GearCard g={g} equipped actions={<button className="pixel-btn py-2" onClick={() => onEquip(g.id)}>Unequip</button>} /><p className="text-xs text-muted-foreground">Grade {GRADES[g.grade]} · materials listed above · durability {g.dura}/{g.maxDura}</p></div>
-          : <p className="mt-2 text-muted-foreground">Empty slot. {sel === "shield" && s.equip.two_hand ? "Two-handed weapon equipped." : "Equip from the Bag."}</p>; })()}
+        {sel && (() => {
+          const g = s.gear.find((x) => x.id === s.equip[sel as keyof typeof s.equip]);
+          const spare = s.gear.filter((x) => x.slot === sel && x.id !== g?.id).sort((a, b) => b.grade - a.grade || b.enh - a.enh);
+          return <>
+            {g
+              ? <div className="mt-2"><GearCard g={g} equipped actions={<button className="pixel-btn py-2" onClick={() => onEquip(g.id)}>Unequip</button>} /><p className="text-xs text-muted-foreground">Grade {GRADES[g.grade]} · durability {g.dura}/{g.maxDura}</p></div>
+              : <p className="mt-2 text-muted-foreground">Empty slot.{sel === "shield" && s.equip.two_hand ? " Two-handed weapon equipped." : ""}</p>}
+            <h3 className="mt-2 text-accent">Available ({spare.length})</h3>
+            {spare.map((x) => <GearCard key={x.id} g={x} actions={<button className="pixel-btn pixel-btn-primary py-2" onClick={() => onEquip(x.id)}>{g ? "Swap" : "Equip"}</button>} />)}
+            {!spare.length && <p className="text-sm text-muted-foreground">No other gear of this type in your bag.</p>}
+          </>;
+        })()}
       </div>}
       {tab === "aff" && <div>
         {AFFINITIES.map((a) => { const pts = s.aff[a.id] ?? 0; const l = affLevel(pts); const next = 8 * (l + 1) * (l + 1); const cur = 8 * l * l; return (

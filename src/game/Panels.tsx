@@ -261,7 +261,15 @@ export function TowerPanel({ s, onClose, onEnter }: { s: GameState; onClose: () 
       <button className="pixel-btn pixel-btn-primary my-2 w-full py-4 text-base" onClick={() => onEnter(next)}>Climb to Floor {next} {kind(next)}</button>
       {s.maxFloor > 0 && <div className="pixel-panel p-2">
         <p className="text-sm">Revisit a cleared floor to farm materials:</p>
-        <input type="range" min={1} max={next} value={f} onChange={(e) => setF(Number(e.target.value))} className="w-full" />
+        <div className="my-2 flex items-center gap-1">
+          <button className="pixel-btn min-w-11 py-3" aria-label="Down 10 floors" onClick={() => setF(Math.max(1, f - 10))}>−10</button>
+          <button className="pixel-btn min-w-11 py-3" aria-label="Down 1 floor" onClick={() => setF(Math.max(1, f - 1))}>−</button>
+          <select aria-label="Choose floor" className="pixel-btn min-w-0 flex-1 py-3 text-center" value={f} onChange={(e) => setF(Number(e.target.value))}>
+            {Array.from({ length: next }, (_, i) => next - i).map((n) => <option key={n} value={n}>Floor {n}{n % 100 === 0 ? " ☠️" : n % 10 === 0 ? " 💀" : ""}</option>)}
+          </select>
+          <button className="pixel-btn min-w-11 py-3" aria-label="Up 1 floor" onClick={() => setF(Math.min(next, f + 1))}>+</button>
+          <button className="pixel-btn min-w-11 py-3" aria-label="Up 10 floors" onClick={() => setF(Math.min(next, f + 10))}>+10</button>
+        </div>
         <button className="pixel-btn w-full py-3" onClick={() => onEnter(f)}>Enter Floor {f} {kind(f)}</button>
       </div>}
       <p className="mt-2 text-xs text-muted-foreground">Monsters grow stronger every floor. HP doesn't regenerate in the Tower and you may eat at most twice per fight. Bosses telegraph heavy blows — Defend!</p>
