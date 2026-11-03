@@ -125,15 +125,32 @@ const HYBRID_PREFIX: Record<string, string> = {
   fire: "Flame", water: "Tide", wind: "Storm", earth: "Stone", light: "Holy", dark: "Shadow", sword: "Blade", might: "Iron",
   shield: "Bastion", agility: "Swift", arcane: "Arcane", crafting: "Forged", nature: "Wild", hunting: "Stalker", culinary: "Feast", fortune: "Lucky",
 };
-const TIER_LVLS = [3, 10, 22, 40];
+// Class = top 5 skills (by level) + top 2 affinities + equipped title. Each feeds a score per affinity.
+const TIER_SCORES = [8, 25, 55, 100];
+const TITLE_AFF: [RegExp, string][] = [
+  [/guardian|bastion|shield|bulwark/i, "shield"], [/bane|breaker|slayer|hunt/i, "hunting"], [/climb|centurion|sky|heaven|conquer/i, "agility"],
+  [/smith|forge|craft|artisan/i, "crafting"], [/chef|cook|feast/i, "culinary"], [/lucky|fortune|gambl|roller/i, "fortune"],
+  [/sword|blade/i, "sword"], [/mage|arcan/i, "arcane"], [/green|farm|grove|nature/i, "nature"],
+];
+export function titleAffinity(t?: string) { if (!t) return undefined; return TITLE_AFF.find(([r]) => r.test(t))?.[1] ?? "might"; }
+export function classInputs(s: GameState) {
+  const skills = Object.keys(s.skills).map((k) => ({ k, l: lvl(s, k) })).sort((a, b) => b.l - a.l).slice(0, 5);
+  const affs = AFFINITIES.map((a) => ({ id: a.id, l: affLevel(s.aff[a.id] ?? 0) })).filter((a) => a.l > 0).sort((a, b) => b.l - a.l).slice(0, 2);
+  return { skills, affs, title: s.title, titleAff: titleAffinity(s.title) };
+}
 export function computeClass(s: GameState): ClassInfo {
-  const ranked = AFFINITIES.map((a) => ({ id: a.id, l: affLevel(s.aff[a.id] ?? 0) })).sort((a, b) => b.l - a.l);
-  const p = ranked[0]!, q = ranked[1]!;
-  let tier = -1; TIER_LVLS.forEach((t, i) => { if (p.l >= t) tier = i; });
-  if (tier < 0) return { id: "adventurer", name: "Adventurer", tier: -1 };
-  const base = AFF_BY_ID[p.id]!.titles[tier]!;
-  if (q.l >= 3 && q.l >= p.l * 0.6) return { id: `${p.id}+${q.id}:${tier}`, name: `${HYBRID_PREFIX[q.id]} ${base}`, tier, primary: p.id, secondary: q.id };
-  return { id: `${p.id}:${tier}`, name: base, tier, primary: p.id };
+  const inp = classInputs(s);
+  const score: Record<string, number> = {};
+  for (const sk of inp.skills) { const a = SKILLS[sk.k]?.aff; if (a) score[a] = (score[a] ?? 0) + sk.l; }
+  for (const a of inp.affs) score[a.id] = (score[a.id] ?? 0) + a.l * 2;
+  if (inp.titleAff) score[inp.titleAff] = (score[inp.titleAff] ?? 0) * 1.25 + 10;
+  const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
+  const [pId, pS] = ranked[0] ?? ["", 0]; const q = ranked[1];
+  let tier = -1; TIER_SCORES.forEach((t, i) => { if (pS >= t) tier = i; });
+  if (tier < 0 || !AFF_BY_ID[pId]) return { id: "adventurer", name: "Adventurer", tier: -1 };
+  const base = AFF_BY_ID[pId]!.titles[tier]!;
+  if (q && q[1] >= 8 && q[1] >= pS * 0.5) return { id: `${pId}+${q[0]}:${tier}`, name: `${HYBRID_PREFIX[q[0]]} ${base}`, tier, primary: pId, secondary: q[0] };
+  return { id: `${pId}:${tier}`, name: base, tier, primary: pId };
 }
 export function classActives(c: ClassInfo) {
   const out = [] as { aff: string; name: string; kind: string; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined }[];
