@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BACKGROUNDS, GENDERS, RACES, STAT_LABEL, type StatKey } from "./data";
 
-export function CreateCharacter({ onDone, hadOld }: { onDone: (c: { name: string; gender: string; race: string; bg: string }) => void; hadOld: boolean }) {
+export function CreateCharacter({ onDone, hadOld, onCancel }: { onDone: (c: { name: string; gender: string; race: string; bg: string }) => void; hadOld: boolean; onCancel?: (() => void) | undefined }) {
   const [name, setName] = useState("");
   const [gender, setGender] = useState(GENDERS[0]!);
   const [race, setRace] = useState("human");
@@ -32,6 +32,7 @@ export function CreateCharacter({ onDone, hadOld }: { onDone: (c: { name: string
         <div className="mt-1 grid grid-cols-1 gap-1">{BACKGROUNDS.map((b) => <button key={b.id} className={`pixel-btn py-2 text-left ${bg === b.id ? "pixel-btn-active" : ""}`} onClick={() => setBg(b.id)}>{b.icon} {b.name} <span className="text-xs opacity-80">— {b.desc} ({b.gold}g)</span></button>)}</div>
       </div>
       <button className="pixel-btn pixel-btn-primary py-4 text-base" disabled={!name.trim()} onClick={() => onDone({ name: name.trim(), gender, race, bg })}>Begin the Climb</button>
+      {onCancel && <button className="pixel-btn py-3" onClick={onCancel}>Cancel</button>}
     </div>
   );
 }

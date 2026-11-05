@@ -25,10 +25,14 @@ const STATIONS: Record<string, PanelT> = { H: "house", K: "kitchen", A: "forge",
 const VW = 11, VH = 11;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
+export const MAX_CHARS = 5;
 export function Game({ userId }: { userId: string }) {
   const [s, setS] = useState<GameState | null>(null);
   const [needChar, setNeedChar] = useState<null | { hadOld: boolean }>(null);
   const ref = useRef<GameState | null>(null);
+  const slots = useRef<GameState[]>([]);
+  const active = useRef(0);
+  const [, bumpChars] = useState(0);
   const dirty = useRef(false);
   const [panel, setPanel] = useState<{ t: PanelT; x?: number; y?: number } | null>(null);
   const [saving, setSaving] = useState("");
@@ -44,21 +48,25 @@ export function Game({ userId }: { userId: string }) {
     let alive = true;
     supabase.from("game_saves").select("data").eq("user_id", userId).maybeSingle().then(({ data }) => {
       if (!alive) return;
-      const loaded = data?.data as unknown as GameState | undefined;
-      if (loaded && loaded.v === 2) {
+      const raw = data?.data as unknown as (GameState | { multi: true; active: number; slots: GameState[] }) | undefined;
+      if (raw && "multi" in raw) { slots.current = raw.slots.filter((x) => x?.v === 2); active.current = Math.min(raw.active, slots.current.length - 1); }
+      else if (raw && raw.v === 2) { slots.current = [raw]; active.current = 0; }
+      const loaded = slots.current[active.current];
+      if (loaded) {
         // one-time rebalance: agility used to grow far too fast from walking
         if (!loaded.agiFix) { loaded.aff["agility"] = (loaded.aff["agility"] ?? 0) * 0.3; loaded.agiFix = true; dirty.current = true; }
         ref.current = loaded; loaded.notes = []; setS(loaded);
       }
-      else setNeedChar({ hadOld: !!loaded });
+      else setNeedChar({ hadOld: !!raw && !slots.current.length });
     });
     return () => { alive = false; };
   }, [userId]);
 
   const save = useCallback(async () => {
-    if (!ref.current) return;
+    if (ref.current) slots.current[active.current] = ref.current;
     setSaving("Saving…");
-    const { error } = await supabase.from("game_saves").upsert({ user_id: userId, data: JSON.parse(JSON.stringify({ ...ref.current, notes: [] })), updated_at: new Date().toISOString() });
+    const payload = { multi: true, active: active.current, slots: slots.current.map((x) => ({ ...x, notes: [] })) };
+    const { error } = await supabase.from("game_saves").upsert({ user_id: userId, data: JSON.parse(JSON.stringify(payload)), updated_at: new Date().toISOString() });
     dirty.current = !!error;
     setSaving(error ? "Save failed — will retry" : `Saved ${new Date().toLocaleTimeString()}`);
   }, [userId]);
@@ -226,7 +234,7 @@ export function Game({ userId }: { userId: string }) {
     return () => window.removeEventListener("keydown", h);
   }, [move]);
 
-  if (needChar) return <CreateCharacter hadOld={needChar.hadOld} onDone={(c) => { const g = newGame(c); ref.current = g; dirty.current = true; setS(g); setNeedChar(null); setTimeout(() => void save(), 50); }} />;
+  if (needChar) return <CreateCharacter hadOld={needChar.hadOld} onCancel={slots.current.length ? () => { setNeedChar(null); } : undefined} onDone={(c) => { const g = newGame(c); if (ref.current) slots.current[active.current] = ref.current; slots.current.push(g); active.current = slots.current.length - 1; ref.current = g; setPanel(null); dirty.current = true; setS(g); setNeedChar(null); setTimeout(() => void save(), 50); }} />;
   if (!s) return <div className="flex min-h-dvh items-center justify-center font-display text-primary">Loading your adventure…</div>;
 
   const p = playerStats(s);
@@ -284,7 +292,12 @@ export function Game({ userId }: { userId: string }) {
         onEnhance={(id) => act((n) => enhance(n, id))} onRepair={(id) => act((n) => repair(n, id))} onUpgrade={() => act(upgradeForge)} />}
       {panel?.t === "bag" && <BagPanel s={s} onClose={close} onEat={(i) => act((n) => { eatFood(n, i); })} onEquip={(id) => act((n) => equipGear(n, id))} onSell={(id) => { act((n) => sellGear(n, id)); sfx("coin"); }} />}
       {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} />}
-      {panel?.t === "settings" && <SettingsPanel onClose={close} />}
+      {panel?.t === "settings" && <SettingsPanel onClose={close} chars={{
+        list: slots.current.map((x, i) => i === active.current && ref.current ? ref.current : x), active: active.current, max: MAX_CHARS,
+        onSwitch: (i) => { if (ref.current) slots.current[active.current] = ref.current; active.current = i; const g = slots.current[i]!; g.notes = []; ref.current = g; setS({ ...g }); ref.current = g; close(); void save(); },
+        onNew: () => { if (slots.current.length < MAX_CHARS) { close(); setNeedChar({ hadOld: false }); } },
+        onDelete: (i) => { if (i === active.current || !slots.current[i]) return; slots.current.splice(i, 1); if (i < active.current) active.current--; bumpChars((n) => n + 1); void save(); },
+      }} />}
       {panel?.t === "kitchen" && <KitchenPanel s={s} onClose={close} onCook={(m) => act((n) => cook(n, m))} />}
       {(panel?.t === "carve" || panel?.t === "smelt") && <RefinePanel s={s} station={panel.t} onClose={close} onRefine={(id, k) => act((n) => refine(n, id, k, panel.t as "carve" | "smelt"))} />}
       {panel?.t === "plot" && <PlotPanel s={s} onClose={close} onPlant={(cells, seed) => act((n) => { for (const [x, y] of cells) { if (!n.inv[seed]) break; if (!n.village.plots[key(x, y)]) plant(n, x, y, seed); } })}
