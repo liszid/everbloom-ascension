@@ -4,7 +4,7 @@ import {
   type Slot, type Stats,
 } from "./data";
 import {
-  EFFECT_INFO, GEAR_CAP, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
+  EFFECT_INFO, GEAR_CAP, computeClass, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
   forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice, sellableList,
   type GameState, type Gear,
 } from "./engine";
@@ -439,10 +439,10 @@ export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?:
         <p className="py-1 text-sm text-muted-foreground">{chars.list.length}/{chars.max} characters</p>
         {chars.list.map((c, i) => (
           <div key={i} className={`mb-1 flex items-center gap-2 border-2 p-2 ${i === chars.active ? "border-primary" : "border-border"}`}>
-            <div className="w-10 shrink-0"><Avatar race={c.char.race} gender={c.char.gender} classId={c.cls?.id ?? ""} /></div>
+            <div className="w-10 shrink-0"><Avatar race={c.char.race} gender={c.char.gender} classId={computeClass(c).id} /></div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-primary">{c.char.name}</div>
-              <div className="truncate text-xs text-muted-foreground capitalize">{c.char.race} · {c.cls?.name ?? "Adventurer"} · Best floor {c.maxFloor}</div>
+              <div className="truncate text-xs text-muted-foreground capitalize">{c.char.race} · {computeClass(c).name} · Best floor {c.maxFloor}</div>
             </div>
             {i === chars.active ? <span className="text-xs text-accent">Playing</span> : confirmDel === i ? <>
               <button className="pixel-btn px-2 py-2 text-destructive" onClick={() => { chars.onDelete(i); setConfirmDel(null); }}>Delete!</button>
