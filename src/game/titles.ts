@@ -4,8 +4,8 @@ import type { StatKey, Element } from "./data";
 
 export type TitleEffect = "burn" | "lifesteal" | "regen" | "guard" | "pierce" | "haste" | "holy" | "bleed" | "manaflow";
 export type TitleSkill =
-  | { type: "passive"; name: string; desc: string; mods?: Partial<Record<StatKey, number>>; effects?: Partial<Record<TitleEffect, number>> }
-  | { type: "active"; name: string; desc: string; kind: "phys" | "mag" | "heal" | "guard" | "lock"; mult: number; cost: number; res: "mp" | "sta"; el?: Element };
+  | { type: "passive"; name: string; desc: string; mods?: Partial<Record<StatKey, number>> | undefined; effects?: Partial<Record<TitleEffect, number>> | undefined }
+  | { type: "active"; name: string; desc: string; kind: "phys" | "mag" | "heal" | "guard" | "lock"; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined };
 
 const P = (name: string, desc: string, mods?: Partial<Record<StatKey, number>>, effects?: Partial<Record<TitleEffect, number>>): TitleSkill => ({ type: "passive", name, desc, mods, effects });
 const A = (name: string, desc: string, kind: "phys" | "mag" | "heal" | "guard" | "lock", mult: number, cost: number, res: "mp" | "sta", el?: Element): TitleSkill => ({ type: "active", name, desc, kind, mult, cost, res, el });
