@@ -20,7 +20,7 @@ describe("shop sell list", () => {
   });
   it("skips empty stacks", () => {
     const s = state();
-    s.inv.stone = 0;
+    s.inv["stone"] = 0;
     expect(sellableList(s).map((r) => r.id)).not.toContain("stone");
   });
 });
