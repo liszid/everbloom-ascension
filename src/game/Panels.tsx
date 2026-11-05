@@ -4,10 +4,11 @@ import {
   type Slot, type Stats,
 } from "./data";
 import {
-  EFFECT_INFO, GEAR_CAP, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
+  EFFECT_INFO, GEAR_CAP, computeClass, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
   forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice, sellableList,
   type GameState, type Gear,
 } from "./engine";
+import { Avatar } from "./Avatar";
 import { useSettings, updateSettings, type Settings, type Speed } from "./settings";
 
 export const fmt = (n: number) => {
@@ -409,9 +410,11 @@ export function WarehousePanel({ s, onClose, onStoreGear, onTakeGear, onStoreAll
 }
 
 // ======================= SETTINGS =======================
-export function SettingsPanel({ onClose }: { onClose: () => void }) {
+export interface CharSlots { list: GameState[]; active: number; max: number; onSwitch: (i: number) => void; onNew: () => void; onDelete: (i: number) => void }
+export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?: CharSlots }) {
   const st = useSettings();
-  const [tab, setTab] = useState<"display" | "audio" | "game" | "access">("display");
+  const [tab, setTab] = useState<"chars" | "display" | "audio" | "game" | "access">(chars ? "chars" : "display");
+  const [confirmDel, setConfirmDel] = useState<number | null>(null);
   const T = ({ k, label }: { k: keyof Settings; label: string }) => (
     <label className="flex min-h-11 items-center justify-between border-b border-border/40 py-1">
       <span>{label}</span>
@@ -431,7 +434,28 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   );
   return (
     <Sheet title="⚙️ Settings" onClose={onClose}>
-      <Tabs tabs={[["display", "Display"], ["audio", "Audio"], ["game", "Gameplay"], ["access", "Accessibility"]]} cur={tab} set={setTab} />
+      <Tabs tabs={[...(chars ? [["chars", "Characters"] as ["chars", string]] : []), ["display", "Display"], ["audio", "Audio"], ["game", "Gameplay"], ["access", "Accessibility"]]} cur={tab} set={setTab} />
+      {tab === "chars" && chars && <>
+        <p className="py-1 text-sm text-muted-foreground">{chars.list.length}/{chars.max} characters</p>
+        {chars.list.map((c, i) => (
+          <div key={i} className={`mb-1 flex items-center gap-2 border-2 p-2 ${i === chars.active ? "border-primary" : "border-border"}`}>
+            <div className="w-10 shrink-0"><Avatar race={c.char.race} gender={c.char.gender} classId={computeClass(c).id} /></div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-primary">{c.char.name}</div>
+              <div className="truncate text-xs text-muted-foreground capitalize">{c.char.race} · {computeClass(c).name} · Best floor {c.maxFloor}</div>
+            </div>
+            {i === chars.active ? <span className="text-xs text-accent">Playing</span> : confirmDel === i ? <>
+              <button className="pixel-btn px-2 py-2 text-destructive" onClick={() => { chars.onDelete(i); setConfirmDel(null); }}>Delete!</button>
+              <button className="pixel-btn px-2 py-2" onClick={() => setConfirmDel(null)}>No</button>
+            </> : <>
+              <button className="pixel-btn pixel-btn-primary px-2 py-2" onClick={() => chars.onSwitch(i)}>Play</button>
+              <button className="pixel-btn px-2 py-2" aria-label={`Delete ${c.char.name}`} onClick={() => setConfirmDel(i)}>🗑️</button>
+            </>}
+          </div>
+        ))}
+        <button className="pixel-btn mt-2 w-full py-3" disabled={chars.list.length >= chars.max} onClick={chars.onNew}>{chars.list.length >= chars.max ? "Character slots full" : "＋ Create new character"}</button>
+        <p className="pt-1 text-xs text-muted-foreground">Switch away from a character to delete it. Deleting is permanent.</p>
+      </>}
       {tab === "display" && <>
         <T k="fullscreen" label="Fullscreen" />
         <S k="resScale" label="Resolution scaling (map) %" min={70} max={130} />
