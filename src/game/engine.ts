@@ -860,6 +860,13 @@ export function clearFloor(s: GameState) {
 
 // ======================= economy =======================
 export const sellPrice = (s: GameState, id: string) => Math.max(1, Math.round(getMat(id).value * 0.5 * (1 + lvl(s, "trading") * 0.005)));
+/** Sellable inventory, highest material tier first. */
+export function sellableList(s: GameState) {
+  return Object.entries(s.inv)
+    .filter(([, q]) => q > 0)
+    .map(([id, qty]) => ({ id, qty, tier: getMat(id).tier, price: sellPrice(s, id) }))
+    .sort((a, b) => b.tier - a.tier || b.price - a.price || a.id.localeCompare(b.id));
+}
 export function sellMat(s: GameState, id: string, qty: number, mult = 1) {
   const n = Math.min(qty, s.inv[id] ?? 0); if (!n) return;
   takeMat(s, id, n); const v = Math.round(sellPrice(s, id) * n * mult); earn(s, v); addXp(s, "trading", Math.ceil(n / 3));
