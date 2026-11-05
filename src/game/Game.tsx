@@ -294,7 +294,7 @@ export function Game({ userId }: { userId: string }) {
       {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} />}
       {panel?.t === "settings" && <SettingsPanel onClose={close} chars={{
         list: slots.current.map((x, i) => i === active.current && ref.current ? ref.current : x), active: active.current, max: MAX_CHARS,
-        onSwitch: (i) => { if (ref.current) slots.current[active.current] = ref.current; active.current = i; const g = slots.current[i]!; g.notes = []; ref.current = g; setS({ ...g }); ref.current = g; close(); void save(); },
+        onSwitch: (i) => { if (ref.current) slots.current[active.current] = ref.current; active.current = i; const g = slots.current[i]!; g.notes = []; ref.current = g; setS(g); close(); void save(); },
         onNew: () => { if (slots.current.length < MAX_CHARS) { close(); setNeedChar({ hadOld: false }); } },
         onDelete: (i) => { if (i === active.current || !slots.current[i]) return; slots.current.splice(i, 1); if (i < active.current) active.current--; bumpChars((n) => n + 1); void save(); },
       }} />}
