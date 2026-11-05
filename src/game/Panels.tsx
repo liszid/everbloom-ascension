@@ -5,7 +5,7 @@ import {
 } from "./data";
 import {
   EFFECT_INFO, GEAR_CAP, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
-  forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice,
+  forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice, sellableList,
   type GameState, type Gear,
 } from "./engine";
 import { useSettings, updateSettings, type Settings, type Speed } from "./settings";
@@ -299,10 +299,11 @@ export function ShopPanel({ s, onClose, onBuy, onSell }: { s: GameState; onClose
           <span>{it.icon} {it.name}{it.heal ? ` (+${it.heal})` : ""}</span>
           <button className="pixel-btn py-2" disabled={s.gold < it.price} onClick={() => onBuy(i)}>{it.price}g</button>
         </div>))}
-      {tab === "sell" && Object.entries(s.inv).map(([id, q]) => (
-        <div key={id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
-          <span className="min-w-0 truncate">{getMat(id).icon} {getMat(id).name} ×{q}</span>
-          <span className="flex shrink-0 gap-1"><button className="pixel-btn py-2" onClick={() => onSell(id, 1)}>{sellPrice(s, id)}g</button><button className="pixel-btn py-2" onClick={() => onSell(id, q)}>All</button></span>
+      {tab === "sell" && sellableList(s).length === 0 && <p className="py-3 text-sm text-muted-foreground">Nothing to sell.</p>}
+      {tab === "sell" && sellableList(s).map((it) => (
+        <div key={it.id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
+          <span className="min-w-0 truncate">{getMat(it.id).icon} {getMat(it.id).name} ×{it.qty} <span className="shrink-0 text-muted-foreground">T{it.tier}</span></span>
+          <span className="flex shrink-0 gap-1"><button className="pixel-btn py-2" onClick={() => onSell(it.id, 1)}>{it.price}g</button><button className="pixel-btn py-2" onClick={() => onSell(it.id, it.qty)}>All</button></span>
         </div>))}
     </Sheet>
   );
