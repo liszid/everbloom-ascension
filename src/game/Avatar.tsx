@@ -25,7 +25,9 @@ export function parseClass(classId: string) {
   return { p: p || "none", q, tier: Number(t) };
 }
 
-export function Avatar({ race, gender, classId, size = "100%" }: { race: string; gender: string; classId: string; size?: number | string }) {
+export type Facing = "d" | "u" | "l" | "r";
+export function Avatar({ race, gender, classId, size = "100%", dir = "d", frame }: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined }) {
+  const back = dir === "u", side = dir === "l" || dir === "r";
   const { p, q, tier } = parseClass(classId);
   const skin = SKIN[race] ?? SKIN["human"]!, hair = HAIR[race] ?? HAIR["human"]!;
   const [main, trim0] = OUTFIT[p] ?? OUTFIT["none"]!;
@@ -39,12 +41,15 @@ export function Avatar({ race, gender, classId, size = "100%" }: { race: string;
   // tiefling tail
   if (race === "tiefling") { px(12, 12, 1, 2, skin); px(13, 11, 1, 1, skin); px(14, 10, 1, 1, "#7a1a1a"); }
   // legs & boots
-  px(5, 13, 2, 2, "#3a2a20"); px(9, 13, 2, 2, "#3a2a20"); px(5, 15, 2, 1, "#1e1610"); px(9, 15, 2, 1, "#1e1610");
+  // walk cycle: alternate which leg is lifted
+  const lA = frame === 1 ? 1 : 0, lB = frame === 0 ? 1 : 0;
+  px(5, 13, 2, 2 - lA, "#3a2a20"); px(9, 13, 2, 2 - lB, "#3a2a20"); px(5, 15 - lA, 2, 1, "#1e1610"); px(9, 15 - lB, 2, 1, "#1e1610");
   // body / outfit (skirt-ish flare for female)
   px(4, 8, 8, 5, main); if (fem) px(3, 11, 10, 2, main);
   px(4, 10, 8, 1, trim); px(7, 8, 2, 2, trim);
   // arms
-  px(3, 8, 1, 4, main); px(12, 8, 1, 4, main); px(3, 12, 1, 1, skin); px(12, 12, 1, 1, skin);
+  const aA = frame === undefined ? 0 : frame === 0 ? -1 : 1;
+  px(3, 8 + aA, 1, 4, main); px(12, 8 - aA, 1, 4, main); px(3, 12 + aA, 1, 1, skin); px(12, 12 - aA, 1, 1, skin);
   // long hair behind (female / nb)
   if (fem && race !== "dragonborn") px(4, 3, 8, 7, hair);
   if (nb && race !== "dragonborn") px(4, 3, 8, 5, hair);
@@ -52,8 +57,8 @@ export function Avatar({ race, gender, classId, size = "100%" }: { race: string;
   px(5, 2, 6, 6, skin);
   // eyes
   const eye = race === "tiefling" ? "#ffd23a" : race === "aasimar" ? "#7ad8ff" : race === "dragonborn" ? "#ffcc33" : "#1a1a1a";
-  px(6, 4, 1, 1, eye); px(9, 4, 1, 1, eye);
-  if (fem) { px(6, 6, 1, 1, "#e08a8a"); px(9, 6, 1, 1, "#e08a8a"); }
+  if (!back) { if (side) px(6, 4, 1, 1, eye); else { px(6, 4, 1, 1, eye); px(9, 4, 1, 1, eye); } }
+  if (fem && !back && !side) { px(6, 6, 1, 1, "#e08a8a"); px(9, 6, 1, 1, "#e08a8a"); }
   // race features
   if (race === "elf") { px(4, 3, 1, 2, skin); px(3, 2, 1, 2, skin); px(11, 3, 1, 2, skin); px(12, 2, 1, 2, skin); }
   if (race === "halfling") { px(4, 4, 1, 1, skin); px(11, 4, 1, 1, skin); }
@@ -67,9 +72,12 @@ export function Avatar({ race, gender, classId, size = "100%" }: { race: string;
     if (!fem && !nb) px(5, 3, 1, 1, hair);
     if (fem) { px(4, 2, 1, 5, hair); px(11, 2, 1, 5, hair); }
   }
+  // back view: hair (or scales) covers the face
+  if (back) px(5, 1, 6, 6, race === "dragonborn" ? "#2b6b5a" : hair);
+  if (back && race === "dragonborn") px(5, 7, 6, 1, "#2f7a66");
   // dwarf beard / braids
-  if (race === "dwarf") { if (fem) { px(4, 7, 1, 3, hair); px(11, 7, 1, 3, hair); } else { px(5, 6, 6, 3, hair); px(6, 9, 4, 1, hair); } }
-  if (race === "human" && gender === "Male") px(6, 7, 4, 1, hair);
+  if (race === "dwarf" && !back) { if (fem) { px(4, 7, 1, 3, hair); px(11, 7, 1, 3, hair); } else { px(5, 6, 6, 3, hair); px(6, 9, 4, 1, hair); } }
+  if (race === "human" && gender === "Male" && !back) px(6, 7, 4, 1, hair);
   // class headgear
   if (p === "agility" || p === "hunting") { px(4, 1, 8, 2, main); px(4, 3, 1, 3, main); px(11, 3, 1, 3, main); }
   if (p === "arcane" || p === "dark") { px(5, -1, 6, 2, main); px(6, -2, 4, 1, main); px(7, -3, 2, 1, main); }
@@ -96,7 +104,7 @@ export function Avatar({ race, gender, classId, size = "100%" }: { race: string;
   const tf = small ? "translate(2.4 3.6) scale(0.72)" : race === "dwarf" ? "translate(-0.8 2) scale(1.1 0.88)" : race === "orc" || race === "dragonborn" ? "translate(-0.5 0) scale(1.06 1)" : "";
   return (
     <svg viewBox="0 -3 16 19" width={size} height={size} shapeRendering="crispEdges" style={{ display: "block", overflow: "visible" }} aria-label={`${gender} ${race}`}>
-      <g transform={tf}>{r.map(([x, y, w, h, c], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={c} />)}</g>
+      <g transform={dir === "r" ? "translate(16 0) scale(-1 1)" : undefined}><g transform={tf}>{r.map(([x, y, w, h, c], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={c} />)}</g></g>
     </svg>
   );
 }

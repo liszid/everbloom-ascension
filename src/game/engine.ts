@@ -20,6 +20,7 @@ export interface Gear {
 }
 export interface Food { name: string; icon: string; heal: number; qty: number; tier: number }
 export interface Mon {
+  face?: "l" | "r" | "u" | "d" | undefined; movedAt?: number | undefined;
   uid: string; def: string; name: string; icon: string; x: number; y: number; hp: number; maxHp: number;
   atk: number; defn: number; weak: Element; element: Element; tier: number; boss: 0 | 1 | 2 | 3; magical: boolean;
   ability?: MonsterDef["ability"] | undefined; affix?: string | undefined; xp: number; drops: string[]; dodge: number;
@@ -616,7 +617,7 @@ export function enterDungeon(s: GameState, f: number) {
 }
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
-  s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { x: 14, y: 12 };
+  s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { x: 14, y: 13 };
   s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
@@ -649,7 +650,7 @@ export function moveMonsters(s: GameState): Mon | null {
       if (!ox && !oy) continue;
       const nx = m.x + ox!, ny = m.y + oy!;
       const tt = d.tiles[ny]?.[nx];
-      if (tt === "." && !d.monsters.some((o) => o.x === nx && o.y === ny) && !(nx === s.pos.x && ny === s.pos.y)) { m.x = nx; m.y = ny; break; }
+      if (tt === "." && !d.monsters.some((o) => o.x === nx && o.y === ny) && !(nx === s.pos.x && ny === s.pos.y)) { m.face = ox! > 0 ? "r" : ox! < 0 ? "l" : oy! > 0 ? "d" : "u"; m.movedAt = s.step; m.x = nx; m.y = ny; break; }
     }
   }
   return attacker;

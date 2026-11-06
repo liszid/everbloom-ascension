@@ -312,7 +312,7 @@ export const SKILLS: Record<string, { name: string; icon: string; desc: string; 
 
 // ---------- village ----------
 // # fence , path . grass | T B I E trees | R rock | F flower | W water | G plot | c s w animals | o decoration spot
-// Buildings: H home A forge K kitchen C carpentry U smelter $ shop M market N tavern X casino Q warehouse D tower
+// Buildings occupy 2x2 tiles: H home A forge K kitchen C carpentry U smelter $ shop M market N tavern X casino Q warehouse D tower
 export const BUILDINGS: Record<string, { name: string; icon: string }> = {
   H: { name: "Home", icon: "🏠" }, A: { name: "Forge", icon: "⚒️" }, K: { name: "Kitchen", icon: "🍳" },
   C: { name: "Carpentry", icon: "🪚" }, U: { name: "Smelter", icon: "🔥" }, $: { name: "Shop", icon: "🏪" },
@@ -321,19 +321,19 @@ export const BUILDINGS: Record<string, { name: string; icon: string }> = {
 };
 export const VILLAGE_MAP = [
   "####################",
-  "#TTBTT.F.F..WWWW.TI#",
-  "#TT.,,,,,,,,WWWW..E#",
-  "#B..,H..K..,WWW..TB#",
-  "#T..,..o...,..o...T#",
-  "#..F,,A,,C,,U,,$,..#",
-  "#.F.,.......o..,.RR#",
-  "#GGG,.cc..ss...,.RR#",
-  "#GGG,.c...s....,R.R#",
-  "#GGG,..o.......,...#",
+  "#TTBT.F.F...WWWW.TI#",
+  "#TT.HH.KK.AA.WWW..E#",
+  "#B..HH.KK.AA.WWW.TB#",
+  "#T..,,,,,,,,,,,,,.T#",
+  "#..F,CC.UU.$$.QQ,..#",
+  "#.F.,CC.UU.$$.QQ,RR#",
+  "#GGG,,,,,,,,,,,,,RR#",
+  "#GGG,.cc..ss.o.,R.R#",
+  "#GGG,.c...s..o.,...#",
   "#...,,,,,,,,,,,,,,.#",
-  "#F.F..ww.M..N..X,F.#",
-  "#.F...w....o..,Q.F.#",
-  "#..F.........,D,...#",
+  "#F.F.MM.NN.XX.DD,F.#",
+  "#.F.oMM.NN.XX.DD,.F#",
+  "#..F...o...o.,,,...#",
   "####################",
 ];
 

@@ -7,17 +7,18 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, startCombat, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE,
-  type CombatAct, type GameState,
+  setCombatPrefs, spend, startCombat, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  type CombatAct, type GameState, type Mon,
 } from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
-  TavernPanel, TowerPanel, WarehousePanel, fmt,
+  TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,
 } from "./Panels";
 import { ProfilePanel } from "./Profile";
 import { CombatView, EvoModal, ResultView } from "./Combat";
 import { CreateCharacter } from "./CreateCharacter";
-import { Avatar } from "./Avatar";
+import { Avatar, type Facing } from "./Avatar";
+import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
 
 type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse";
@@ -38,6 +39,15 @@ export function Game({ userId }: { userId: string }) {
   const [saving, setSaving] = useState("");
   const [toasts, setToasts] = useState<{ id: number; t: string }[]>([]);
   const st = useSettings();
+  const [face, setFace] = useState<Facing>("d");
+  const [walkF, setWalkF] = useState<0 | 1 | undefined>(undefined);
+  const walkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepAnim = (dx: number, dy: number) => {
+    setFace(dx > 0 ? "r" : dx < 0 ? "l" : dy < 0 ? "u" : "d");
+    setWalkF((f) => (f === 0 ? 1 : 0));
+    if (walkTimer.current) clearTimeout(walkTimer.current);
+    walkTimer.current = setTimeout(() => setWalkF(undefined), 260);
+  };
   const pathRef = useRef<{ x: number; y: number }[]>([]);
   const pathAction = useRef<null | (() => void)>(null);
 
@@ -55,6 +65,7 @@ export function Game({ userId }: { userId: string }) {
       if (loaded) {
         // one-time rebalance: agility used to grow far too fast from walking
         if (!loaded.agiFix) { loaded.aff["agility"] = (loaded.aff["agility"] ?? 0) * 0.3; loaded.agiFix = true; dirty.current = true; }
+        if (loaded.loc === "village" && !WALKABLE_V.has(villageTile(loaded.pos.x, loaded.pos.y))) loaded.pos = { ...VILLAGE_START };
         ref.current = loaded; loaded.notes = []; setS(loaded);
       }
       else setNeedChar({ hadOld: !!raw && !slots.current.length });
@@ -102,6 +113,7 @@ export function Game({ userId }: { userId: string }) {
   // ---- core move ----
   const move = useCallback((dx: number, dy: number) => {
     if (blocked() || panel) return;
+    stepAnim(dx, dy);
     const open = act<{ t: PanelT; x?: number; y?: number } | null>((n) => {
       const tx = n.pos.x + dx, ty = n.pos.y + dy;
       if (n.loc === "village") {
@@ -242,9 +254,9 @@ export function Game({ userId }: { userId: string }) {
   const W = inV ? 20 : s.dungeon!.w, H = inV ? 15 : s.dungeon!.h;
   const cx = Math.max(0, Math.min(W - VW, s.pos.x - Math.floor(VW / 2)));
   const cy = Math.max(0, Math.min(H - VH, s.pos.y - Math.floor(VH / 2)));
-  const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} />;
+  const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir={face} frame={walkF} />;
   const cells = [];
-  for (let y = cy; y < cy + VH; y++) for (let x = cx; x < cx + VW; x++) cells.push(renderTile(s, x, y, avatar));
+  for (let y = cy; y < cy + VH; y++) for (let x = cx; x < cx + VW; x++) cells.push(renderTile(s, x, y, avatar, cx, cy, walkF !== undefined));
   const close = () => setPanel(null);
 
   return (
@@ -288,6 +300,7 @@ export function Game({ userId }: { userId: string }) {
         <NavBtn icon="⚙️" label="Settings" onClick={() => setPanel({ t: "settings" })} />
       </nav>
 
+      <SceneCtx.Provider value={panel && INTERIOR_PANELS.has(panel.t) ? <Interior panel={panel.t} hero={{ race: s.char.race, gender: s.char.gender, classId: s.classId }} /> : null}>
       {panel?.t === "forge" && <ForgePanel s={s} onClose={close} onCraft={(m, sl) => { const g = act((n) => craftGear(n, m, sl)); sfx(g ? "loot" : "fail"); }}
         onEnhance={(id) => act((n) => enhance(n, id))} onRepair={(id) => act((n) => repair(n, id))} onUpgrade={() => act(upgradeForge)} />}
       {panel?.t === "bag" && <BagPanel s={s} onClose={close} onEat={(i) => act((n) => { eatFood(n, i); })} onEquip={(id) => act((n) => equipGear(n, id))} onSell={(id) => { act((n) => sellGear(n, id)); sfx("coin"); }} />}
@@ -314,6 +327,7 @@ export function Game({ userId }: { userId: string }) {
         onTakeGear={(id) => act((n) => { const g = n.whGear.find((x) => x.id === id); if (g) { n.whGear = n.whGear.filter((x) => x.id !== id); n.gear.push(g); } })}
         onStoreAll={() => act((n) => { for (const [id, q] of Object.entries(n.inv)) { n.wh[id] = (n.wh[id] ?? 0) + q; } n.inv = {}; })}
         onTake={(id) => act((n) => { const q = n.wh[id] ?? 0; if (takeMat(n, id, q, "wh")) addMat(n, id, q); })} />}
+      </SceneCtx.Provider>
 
       {s.combat && <CombatView s={s} onAct={(a: CombatAct) => { const r = act((n) => combatTurn(n, a)); sfx(r === "lose" ? "fail" : r === "win" ? "level" : "hit"); }} />}
       {s.result && <ResultView s={s} onCollect={() => { act(collectLoot); sfx("loot"); }} onContinue={() => act((n) => { n.result = undefined; clampVitals(n); })} />}
@@ -355,10 +369,10 @@ function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
 const DECO_SPOTS: [number, number][] = [];
 VILLAGE.forEach((r, y) => [...r].forEach((c, x) => { if (c === "o") DECO_SPOTS.push([x, y]); }));
 
-function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode) {
+function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode, cx: number, cy: number, walking: boolean) {
   const k = `${x},${y}`;
   const isP = s.pos.x === x && s.pos.y === y;
-  let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "";
+  let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "", bldg: React.ReactNode = null, mon: Mon | undefined;
   if (s.loc === "village") {
     const t = VILLAGE[y]?.[x] ?? "#";
     const depleted = (s.village.nodes[k] ?? 0) > s.step;
@@ -372,7 +386,21 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode)
     else if (t === "W") { cls = "tile-water tap"; glyph = depleted ? "" : (x * 7 + y * 3) % 5 === 0 ? "🐟" : ""; }
     else if (t === "G") { cls = "tile-soil tap"; const p = s.village.plots[k]; glyph = p ? (p.readyAt <= s.step ? getMat(p.crop).icon : "🌱") : ""; }
     else if (ANIMALS[t]) { glyph = ANIMALS[t]!.icon; dim = (s.village.animals[k] ?? 0) > s.step; cls += " tap"; }
-    else if (BUILDINGS[t]) { cls = "tile-station tap"; glyph = BUILDINGS[t]!.icon; label = BUILDINGS[t]!.name; }
+    else if (BUILDINGS[t]) {
+      cls = "tile-station-part tap";
+      // 2x2 building: draw it once, anchored on its first visible tile
+      let bx = x, by = y;
+      while (VILLAGE[y]?.[bx - 1] === t) bx--;
+      while (VILLAGE[by - 1]?.[x] === t) by--;
+      if (x === Math.max(bx, cx) && y === Math.max(by, cy)) {
+        bldg = (
+          <span className="bldg" style={{ left: `${-(x - bx) * 100}%`, top: `${-(y - by) * 100}%` }}>
+            <span className="bldg-roof" /><span className="bldg-wall" /><span className="bldg-door" />
+            <span className="bldg-icon">{BUILDINGS[t]!.icon}</span><span className="bldg-name">{BUILDINGS[t]!.name}</span>
+          </span>
+        );
+      }
+    }
   } else {
     const d = s.dungeon!;
     const t = d.tiles[y]?.[x] ?? "#";
@@ -381,11 +409,14 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode)
     if (t === "$") glyph = "🧰";
     if (t === ">") glyph = d.bossAlive ? "🔒" : "🪜";
     const m = d.monsters.find((mm) => mm.x === x && mm.y === y);
-    if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; }
+    if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; mon = m; }
   }
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`}>
-      {isP ? <span className="tile-player h-[90%] w-[90%]">{avatar}</span> : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
+      {bldg}
+      {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
+        : mon ? <span className={`mon-sprite ${boss ? "tile-boss" : ""} ${mon.movedAt === s.step ? "mon-walk" : "mon-idle"} mon-face-${mon.face ?? "l"}`}><span>{glyph}</span></span>
+        : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
     </div>
   );
