@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import {
   ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat,
   type Slot, type Stats,
@@ -18,7 +18,10 @@ export const fmt = (n: number) => {
   return (Math.round(n * 10) / 10).toString();
 };
 
+// Building windows show an interior scene (keeper NPC) above their content.
+export const SceneCtx = createContext<ReactNode>(null);
 export function Sheet({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  const scene = useContext(SceneCtx);
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/70 sm:items-center" onClick={onClose}>
       <div className={`pixel-panel flex max-h-[90dvh] w-full ${wide ? "max-w-2xl" : "max-w-lg"} flex-col`} onClick={(e) => e.stopPropagation()}>
@@ -26,6 +29,7 @@ export function Sheet({ title, onClose, children, wide }: { title: string; onClo
           <h2 className="min-w-0 truncate text-base text-primary">{title}</h2>
           <button className="pixel-btn h-10 w-10 shrink-0" aria-label="Close" onClick={onClose}>✕</button>
         </div>
+        {scene}
         <div className="overflow-y-auto overscroll-contain p-3">{children}</div>
       </div>
     </div>
