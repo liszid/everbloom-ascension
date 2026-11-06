@@ -8,11 +8,11 @@ import {
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
   setCombatPrefs, spend, startCombat, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
-  type CombatAct, type GameState,
+  type CombatAct, type GameState, type Mon,
 } from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
-  TavernPanel, TowerPanel, WarehousePanel, fmt,
+  TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,
 } from "./Panels";
 import { ProfilePanel } from "./Profile";
 import { CombatView, EvoModal, ResultView } from "./Combat";
@@ -327,6 +327,7 @@ export function Game({ userId }: { userId: string }) {
         onTakeGear={(id) => act((n) => { const g = n.whGear.find((x) => x.id === id); if (g) { n.whGear = n.whGear.filter((x) => x.id !== id); n.gear.push(g); } })}
         onStoreAll={() => act((n) => { for (const [id, q] of Object.entries(n.inv)) { n.wh[id] = (n.wh[id] ?? 0) + q; } n.inv = {}; })}
         onTake={(id) => act((n) => { const q = n.wh[id] ?? 0; if (takeMat(n, id, q, "wh")) addMat(n, id, q); })} />}
+      </SceneCtx.Provider>
 
       {s.combat && <CombatView s={s} onAct={(a: CombatAct) => { const r = act((n) => combatTurn(n, a)); sfx(r === "lose" ? "fail" : r === "win" ? "level" : "hit"); }} />}
       {s.result && <ResultView s={s} onCollect={() => { act(collectLoot); sfx("loot"); }} onContinue={() => act((n) => { n.result = undefined; clampVitals(n); })} />}

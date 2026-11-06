@@ -176,3 +176,39 @@
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 @keyframes evo-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes evo-glow { from { box-shadow: 0 0 20px var(--gold); } to { box-shadow: 0 0 50px var(--accent); } }
+
+/* ---- sprite motion ---- */
+.tile-player.walking { animation: walk-bob 0.13s steps(2) infinite; }
+.mon-sprite { display: inline-flex; filter: drop-shadow(0 2px 0 var(--ink)); }
+.mon-sprite > span { display: inline-block; }
+.mon-face-r > span { transform: scaleX(-1); }
+.mon-face-u > span { transform: scaleY(0.92) translateY(-1px); filter: brightness(0.8); }
+.mon-idle > span { animation: mon-breathe 1.2s steps(2) infinite; }
+.mon-face-r.mon-idle > span { animation-name: mon-breathe-r; }
+.mon-walk { animation: walk-bob 0.15s steps(2) 3; }
+@keyframes walk-bob { 0% { transform: translateY(0); } 100% { transform: translateY(-3px); } }
+@keyframes mon-breathe { 0% { transform: scale(1, 1); } 100% { transform: scale(1.05, 0.95) translateY(1px); } }
+@keyframes mon-breathe-r { 0% { transform: scaleX(-1); } 100% { transform: scale(-1.05, 0.95) translateY(1px); } }
+
+/* ---- 2x2 buildings ---- */
+.map-grid { overflow: hidden; }
+.tile-station-part { background: var(--tile-path); }
+.bldg { position: absolute; width: 200%; height: 200%; z-index: 2; pointer-events: none; display: block; }
+.bldg-roof { position: absolute; left: 4%; right: 4%; top: 4%; height: 46%; background: var(--accent); border: 2px solid var(--ink);
+  clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%); box-shadow: inset 0 -4px 0 color-mix(in oklab, var(--ink) 40%, transparent); }
+.bldg-wall { position: absolute; left: 10%; right: 10%; top: 48%; bottom: 4%; background: var(--tile-station); border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+.bldg-door { position: absolute; left: 42%; width: 16%; top: 70%; bottom: 4%; background: var(--tile-fence); border: 2px solid var(--ink); border-bottom: none; }
+.bldg-icon { position: absolute; left: 0; right: 0; top: 10%; text-align: center; font-size: clamp(16px, 6vw, 30px); filter: drop-shadow(1px 1px 0 var(--ink)); }
+.bldg-name { position: absolute; left: 0; right: 0; top: 52%; text-align: center; font-family: var(--font-display); font-size: 8px; color: var(--ink); line-height: 1; }
+
+/* ---- building interior ---- */
+.interior { position: relative; height: 128px; overflow: hidden; border-bottom: 2px solid var(--border); image-rendering: pixelated; }
+.interior-wall { position: absolute; inset: 0 0 55% 0; background: repeating-linear-gradient(90deg, var(--tile-fence) 0 22px, color-mix(in oklab, var(--tile-fence) 80%, var(--ink)) 22px 24px); }
+.interior-floor { position: absolute; inset: 45% 0 0 0; background: repeating-conic-gradient(var(--tile-floor) 0 25%, var(--tile-floor-2) 0 50%) 0 0 / 24px 24px; }
+.interior-npc { position: absolute; left: 50%; top: 14px; width: 52px; height: 52px; transform: translateX(-50%); animation: bob 1s steps(2) infinite; }
+.interior-counter { position: absolute; left: 30%; right: 30%; top: 56px; height: 22px; background: var(--tile-station); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.interior-bed { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); font-size: 40px; }
+.interior-hero { position: absolute; left: 50%; bottom: 4px; width: 40px; height: 40px; margin-left: -20px; animation: walk-in 700ms steps(6) both; }
+.interior-door { position: absolute; left: 50%; bottom: 0; width: 44px; height: 4px; margin-left: -22px; background: var(--gold); }
+.interior-bubble { position: absolute; right: 6px; top: 6px; max-width: 42%; background: var(--card); border: 2px solid var(--border); box-shadow: 2px 2px 0 var(--ink); padding: 2px 6px; font-size: 0.8rem; line-height: 1.1; animation: toast-in 300ms ease-out 400ms both; }
+@keyframes walk-in { from { transform: translateY(46px); } to { transform: translateY(0); } }
