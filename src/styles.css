@@ -210,5 +210,5 @@
 .interior-bed { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); font-size: 40px; }
 .interior-hero { position: absolute; left: 50%; bottom: 4px; width: 40px; height: 40px; margin-left: -20px; animation: walk-in 700ms steps(6) both; }
 .interior-door { position: absolute; left: 50%; bottom: 0; width: 44px; height: 4px; margin-left: -22px; background: var(--gold); }
-.interior-bubble { position: absolute; right: 6px; top: 6px; max-width: 42%; background: var(--card); border: 2px solid var(--border); box-shadow: 2px 2px 0 var(--ink); padding: 2px 6px; font-size: 0.8rem; line-height: 1.1; animation: toast-in 300ms ease-out 400ms both; }
+.interior-bubble { position: absolute; right: 6px; top: 6px; max-width: calc(50% - 36px); background: var(--card); border: 2px solid var(--border); box-shadow: 2px 2px 0 var(--ink); padding: 2px 6px; font-size: 0.8rem; line-height: 1.1; animation: toast-in 300ms ease-out 400ms both; }
 @keyframes walk-in { from { transform: translateY(46px); } to { transform: translateY(0); } }
