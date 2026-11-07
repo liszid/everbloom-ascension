@@ -445,7 +445,13 @@ export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?:
       {tab === "chars" && chars && <>
         <p className="py-1 text-sm text-muted-foreground">{chars.list.length}/{chars.max} characters</p>
         {chars.list.map((c, i) => (
-          <div key={i} className={`mb-1 flex items-center gap-2 border-2 p-2 ${i === chars.active ? <span className="text-xs text-accent">Playing</span> : <>
+          <div key={i} className={`mb-1 flex items-center gap-2 border-2 p-2 ${i === chars.active ? "border-primary" : "border-border"}`}>
+            <div className="w-10 shrink-0"><Avatar race={c.char.race} gender={c.char.gender} classId={computeClass(c).id} /></div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-primary">{c.char.name}</div>
+              <div className="truncate text-xs text-muted-foreground capitalize">{c.char.race} · {computeClass(c).name} · Best floor {c.maxFloor}</div>
+            </div>
+            {i === chars.active ? <span className="text-xs text-accent">Playing</span> : <>
               <button className="pixel-btn pixel-btn-primary px-2 py-2" onClick={() => chars.onSwitch(i)}>Play</button>
               <button className="pixel-btn px-2 py-2" aria-label={`Delete ${c.char.name}`} onClick={() => confirmation.ask({ title: "Delete character?", text: `Permanently delete ${c.char.name} and their progress?`, label: "Delete", danger: true, action: () => chars.onDelete(i) })}>🗑️</button>
             </>}
