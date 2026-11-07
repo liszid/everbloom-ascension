@@ -17,6 +17,9 @@ import {
 import { ProfilePanel } from "./Profile";
 import { CombatView, EvoModal, ResultView } from "./Combat";
 import { CreateCharacter } from "./CreateCharacter";
+import { Building } from "./Building";
+import { MonsterSprite } from "./MonsterSprite";
+import { ConfirmationProvider, useGameConfirm } from "./Confirm";
 import { Avatar, type Facing } from "./Avatar";
 import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
@@ -28,6 +31,10 @@ const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 export const MAX_CHARS = 5;
 export function Game({ userId }: { userId: string }) {
+  return <ConfirmationProvider><GameSession userId={userId} /></ConfirmationProvider>;
+}
+function GameSession({ userId }: { userId: string }) {
+  const confirmation = useGameConfirm();
   const [s, setS] = useState<GameState | null>(null);
   const [needChar, setNeedChar] = useState<null | { hadOld: boolean }>(null);
   const ref = useRef<GameState | null>(null);
@@ -108,7 +115,7 @@ export function Game({ userId }: { userId: string }) {
   const toastsOn = useRef(st.lootToasts); toastsOn.current = st.lootToasts;
   const getSettingsToasts = () => toastsOn.current;
 
-  const blocked = () => { const c = ref.current; return !c || !!c.combat || !!c.result || !!c.pendingEvo; };
+  const blocked = () => { const c = ref.current; return confirmation.pending || !c || !!c.combat || !!c.result || !!c.pendingEvo; };
 
   // ---- core move ----
   const move = useCallback((dx: number, dy: number) => {
@@ -141,9 +148,10 @@ export function Game({ userId }: { userId: string }) {
       return null;
     });
     if (open?.x === -1) {
-      if (!getConfirm() || confirm("Take the stairs? This clears the floor and returns you to the village.")) act(clearFloor);
+      if (!getConfirm()) act(clearFloor);
+      else confirmation.ask({ title: "Clear this floor?", text: "Take the stairs and return to the village with your loot.", label: "Take stairs", action: () => act(clearFloor) });
     } else if (open) setPanel(open);
-  }, [act, panel]);
+  }, [act, panel, confirmation.pending]);
   const confirmRef = useRef(st.confirmNextFloor); confirmRef.current = st.confirmNextFloor;
   const getConfirm = () => confirmRef.current;
 
@@ -260,7 +268,7 @@ export function Game({ userId }: { userId: string }) {
   const close = () => setPanel(null);
 
   return (
-    <div className="mx-auto flex h-dvh max-w-lg flex-col gap-1.5 p-1.5" onPointerDown={unlockAudio}>
+    <div className="game-shell mx-auto flex h-dvh w-full min-w-0 max-w-lg flex-col gap-1.5 p-1.5" onPointerDown={unlockAudio}>
       <header className="pixel-panel p-1.5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <button className="flex min-w-0 items-center gap-1 text-left" onClick={() => setPanel({ t: "profile" })}>
@@ -276,7 +284,7 @@ export function Game({ userId }: { userId: string }) {
 
       {s.won && <div className="pixel-panel p-1 text-center font-display text-gold title-glow">👑 Tower Conqueror 👑</div>}
 
-      <div className="relative min-h-0 flex-1">
+      <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
           <div className="map-grid" style={{ gridTemplateColumns: `repeat(${VW}, 1fr)` }}>{cells}</div>
           {stick && <div className="joy-base" style={{ left: stick.ox - 50, top: stick.oy - 50 }}><div className="joy-knob" style={{ transform: `translate(${stick.dx}px, ${stick.dy}px)` }} /></div>}
@@ -296,7 +304,7 @@ export function Game({ userId }: { userId: string }) {
         <NavBtn icon="👤" label="Profile" onClick={() => setPanel({ t: "profile" })} />
         {inV ? <NavBtn icon="⚒️" label="Forge" onClick={() => setPanel({ t: "forge" })} /> : <NavBtn icon="🍖" label="Eat" onClick={() => setPanel({ t: "bag" })} />}
         {inV ? <NavBtn icon="🗼" label="Tower" onClick={() => setPanel({ t: "tower" })} />
-          : <NavBtn icon="🏃" label="Retreat" danger onClick={() => { if (confirm("Retreat to the village? You keep your loot but the floor stays uncleared.")) act((n) => { leaveDungeon(n, true); log(n, "🏃 You retreat with your loot."); }); }} />}
+          : <NavBtn icon="🏃" label="Retreat" danger onClick={() => confirmation.ask({ title: "Retreat?", text: "You keep your loot, but this floor stays uncleared.", label: "Retreat", action: () => act((n) => { leaveDungeon(n, true); log(n, "🏃 You retreat with your loot."); }) })} />}
         <NavBtn icon="⚙️" label="Settings" onClick={() => setPanel({ t: "settings" })} />
       </nav>
 
@@ -395,8 +403,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
       if (x === Math.max(bx, cx) && y === Math.max(by, cy)) {
         bldg = (
           <span className="bldg" style={{ left: `${-(x - bx) * 100}%`, top: `${-(y - by) * 100}%` }}>
-            <span className="bldg-roof" /><span className="bldg-wall" /><span className="bldg-door" />
-            <span className="bldg-icon">{BUILDINGS[t]!.icon}</span><span className="bldg-name">{BUILDINGS[t]!.name}</span>
+            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} />
           </span>
         );
       }
@@ -415,7 +422,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`}>
       {bldg}
       {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
-        : mon ? <span className={`mon-sprite ${boss ? "tile-boss" : ""} ${mon.movedAt === s.step ? "mon-walk" : "mon-idle"} mon-face-${mon.face ?? "l"}`}><span>{glyph}</span></span>
+        : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />
         : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
     </div>

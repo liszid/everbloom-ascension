@@ -19,9 +19,19 @@ export const DEFAULT_SETTINGS: Settings = {
 const KEY = "thornvale-settings";
 let current: Settings = DEFAULT_SETTINGS;
 const subs = new Set<(s: Settings) => void>();
+let watchingFullscreen = false;
 export function loadSettings() {
   try { const raw = localStorage.getItem(KEY); if (raw) current = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch { /* ignore */ }
-  applySettings(current); return current;
+  if (!watchingFullscreen) {
+    watchingFullscreen = true;
+    document.addEventListener("fullscreenchange", () => {
+      current = { ...current, fullscreen: !!document.fullscreenElement };
+      try { localStorage.setItem(KEY, JSON.stringify(current)); } catch { /* ignore */ }
+      subs.forEach((f) => f(current));
+    });
+  }
+  current = { ...current, fullscreen: !!document.fullscreenElement };
+  applySettings(current); subs.forEach((f) => f(current)); return current;
 }
 export function getSettings() { return current; }
 export function updateSettings(p: Partial<Settings>) {

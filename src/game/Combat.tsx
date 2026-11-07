@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES } from "./data";
 import { combatActives, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
+import { MonsterSprite } from "./MonsterSprite";
 import { useSettings } from "./settings";
 
 export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) => void }) {
@@ -24,9 +25,9 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
   const logLines = st.detailedLog ? c.log.slice(0, 6) : c.log.slice(0, 2);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
-      <div className={`pixel-panel w-full max-w-md p-3 ${shake ? "shake" : ""}`}>
+      <div className={`pixel-panel max-h-[96dvh] w-full max-w-md overflow-y-auto p-3 ${shake ? "shake" : ""}`}>
         <div className="relative text-center">
-          <div className={`text-6xl ${m.boss ? "tile-boss" : ""}`}>{m.icon}</div>
+          <div className="mx-auto h-20 w-20"><MonsterSprite kind={m.def} name={m.name} boss={m.boss} /></div>
           {floats.filter((f) => !f.me).map((f) => <span key={f.id} className="float-num text-gold">{f.t}</span>)}
           <h2 className="mt-1 text-base text-accent">{m.name}</h2>
           <div className="text-xs text-muted-foreground">Floor {s.dungeon!.floor} · {m.magical ? "Magic" : "Physical"} · weak {ELEMENT_ICON[m.weak]}{m.weak}{c.charging ? " · ⚠️ CHARGING" : ""}</div>
