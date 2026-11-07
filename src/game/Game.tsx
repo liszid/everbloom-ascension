@@ -422,7 +422,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`}>
       {bldg}
       {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
-        : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />
+        : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />
         : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
     </div>
