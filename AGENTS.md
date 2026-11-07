@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Game confirmations use the shared ConfirmationProvider rather than native browser dialogs to keep fullscreen intact.
+- Building and monster artwork uses browser-safe procedural SVG modules with palette tokens in src/styles.css so gameplay and presentation remain separate.
+- Mobile map width follows available horizontal space; short screens scroll vertically instead of compressing the map.

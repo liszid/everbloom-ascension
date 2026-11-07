@@ -8,6 +8,8 @@ import {
   forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice, sellableList,
   type GameState, type Gear,
 } from "./engine";
+import { useGameConfirm } from "./Confirm";
+import { Button } from "@/components/ui/button";
 import { Avatar } from "./Avatar";
 import { useSettings, updateSettings, type Settings, type Speed } from "./settings";
 
@@ -24,13 +26,13 @@ export function Sheet({ title, onClose, children, wide }: { title: string; onClo
   const scene = useContext(SceneCtx);
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/70 sm:items-center" onClick={onClose}>
-      <div className={`pixel-panel flex max-h-[90dvh] w-full ${wide ? "max-w-2xl" : "max-w-lg"} flex-col`} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-2 border-b-2 border-border px-3 py-2">
+      <div className={`game-sheet pixel-panel flex max-h-[94dvh] w-full ${wide ? "max-w-2xl" : "max-w-lg"} flex-col`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between shrink-0 gap-2 border-b-2 border-border px-3 py-1.5">
           <h2 className="min-w-0 truncate text-base text-primary">{title}</h2>
           <button className="pixel-btn h-10 w-10 shrink-0" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         {scene}
-        <div className="overflow-y-auto overscroll-contain p-3">{children}</div>
+        <div className="sheet-content min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">{children}</div>
       </div>
     </div>
   );
@@ -161,6 +163,7 @@ export function BagPanel({ s, onClose, onEat, onEquip, onSell }: { s: GameState;
   const [tab, setTab] = useState<"mats" | "gear" | "food">("gear");
   const st = useSettings();
   const inD = s.loc === "dungeon";
+  const confirmation = useGameConfirm();
   return (
     <Sheet title={`🎒 Bag · ${s.gold.toLocaleString()}g · 🎟️${s.tokens}`} onClose={onClose}>
       <Tabs tabs={[["gear", `Gear ${s.gear.length}/${GEAR_CAP}`], ["mats", "Materials"], ["food", `Food ${s.foods.reduce((a, f) => a + f.qty, 0)}`]]} cur={tab} set={setTab} />
@@ -179,7 +182,7 @@ export function BagPanel({ s, onClose, onEat, onEquip, onSell }: { s: GameState;
         {s.gear.slice().sort((a, b) => SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot)).map((g) => { const eq = s.equip[g.slot] === g.id; return (
           <GearCard key={g.id} g={g} equipped={eq} actions={<>
             <button className={`pixel-btn py-2 ${eq ? "" : "pixel-btn-primary"}`} onClick={() => onEquip(g.id)}>{eq ? "Unequip" : "Equip"}</button>
-            {!inD && <button className="pixel-btn pixel-btn-danger py-2" onClick={() => { if (g.grade >= 2 && st.confirmRareSell && !confirm(`Sell ${GRADES[g.grade]} ${g.name} for ${gearValue(g)}g?`)) return; onSell(g.id); }}>Sell {fmt(gearValue(g))}g</button>}
+            {!inD && <button className="pixel-btn pixel-btn-danger py-2" onClick={() => { if (g.grade >= 2 && st.confirmRareSell) confirmation.ask({ title: "Sell rare gear?", text: `Sell ${GRADES[g.grade]} ${g.name} for ${gearValue(g)}g?`, label: "Sell", danger: true, action: () => onSell(g.id) }); else onSell(g.id); }}>Sell {fmt(gearValue(g))}g</button>}
           </>} />); })}
       </div>}
       {tab === "food" && <>
@@ -300,15 +303,15 @@ export function ShopPanel({ s, onClose, onBuy, onSell }: { s: GameState; onClose
     <Sheet title={`🏪 Shop · ${s.gold.toLocaleString()}g`} onClose={onClose}>
       <Tabs tabs={[["buy", "Buy"], ["sell", "Sell"]]} cur={tab} set={setTab} />
       {tab === "buy" && SHOP_ITEMS.map((it, i) => (
-        <div key={it.id} className="flex items-center justify-between border-b border-border/40 py-1">
-          <span>{it.icon} {it.name}{it.heal ? ` (+${it.heal})` : ""}</span>
-          <button className="pixel-btn py-2" disabled={s.gold < it.price} onClick={() => onBuy(i)}>{it.price}g</button>
+        <div key={it.id} className="shop-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/40 py-2">
+          <span className="min-w-0 break-words leading-tight">{it.icon} {it.name}{it.heal ? ` (+${it.heal})` : ""}</span>
+          <Button variant="secondary" className="pixel-btn h-11 min-w-16" disabled={s.gold < it.price} onClick={() => onBuy(i)}>{it.price}g</Button>
         </div>))}
       {tab === "sell" && sellableList(s).length === 0 && <p className="py-3 text-sm text-muted-foreground">Nothing to sell.</p>}
       {tab === "sell" && sellableList(s).map((it) => (
-        <div key={it.id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
-          <span className="min-w-0 truncate">{getMat(it.id).icon} {getMat(it.id).name} ×{it.qty} <span className="shrink-0 text-muted-foreground">T{it.tier}</span></span>
-          <span className="flex shrink-0 gap-1"><button className="pixel-btn py-2" onClick={() => onSell(it.id, 1)}>{it.price}g</button><button className="pixel-btn py-2" onClick={() => onSell(it.id, it.qty)}>All</button></span>
+        <div key={it.id} className="shop-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/40 py-2">
+          <div className="min-w-0 leading-tight"><div className="break-words">{getMat(it.id).icon} {getMat(it.id).name}</div><div className="text-sm text-muted-foreground">T{it.tier} · ×{it.qty}</div></div>
+          <span className="flex shrink-0 gap-1"><Button variant="secondary" className="pixel-btn h-11 min-w-16" onClick={() => onSell(it.id, 1)}>{it.price}g</Button><Button variant="secondary" className="pixel-btn h-11" onClick={() => onSell(it.id, it.qty)}>All</Button></span>
         </div>))}
     </Sheet>
   );
@@ -418,7 +421,7 @@ export interface CharSlots { list: GameState[]; active: number; max: number; onS
 export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?: CharSlots }) {
   const st = useSettings();
   const [tab, setTab] = useState<"chars" | "display" | "audio" | "game" | "access">(chars ? "chars" : "display");
-  const [confirmDel, setConfirmDel] = useState<number | null>(null);
+  const confirmation = useGameConfirm();
   const T = ({ k, label }: { k: keyof Settings; label: string }) => (
     <label className="flex min-h-11 items-center justify-between border-b border-border/40 py-1">
       <span>{label}</span>
@@ -448,12 +451,9 @@ export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?:
               <div className="truncate text-primary">{c.char.name}</div>
               <div className="truncate text-xs text-muted-foreground capitalize">{c.char.race} · {computeClass(c).name} · Best floor {c.maxFloor}</div>
             </div>
-            {i === chars.active ? <span className="text-xs text-accent">Playing</span> : confirmDel === i ? <>
-              <button className="pixel-btn px-2 py-2 text-destructive" onClick={() => { chars.onDelete(i); setConfirmDel(null); }}>Delete!</button>
-              <button className="pixel-btn px-2 py-2" onClick={() => setConfirmDel(null)}>No</button>
-            </> : <>
+            {i === chars.active ? <span className="text-xs text-accent">Playing</span> : <>
               <button className="pixel-btn pixel-btn-primary px-2 py-2" onClick={() => chars.onSwitch(i)}>Play</button>
-              <button className="pixel-btn px-2 py-2" aria-label={`Delete ${c.char.name}`} onClick={() => setConfirmDel(i)}>🗑️</button>
+              <button className="pixel-btn px-2 py-2" aria-label={`Delete ${c.char.name}`} onClick={() => confirmation.ask({ title: "Delete character?", text: `Permanently delete ${c.char.name} and their progress?`, label: "Delete", danger: true, action: () => chars.onDelete(i) })}>🗑️</button>
             </>}
           </div>
         ))}

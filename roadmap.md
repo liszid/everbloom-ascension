@@ -1,0 +1,4 @@
+- [ ] Replace native confirmations with an in-game dialog and preserve fullscreen.
+- [ ] Restore full-width mobile map and compact shop/interior layout.
+- [ ] Add directional animated pixel-art monsters and distinct building architecture.
+- [ ] Verify mobile layout and dungeon return flow.

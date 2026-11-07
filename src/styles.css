@@ -80,6 +80,22 @@
   --grade-legend: oklch(0.82 0.16 75);
 
   --shadow-pixel: 3px 3px 0 0 var(--ink);
+  --sprite-ink: #171820;
+  --sprite-stone: #67777e;
+  --sprite-silver: #b4c4cc;
+  --sprite-bone: #e1dfbc;
+  --sprite-wood: #75513c;
+  --sprite-brick: #a65349;
+  --sprite-flame: #e45a38;
+  --sprite-gold: #efc85f;
+  --sprite-moss: #648d45;
+  --sprite-leaf: #395c38;
+  --sprite-mint: #b4d885;
+  --sprite-teal: #398780;
+  --sprite-ice: #83d9df;
+  --sprite-violet: #775783;
+  --sprite-rose: #c87491;
+  --sprite-eye: #f9eaca;
 }
 
 @layer base {
@@ -150,8 +166,11 @@
 @layer components {
   .bar-mp > div { background: oklch(0.65 0.15 250); }
   .bar-sta > div { background: oklch(0.8 0.15 95); }
-  .map-wrap { position: relative; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .map-wrap .map-grid { width: min(100%, calc((100dvh - 15rem) * var(--tile-scale, 1))); max-width: 100%; }
+  .map-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .map-wrap .map-grid { width: 100%; max-width: 100%; aspect-ratio: 1; flex-shrink: 0; }
+  .game-shell > header, .game-shell > nav, .game-shell > .pixel-panel { flex-shrink: 0; }
+  .game-map-area { width: 100%; min-height: min(100vw - 0.75rem, 31rem); }
+  .game-shell { overflow-y: auto; overflow-x: hidden; }
   .tile.tap { cursor: pointer; }
   .tile-label { position: absolute; bottom: 0; left: 0; right: 0; font-size: 7px; text-align: center; color: var(--ink); font-family: var(--font-display); line-height: 1; pointer-events: none; }
   .joy-base { position: absolute; width: 100px; height: 100px; border-radius: 9999px; border: 3px solid color-mix(in oklab, var(--foreground) 50%, transparent); background: color-mix(in oklab, var(--ink) 35%, transparent); pointer-events: none; display: flex; align-items: center; justify-content: center; z-index: 20; }
@@ -194,21 +213,35 @@
 .map-grid { overflow: hidden; }
 .tile-station-part { background: var(--tile-path); }
 .bldg { position: absolute; width: 200%; height: 200%; z-index: 2; pointer-events: none; display: block; }
-.bldg-roof { position: absolute; left: 4%; right: 4%; top: 4%; height: 46%; background: var(--accent); border: 2px solid var(--ink);
-  clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%); box-shadow: inset 0 -4px 0 color-mix(in oklab, var(--ink) 40%, transparent); }
-.bldg-wall { position: absolute; left: 10%; right: 10%; top: 48%; bottom: 4%; background: var(--tile-station); border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); }
-.bldg-door { position: absolute; left: 42%; width: 16%; top: 70%; bottom: 4%; background: var(--tile-fence); border: 2px solid var(--ink); border-bottom: none; }
-.bldg-icon { position: absolute; left: 0; right: 0; top: 10%; text-align: center; font-size: clamp(16px, 6vw, 30px); filter: drop-shadow(1px 1px 0 var(--ink)); }
-.bldg-name { position: absolute; left: 0; right: 0; top: 52%; text-align: center; font-family: var(--font-display); font-size: 8px; color: var(--ink); line-height: 1; }
+.building-art { display: block; width: 100%; height: 100%; filter: drop-shadow(1px 2px 0 var(--ink)); }
+.monster-art { display: block; width: 90%; height: 90%; position: relative; flex-shrink: 0; filter: drop-shadow(0 2px 0 var(--ink)); }
+.monster-art svg { display: block; width: 100%; height: 100%; }
+.monster-resting svg { animation: creature-idle 1.2s steps(2) infinite; }
+.monster-moving svg { animation: creature-step 140ms steps(2) infinite; }
+.monster-guardian { filter: drop-shadow(0 0 3px var(--gold)); }
+.monster-warden { filter: drop-shadow(0 0 4px var(--grade-epic)) drop-shadow(0 0 2px var(--gold)); }
+@keyframes creature-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px) scaleY(0.96); } }
+@keyframes creature-step { 0% { transform: translateY(0); } 100% { transform: translateY(-2px); } }
 
 /* ---- building interior ---- */
-.interior { position: relative; height: 128px; overflow: hidden; border-bottom: 2px solid var(--border); image-rendering: pixelated; }
+.interior { position: relative; height: 96px; flex-shrink: 0; overflow: hidden; border-bottom: 2px solid var(--border); image-rendering: pixelated; }
 .interior-wall { position: absolute; inset: 0 0 55% 0; background: repeating-linear-gradient(90deg, var(--tile-fence) 0 22px, color-mix(in oklab, var(--tile-fence) 80%, var(--ink)) 22px 24px); }
 .interior-floor { position: absolute; inset: 45% 0 0 0; background: repeating-conic-gradient(var(--tile-floor) 0 25%, var(--tile-floor-2) 0 50%) 0 0 / 24px 24px; }
-.interior-npc { position: absolute; left: 50%; top: 14px; width: 52px; height: 52px; transform: translateX(-50%); animation: bob 1s steps(2) infinite; }
-.interior-counter { position: absolute; left: 30%; right: 30%; top: 56px; height: 22px; background: var(--tile-station); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.interior-npc { position: absolute; left: 22%; top: 7px; width: 40px; height: 40px; transform: translateX(-50%); animation: bob 1s steps(2) infinite; }
+.interior-counter { position: absolute; left: 12%; width: 22%; top: 42px; height: 18px; background: var(--tile-station); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); display: flex; align-items: center; justify-content: center; font-size: 14px; }
 .interior-bed { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); font-size: 40px; }
-.interior-hero { position: absolute; left: 50%; bottom: 4px; width: 40px; height: 40px; margin-left: -20px; animation: walk-in 700ms steps(6) both; }
-.interior-door { position: absolute; left: 50%; bottom: 0; width: 44px; height: 4px; margin-left: -22px; background: var(--gold); }
-.interior-bubble { position: absolute; right: 6px; top: 6px; max-width: calc(50% - 36px); background: var(--card); border: 2px solid var(--border); box-shadow: 2px 2px 0 var(--ink); padding: 2px 6px; font-size: 0.8rem; line-height: 1.1; animation: toast-in 300ms ease-out 400ms both; }
+.interior-hero { position: absolute; left: 8%; bottom: 4px; width: 32px; height: 32px; margin-left: -16px; animation: walk-in 700ms steps(6) both; }
+.interior-door { position: absolute; left: 8%; bottom: 0; width: 32px; height: 4px; margin-left: -16px; background: var(--gold); }
+.interior-bubble { position: absolute; left: 39%; right: 6px; top: 6px; background: var(--card); border: 2px solid var(--border); box-shadow: 2px 2px 0 var(--ink); padding: 3px 6px; font-size: 0.75rem; line-height: 1.1; overflow-wrap: anywhere; animation: toast-in 300ms ease-out 400ms both; }
 @keyframes walk-in { from { transform: translateY(46px); } to { transform: translateY(0); } }
+@media (max-width: 639px) {
+  .interior { height: 72px; }
+  .interior-npc { width: 32px; height: 32px; top: 4px; }
+  .interior-counter { top: 32px; height: 16px; }
+  .interior-hero { width: 26px; height: 26px; bottom: 2px; }
+  .interior-bed { left: 20%; top: 10px; font-size: 30px; }
+  .sheet-content { padding: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
