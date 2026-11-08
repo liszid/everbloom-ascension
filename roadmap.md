@@ -1,4 +1,4 @@
-- [ ] Replace native confirmations with an in-game dialog and preserve fullscreen.
-- [ ] Restore full-width mobile map and compact shop/interior layout.
-- [ ] Add directional animated pixel-art monsters and distinct building architecture.
-- [ ] Verify mobile layout and dungeon return flow.
+- [x] Replace native confirmations with an in-game dialog and preserve fullscreen.
+- [x] Restore full-width mobile map and compact shop/interior layout.
+- [x] Add directional animated pixel-art monsters and distinct building architecture.
+- [x] Verify mobile layout, Buy/Sell windows, and fullscreen through dungeon retreat in Chromium; physical mobile-browser fullscreen remains unverified.
