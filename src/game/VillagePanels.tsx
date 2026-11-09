@@ -8,6 +8,7 @@ import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
 
 const fmt = (n: number) => n.toLocaleString();
+const DECOR: Record<SpotId, string[]> = { forest: ["🌲", "🌳", "🌲", "🌳", "🌲"], mine: ["🪨", "⛏️", "🪨", "💎", "🪨"], pond: ["🌾", "🪷", "🌾"], ranch: ["🐄", "🐔", "🐑", "🌾"], field: ["🌼", "🌷", "🌻", "🌸", "🌼"] };
 const ACT_ICON: Record<SpotId, string> = { forest: "🪓", mine: "⛏️", pond: "🎣", ranch: "🧺", field: "🌼" };
 
 export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: {
@@ -20,9 +21,12 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
   return (
     <Sheet title={`${def.icon} ${def.name} · Lv ${L}`} onClose={onClose}>
       <div className={`gather-scene gather-${spot}`}>
-        <div key={swing} className={`gather-hero ${swing ? "gather-swing" : ""}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
-        <div key={`t${swing}`} className={`gather-target ${swing ? "gather-hit" : ""}`}>{getMat(mat).icon}</div>
-        <div key={`f${swing}`} className="gather-tool">{ACT_ICON[spot]}</div>
+        {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 30) / 3 }}>{d}</span>)}
+        {spot === "pond" && [0, 1, 2].map((i) => <span key={i} className="gather-ripple" style={{ animationDelay: `${i * 0.5}s`, bottom: `${10 + i * 8}%` }} />)}
+        <div className={`gather-hero ${swing ? "gather-swing" : ""}`} key={`h${swing}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
+        <div className="gather-tool">{ACT_ICON[spot]}</div>
+        <div className="gather-target">{getMat(mat).icon}</div>
+        {swing > 0 && <span key={`p${swing}`} className="gather-pop">+{getMat(mat).icon}</span>}
       </div>
       <div className="mb-2 flex justify-between text-sm"><span>⚡ Stamina {Math.floor(s.sta)}/{max}</span><span className="text-muted-foreground">2 per action</span></div>
       <div className="mb-2 grid grid-cols-3 gap-1">

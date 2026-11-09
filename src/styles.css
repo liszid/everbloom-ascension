@@ -247,13 +247,22 @@
 }
 
 /* gathering window scene */
-.gather-scene { position: relative; height: 84px; margin-bottom: 8px; border: 2px solid var(--border); overflow: hidden; background: var(--tile-grass); image-rendering: pixelated; }
-.gather-mine { background: var(--sprite-stone); }
-.gather-pond { background: linear-gradient(var(--tile-grass) 0 45%, var(--sprite-teal) 45%); }
-.gather-hero { position: absolute; left: 22%; bottom: 6px; width: 52px; height: 52px; }
-.gather-target { position: absolute; left: 55%; bottom: 10px; font-size: 40px; line-height: 1; }
-.gather-tool { position: absolute; left: calc(22% + 40px); bottom: 34px; font-size: 20px; transform-origin: bottom left; animation: tool-swing 260ms steps(3) both; }
-.gather-swing { animation: walk-bob 260ms steps(2); }
-.gather-hit { animation: gather-shake 260ms steps(3); }
-@keyframes tool-swing { 0% { transform: rotate(-60deg); } 100% { transform: rotate(20deg); } }
+.gather-scene { position: relative; height: 120px; margin-bottom: 8px; border: 2px solid var(--border); overflow: hidden; image-rendering: pixelated;
+  background: linear-gradient(var(--sprite-ice) 0 38%, var(--sprite-moss) 38% 100%); }
+.gather-forest { background: linear-gradient(var(--sprite-mint) 0 35%, var(--sprite-leaf) 35% 100%); }
+.gather-mine { background: radial-gradient(ellipse at 50% 0%, var(--sprite-stone) 0 55%, var(--sprite-ink) 56%), var(--sprite-ink); }
+.gather-pond { background: linear-gradient(var(--sprite-ice) 0 30%, var(--sprite-moss) 30% 52%, var(--sprite-teal) 52%); }
+.gather-ranch { background: linear-gradient(var(--sprite-ice) 0 40%, var(--sprite-mint) 40%); }
+.gather-field { background: linear-gradient(var(--sprite-ice) 0 36%, var(--sprite-moss) 36%); }
+.gather-decor { position: absolute; bottom: 38%; font-size: 22px; opacity: 0.85; line-height: 1; }
+.gather-hero { position: absolute; left: 20%; bottom: 8px; width: 60px; height: 60px; animation: walk-bob 0.5s steps(2) infinite; }
+.gather-target { position: absolute; left: 56%; bottom: 12px; font-size: 44px; line-height: 1; animation: gather-shake 0.5s steps(3) infinite; }
+.gather-tool { position: absolute; left: calc(20% + 46px); bottom: 40px; font-size: 24px; transform-origin: bottom left; animation: tool-swing 0.5s steps(3) infinite alternate; }
+.gather-swing { animation: walk-bob 120ms steps(2) 3; }
+.gather-hit { animation: gather-shake 160ms steps(3) 3; }
+.gather-pop { position: absolute; left: 58%; bottom: 60px; font-size: 18px; font-weight: bold; color: var(--sprite-gold); text-shadow: 1px 1px 0 var(--sprite-ink); animation: gather-pop 800ms ease-out forwards; pointer-events: none; }
+.gather-ripple { position: absolute; bottom: 18%; height: 3px; width: 28px; background: var(--sprite-ice); opacity: .7; animation: ripple 1.6s linear infinite; }
+@keyframes gather-pop { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-40px); opacity: 0; } }
+@keyframes ripple { 0% { transform: translateX(-20px); } 100% { transform: translateX(240px); } }
+@keyframes tool-swing { 0% { transform: rotate(-60deg); } 100% { transform: rotate(25deg); } }
 @keyframes gather-shake { 0%, 100% { transform: translateX(0); } 33% { transform: translateX(3px); } 66% { transform: translateX(-3px); } }
