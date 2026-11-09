@@ -131,7 +131,7 @@ function GameSession({ userId }: { userId: string }) {
   const move = useCallback((dx: number, dy: number) => {
     if (blocked() || panel) return;
     stepAnim(dx, dy);
-    const open = act<{ t: PanelT; x?: number; y?: number } | null>((n) => {
+    const open = act<PanelS | null>((n) => {
       const tx = n.pos.x + dx, ty = n.pos.y + dy;
       if (n.loc === "village") {
         const t = villageTile(tx, ty);
@@ -316,12 +316,20 @@ function GameSession({ userId }: { userId: string }) {
         <NavBtn icon="⚙️" label="Settings" onClick={() => setPanel({ t: "settings" })} />
       </nav>
 
-      <SceneCtx.Provider value={panel && INTERIOR_PANELS.has(panel.t) ? <Interior panel={panel.t} hero={{ race: s.char.race, gender: s.char.gender, classId: s.classId }} /> : null}>
+      <SceneCtx.Provider value={panel && INTERIOR_PANELS.has(panel.t) ? <>
+        <Interior panel={panel.t} hero={{ race: s.char.race, gender: s.char.gender, classId: s.classId }} />
+        {(() => { const g = GROUPS.find((x) => x.some(([t]) => t === panel.t)); return g ? <BuildingTabs tabs={g} cur={panel.t} go={(t) => setPanel({ t: t as PanelT })} /> : null; })()}
+      </> : null}>
+      {panel?.t === "gather" && panel.spot && <GatherPanel key={panel.spot} s={s} spot={panel.spot} onClose={close} onGather={(m) => { if (act((n) => gatherSpot(n, panel.spot!, m))) sfx("ui"); else sfx("fail"); }}
+        onUpgrade={() => { if (act((n) => upgradeSpot(n, panel.spot!))) sfx("level"); }} onPlots={panel.spot === "field" ? () => setPanel({ t: "plot" }) : undefined} />}
+      {panel?.t === "church" && <ChurchPanel s={s} onClose={close} onHeal={() => { if (act(churchHeal)) sfx("level"); }} />}
+      {panel?.t === "magic" && <SoonPanel title="🔮 Magic Tower" onClose={close} text="Schools of magic, spells unlocked by your stats and secret combined magics arrive in an upcoming update." />}
+      {panel?.t === "craftery" && <SoonPanel title="🪤 Craftery" onClose={close} text="Traps, throwing weapons and ammunition arrive in the next update." />}
       {panel?.t === "forge" && <ForgePanel s={s} onClose={close} onCraft={(m, sl) => { const g = act((n) => craftGear(n, m, sl)); sfx(g ? "loot" : "fail"); }}
         onEnhance={(id) => act((n) => enhance(n, id))} onRepair={(id) => act((n) => repair(n, id))} onUpgrade={() => act(upgradeForge)} />}
       {panel?.t === "bag" && <BagPanel s={s} onClose={close} onEat={(i) => act((n) => { eatFood(n, i); })} onEquip={(id) => act((n) => equipGear(n, id))} onSell={(id) => { act((n) => sellGear(n, id)); sfx("coin"); }} />}
       {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} />}
-      {panel?.t === "settings" && <SettingsPanel onClose={close} chars={{
+      {panel?.t === "settings" && <SettingsPanel onClose={close} saving={saving} onSave={() => void save()} onSignOut={async () => { await save(); await supabase.auth.signOut(); }} chars={{
         list: slots.current.map((x, i) => i === active.current && ref.current ? ref.current : x), active: active.current, max: MAX_CHARS,
         onSwitch: (i) => { if (ref.current) slots.current[active.current] = ref.current; active.current = i; const g = slots.current[i]!; g.notes = []; ref.current = g; setS(g); close(); void save(); },
         onNew: () => { if (slots.current.length < MAX_CHARS) { close(); setNeedChar({ hadOld: false }); } },
@@ -332,7 +340,7 @@ function GameSession({ userId }: { userId: string }) {
       {panel?.t === "plot" && <PlotPanel s={s} onClose={close} onPlant={(cells, seed) => act((n) => { for (const [x, y] of cells) { if (!n.inv[seed]) break; if (!n.village.plots[key(x, y)]) plant(n, x, y, seed); } })}
         onHarvest={(cells) => { act((n) => { for (const [x, y] of cells) { harvest(n, x, y); n.step++; } }); sfx("loot"); }} />}
       {panel?.t === "tower" && <TowerPanel s={s} onClose={close} onEnter={(f) => { act((n) => enterDungeon(n, f)); close(); }} />}
-      {panel?.t === "house" && <HousePanel s={s} saving={saving} onClose={close} onRest={() => act(restAtHome)} onSave={() => void save()} onSignOut={async () => { await save(); await supabase.auth.signOut(); }} />}
+      {panel?.t === "house" && <HousePanel s={s} onClose={close} onRest={() => act(restAtHome)} />}
       {panel?.t === "shop" && <ShopPanel s={s} onClose={close} onBuy={(i) => act((n) => buyShop(n, i))} onSell={(id, q) => { act((n) => sellMat(n, id, q)); sfx("coin"); }} />}
       {panel?.t === "market" && <MarketPanel s={s} onClose={close} onBuy={(i) => act((n) => marketBuy(n, i))} onSell={(id, q, m) => { act((n) => sellMat(n, id, q, m)); sfx("coin"); }} />}
       {panel?.t === "tavern" && <TavernPanel s={s} onClose={close} onClaim={(id) => { act((n) => claimQuest(n, id)); sfx("coin"); }} onReroll={() => act((n) => { if (spend(n, 20)) rerollQuests(n); })} />}
@@ -411,7 +419,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
       if (x === Math.max(bx, cx) && y === Math.max(by, cy)) {
         bldg = (
           <span className="bldg" style={{ left: `${-(x - bx) * 100}%`, top: `${-(y - by) * 100}%` }}>
-            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} />
+            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} stage={SPOT_TILES[t] ? spotStage(spotLevel(s.spots, SPOT_TILES[t]!)) : 0} />
           </span>
         );
       }
