@@ -181,7 +181,8 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, o
           </div>
         </div>}
         {known.map((sc) => { const list = SPELLS.filter((sp) => sp.school === sc.id); const got = list.filter((sp) => s.spells?.includes(sp.id)).length; const L = schoolLevel(s.magic?.[sc.id] ?? 0); const isOpen = open[sc.id] ?? known.length === 1; const all = showAll[sc.id];
-          const shown = all ? list : list.filter((sp, i) => s.spells?.includes(sp.id) || list.findIndex((x) => !s.spells?.includes(x.id)) + 2 >= i && !s.spells?.includes(sp.id) && list.slice(0, i).filter((x) => !s.spells?.includes(x.id)).length < 3);
+          const next = new Set(list.filter((sp) => !s.spells?.includes(sp.id)).slice(0, 3).map((sp) => sp.id));
+          const shown = all ? list : list.filter((sp) => s.spells?.includes(sp.id) || next.has(sp.id));
           return <div key={sc.id} className="mb-2">
           <button className="pixel-btn flex w-full items-center justify-between px-2 py-1.5 text-left text-sm" onClick={() => setOpen((o) => ({ ...o, [sc.id]: !isOpen }))}>
             <span className="text-accent">{sc.icon} {sc.name} <span className="text-xs text-muted-foreground">Lv {L}/{SCHOOL_MAX}</span></span>
