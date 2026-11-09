@@ -760,7 +760,8 @@ export function toggleSpell(s: GameState, id: string): boolean {
   if (cur.length >= MAX_SPELL_SLOTS) { log(s, `❌ Only ${MAX_SPELL_SLOTS} Magic Tower spells can be equipped.`); return false; }
   s.spellSlots = [...cur, id]; return true;
 }
-export const spellUpCost = (id: string, lv: number) => Math.round(150 * lv * lv * (1 + SPELLS.findIndex((x) => x.id === id) % 3) * (SCHOOL[SPELL[id]!.school].combo ? 2 : 1));
+/** Upgrade price grows with the spell's level and with how advanced the spell is (school level that unlocks it). */
+export const spellUpCost = (id: string, lv: number) => Math.round(150 * lv * lv * (1 + SPELL[id]!.lvl / 6) * (SCHOOL[SPELL[id]!.school].combo ? 2 : 1));
 export function levelSpell(s: GameState, id: string): boolean {
   if (!s.spells?.includes(id)) return false;
   const lv = s.spellLv?.[id] ?? 1; if (lv >= SPELL_MAX_LV) return false;
