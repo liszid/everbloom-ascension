@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES, MONSTERS } from "./data";
 import { TOOLS, AMMO_FOR, TOOL } from "./items";
-import { combatActives, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
+import { captureBlock, combatActives, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
 import { MonsterSprite } from "./MonsterSprite";
 import { useSettings } from "./settings";
@@ -47,6 +47,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
           <button className="pixel-btn py-3" disabled={c.raceUsed} onClick={() => onAct("race")}>{race.icon} {race.active.name.split(" ")[0]}</button>
           <button className="pixel-btn py-3" disabled={c.eats >= 2} onClick={() => setMenu("eat")}>🍖 Eat {2 - c.eats}</button>
           <button className="pixel-btn py-2" onClick={() => setMenu("item")}>🎒 Items</button>
+          <button className="pixel-btn col-span-3 py-2" disabled={!!captureBlock(s)} title={captureBlock(s) ?? ""} onClick={() => onAct("capture")}>🪢 Capture{captureBlock(s) ? ` · ${captureBlock(s)}` : ""}</button>
           {s.ranged ? <button className="pixel-btn py-2" disabled={!(s.tools?.[AMMO_FOR[s.ranged]] ?? 0)} onClick={() => onAct("shoot")}>{TOOL[s.ranged]!.icon} Shoot {s.tools?.[AMMO_FOR[s.ranged]] ?? 0}</button> : <span />}
           <button className="pixel-btn py-2" disabled={m.boss > 0} onClick={() => onAct("flee")}>🏃 Flee</button>
         </div>}

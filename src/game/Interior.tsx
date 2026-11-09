@@ -20,7 +20,7 @@ const NPCS: Record<string, Npc | null> = {
   tower: { name: "Warden Ilyra", race: "aasimar", gender: "Non-binary", classId: "light:2", prop: "🗼", lines: ["The tower waits. Choose your floor.", "May the light guide your climb."] },
 };
 // Merged buildings share one keeper across their tabs.
-const ALIAS: Record<string, string> = { carve: "forge", smelt: "forge", market: "shop", warehouse: "house", kitchen: "house" };
+const ALIAS: Record<string, string> = { carve: "forge", smelt: "forge", market: "shop", warehouse: "house", kitchen: "house", guildshop: "tavern", training: "tavern", companions: "tavern" };
 export const INTERIOR_PANELS = new Set([...Object.keys(NPCS), ...Object.keys(ALIAS)]);
 
 export function Interior({ panel, hero }: { panel: string; hero: { race: string; gender: string; classId: string } }) {
