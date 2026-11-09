@@ -180,9 +180,14 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, o
               </button>); })}
           </div>
         </div>}
-        {known.map((sc) => <div key={sc.id} className="mb-2">
-          <h3 className="text-accent">{sc.icon} {sc.name}</h3>
-          {SPELLS.filter((sp) => sp.school === sc.id).map((sp) => { const has = s.spells?.includes(sp.id); const on = equippedSpells(s).includes(sp.id); const lv = s.spellLv?.[sp.id] ?? 1; const uc = spellUpCost(sp.id, lv); return (
+        {known.map((sc) => { const list = SPELLS.filter((sp) => sp.school === sc.id); const got = list.filter((sp) => s.spells?.includes(sp.id)).length; const L = schoolLevel(s.magic?.[sc.id] ?? 0); const isOpen = open[sc.id] ?? known.length === 1; const all = showAll[sc.id];
+          const shown = all ? list : list.filter((sp, i) => s.spells?.includes(sp.id) || list.findIndex((x) => !s.spells?.includes(x.id)) + 2 >= i && !s.spells?.includes(sp.id) && list.slice(0, i).filter((x) => !s.spells?.includes(x.id)).length < 3);
+          return <div key={sc.id} className="mb-2">
+          <button className="pixel-btn flex w-full items-center justify-between px-2 py-1.5 text-left text-sm" onClick={() => setOpen((o) => ({ ...o, [sc.id]: !isOpen }))}>
+            <span className="text-accent">{sc.icon} {sc.name} <span className="text-xs text-muted-foreground">Lv {L}/{SCHOOL_MAX}</span></span>
+            <span className="text-xs text-gold">{got}/{list.length} learned {isOpen ? "▲" : "▼"}</span>
+          </button>
+          {isOpen && <>{shown.map((sp) => { const has = s.spells?.includes(sp.id); const on = equippedSpells(s).includes(sp.id); const lv = s.spellLv?.[sp.id] ?? 1; const uc = spellUpCost(sp.id, lv); return (
             <div key={sp.id} className={`border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
               <div className="flex justify-between gap-1"><span>{has ? (on ? "🟢" : "⚪") : "🔒"} {sp.name}{has && <span className="text-gold"> Lv {lv}/{SPELL_MAX_LV}</span>}</span>
                 <span className="text-xs">{sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {Math.round(sp.cost * (1 + (lv - 1) * 0.05))} MP</span></div>
