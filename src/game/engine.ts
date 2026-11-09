@@ -33,7 +33,7 @@ export interface Dungeon { floor: number; w: number; h: number; tiles: string[];
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
-  lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
+  blind?: number; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
@@ -787,7 +787,7 @@ export function craftTool(s: GameState, id: string, times = 1): boolean {
   if ((t.lvl ?? 1) > bldgLvl(s, "craftery")) { log(s, `❌ Needs Craftery Lv ${t.lvl}.`); return false; }
   let made = 0;
   for (let i = 0; i < times; i++) {
-    if (t.kind === "ranged" && (s.tools?.[id] ?? 0) > 0) break;
+    if ((t.kind === "ranged" || t.kind === "torch") && (s.tools?.[id] ?? 0) > 0) break;
     if (s.gold < t.gold || t.recipe.some(([m, q]) => (s.inv[m] ?? 0) < q)) break;
     spend(s, t.gold); for (const [m, q] of t.recipe) takeMat(s, m, q);
     s.tools = { ...s.tools, [id]: (s.tools?.[id] ?? 0) + t.makes }; made++;
@@ -801,8 +801,11 @@ export function equipRanged(s: GameState, id: RangedId | undefined) {
   if (id && s.equip.two_hand) { log(s, "❌ Two-handed weapons leave no hand free."); return false; }
   if (id && s.equip.shield) s.equip.shield = undefined;
   if (id && TOOL[id]?.two && s.equip.one_hand) { s.equip.one_hand = undefined; log(s, "Your one-handed weapon was stowed — this needs both hands."); }
-  s.ranged = id; log(s, id ? `🏹 ${TOOL[id]!.name} readied in your off-hand.` : "Off-hand cleared."); return true;
+  s.ranged = id; log(s, id ? `${TOOL[id]!.kind === "torch" ? "🔥" : "🏹"} ${TOOL[id]!.name} readied in your off-hand.` : "Off-hand cleared."); return true;
 }
+/** Torch held in the off-hand, if any (torches share the off-hand with shields and ranged weapons). */
+export const heldTorch = (s: GameState) => (s.ranged && TOOL[s.ranged]?.kind === "torch" ? TOOL[s.ranged] : undefined);
+export const sightRadius = (s: GameState) => BASE_SIGHT + (heldTorch(s)?.sight ?? 0);
 export function placeTrap(s: GameState, id: string, x: number, y: number): boolean {
   const d = s.dungeon; const t = TOOL[id];
   if (!d || !t || t.kind !== "trap" || !(s.tools?.[id] ?? 0)) return false;
@@ -1011,6 +1014,23 @@ function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { mag
   return dmg;
 }
 
+/** Torch fire strike (on attack and when defending) plus its special effect. */
+function torchStrike(s: GameState, c: Combat, p: PStats, label: string) {
+  const t = heldTorch(s); const m = c.mon; if (!t || m.hp <= 0) return;
+  const d = playerHit(s, c, p, t.fire ?? 0.3, { magic: p.matk >= p.patk, el: "fire", sure: true, label });
+  if (AFF_BY_ID["fire"]) addAff(s, "fire", 0.3);
+  if (!d || m.hp <= 0 || !t.fx || Math.random() * 100 >= (t.chance ?? 100)) return;
+  switch (t.fx) {
+    case "sleep": c.stun = Math.max(c.stun, m.boss ? 1 : 2); clog(c, `💤 ${m.name} is lulled to sleep!`); break;
+    case "siphon": { const h = Math.round(d * 0.6); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); clog(c, `🩸 The torch siphons ${h} HP.`); break; }
+    case "blind": c.blind = 2; clog(c, `☀️ ${m.name} is blinded!`); break;
+    case "venom": c.monBleed = Math.max(c.monBleed, Math.round(d * 0.8)); clog(c, `☠️ Witchfire venom seeps in.`); break;
+    case "chill": c.roar = Math.max(c.roar, 2); clog(c, `❄️ ${m.name} is chilled — its blows weaken.`); break;
+    case "soul": { const g = Math.round(d * 0.5); s.mp = Math.min(p.mp, s.mp + g); clog(c, `👻 Soulfire returns ${g} MP.`); break; }
+    case "burn": c.monBurn = Math.max(c.monBurn, Math.round(d * 0.6)); clog(c, `🐉 ${m.name} is set ablaze!`); break;
+  }
+}
+
 export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" | null {
   const c = s.combat; if (!c) return null;
   const m = c.mon; const p = playerStats(s);
@@ -1023,6 +1043,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (wskill === "one_hand") addAff(s, "sword", 1); if (wskill === "two_hand") addAff(s, "might", 1.2); if (wskill === "unarmed") addAff(s, "might", 0.6);
     if (p.element !== "none" && AFF_BY_ID[p.element]) addAff(s, p.element, 0.6);
     if (m.hp > 0 && Math.random() * 100 < p.effects.haste) playerHit(s, c, p, 0.7, { label: "Hasted strike" });
+    const tt = heldTorch(s); if (tt) torchStrike(s, c, p, tt.name);
   } else if (a === "defend") {
     defending = true; s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * 0.12)); s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * 0.06));
     addXp(s, "defense", 3); if (s.equip.shield) addAff(s, "shield", 1.5); clog(c, "🛡️ You brace yourself.");
@@ -1117,7 +1138,8 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (c.charging) { mult *= 2.6; c.charging = false; }
     else if (m.ability === "heavy" && c.turn % 3 === 0) { c.charging = true; clog(c, `⚠️ ${m.name} winds up a devastating attack! DEFEND!`); mult = 0; }
     if (mult > 0) {
-      if (Math.random() * 100 < p.dodge) { clog(c, `💨 You dodge ${m.name}'s attack!`); addXp(s, "evasion", 3); addAff(s, "agility", 0.8); }
+      if ((c.blind ?? 0) > 0 && Math.random() < 0.5) clog(c, `☀️ The blinded ${m.name} swings wide and misses!`);
+      else if (Math.random() * 100 < p.dodge) { clog(c, `💨 You dodge ${m.name}'s attack!`); addXp(s, "evasion", 3); addAff(s, "agility", 0.8); }
       else {
         let atk = m.atk * mult * (c.roar > 0 ? 0.75 : 1);
         const def = m.magical ? p.mdef : p.pdef;
@@ -1140,13 +1162,15 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
         if (m.ability === "frenzy" && Math.random() < 0.12 && addAilment(s, "bleeding")) clog(c, "🩸 A deep wound keeps bleeding.");
         if (m.element === "dark" && m.boss > 0 && Math.random() < 0.15 && addAilment(s, "cursed")) clog(c, "🌑 A curse takes hold of you.");
       }
+      const tt = heldTorch(s); if (defending && tt) torchStrike(s, c, p, `${tt.name} scorches`);
     }
   }
+  if (m.hp <= 0 && s.hp > 0) return finishCombat(s, "win");
   if (c.pPoison > 0) { const pd = Math.max(1, Math.round(p.hp * 0.04)); s.hp -= pd; c.taken += pd; c.pPoison--; }
   if (p.effects.regen) s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * p.effects.regen / 200));
   if (p.effects.manaflow) s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * p.effects.manaflow / 100));
   s.sta = Math.min(p.sta, s.sta + 2);
-  c.roar = Math.max(0, c.roar - 1); c.stoneskin = Math.max(0, c.stoneskin - 1); c.guardT = Math.max(0, c.guardT - 1); c.shieldT = Math.max(0, c.shieldT - 1);
+  c.roar = Math.max(0, c.roar - 1); c.stoneskin = Math.max(0, c.stoneskin - 1); c.guardT = Math.max(0, c.guardT - 1); c.shieldT = Math.max(0, c.shieldT - 1); c.blind = Math.max(0, (c.blind ?? 0) - 1);
   if (c.lockT > 0) { if (s.hp < c.lockHp) s.hp = c.lockHp; c.lockT--; }
   if (s.hp <= 0) {
     if (s.char.race === "halforc" && !s.relentlessUsed) { s.relentlessUsed = true; s.hp = 1; clog(c, "🔥 Relentless! You refuse to fall."); return null; }
