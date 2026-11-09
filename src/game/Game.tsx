@@ -7,13 +7,15 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon,
 } from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
   TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,
 } from "./Panels";
+import { GuildShopPanel, TrainingPanel, HirePanel, PartyPanel, CompAvatar } from "./GuildPanels";
+import { GUILD_BUY_MULT } from "./guild";
 import { MagicPanel, ChurchPanel, CrafteryPanel, GatherPanel, SoonPanel, BuildingTabs } from "./VillagePanels";
 import { TOOL, TOOLS, TRAP_RANGE } from "./items";
 import { SPOT_TILES, spotLevel, spotStage, type SpotId } from "./gathering";
@@ -27,15 +29,16 @@ import { Avatar, type Facing } from "./Avatar";
 import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
 
-type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather";
+type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party";
 const STATIONS: Record<string, PanelT> = { H: "house", M: "shop", A: "forge", J: "church", Z: "magic", V: "craftery", N: "tavern", X: "casino", D: "tower" };
 // Merged buildings: each panel in a group shows the same tab strip.
 const GROUPS: [string, string][][] = [
   [["house", "🛏️ Rest"], ["warehouse", "📦 Storage"], ["kitchen", "🍳 Kitchen"]],
   [["shop", "🏪 Shop"], ["market", "⚖️ Market"]],
+  [["tavern", "📜 Missions"], ["guildshop", "🦴 Merchant"], ["training", "🏋️ Train"], ["companions", "🤝 Hire"]],
   [["forge", "⚒️ Smithy"], ["carve", "🪚 Sawmill"], ["smelt", "🔥 Smelter"]],
 ];
-type PanelS = { t: PanelT; x?: number; y?: number; spot?: SpotId };
+type PanelS = { t: PanelT; x?: number; y?: number; spot?: SpotId; cid?: string };
 const tileOpen = (t: string): PanelS | null => STATIONS[t] ? { t: STATIONS[t]! } : SPOT_TILES[t] ? { t: "gather", spot: SPOT_TILES[t] } : t === "G" ? { t: "plot" } : null;
 const VW = 11, VH = 11;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -321,6 +324,10 @@ function GameSession({ userId }: { userId: string }) {
         {s.log.slice(0, 2).map((l, i) => <div key={i} className={`truncate ${i ? "text-muted-foreground" : ""}`}>{l}</div>)}
       </div>
 
+      {!!s.companions?.length && <div className="flex gap-1">
+        {s.companions.map((c) => <button key={c.id} className="pixel-btn flex min-w-0 flex-1 items-center gap-1 px-1 py-0.5 text-[0.65rem]" onClick={() => setPanel({ t: "party", cid: c.id })}>
+          <span className="h-6 w-6 shrink-0"><CompAvatar c={c} /></span><span className="truncate">{c.name}</span></button>)}
+      </div>}
       <nav className="grid grid-cols-5 gap-1">
         <NavBtn icon="🎒" label="Bag" onClick={() => setPanel({ t: "bag" })} />
         <NavBtn icon="👤" label="Profile" onClick={() => setPanel({ t: "profile" })} />
@@ -340,6 +347,11 @@ function GameSession({ userId }: { userId: string }) {
         onBless={(id) => { if (act((n) => buyBlessing(n, id))) sfx("level"); }} onPray={() => { act(pray); sfx("level"); }} onEnchant={(g, el) => { if (act((n) => enchantGear(n, g, el))) sfx("loot"); else sfx("fail"); }} />}
       {panel?.t === "magic" && <MagicPanel s={s} onClose={close} onLearn={(id) => { if (act((n) => learnSchool(n, id))) sfx("level"); }} onStudy={(id) => { if (act((n) => studySchool(n, id))) sfx("ui"); }}
         onAscend={(r) => confirmation.ask({ title: "Embrace the transformation?", text: "Your race changes permanently. Your old racial traits are replaced.", label: "Transform", action: () => { act((n) => ascend(n, r)); sfx("level"); } })} />}
+      {panel?.t === "guildshop" && <GuildShopPanel s={s} onClose={close} onSell={(id, q) => { act((n) => sellMat(n, id, q, GUILD_BUY_MULT)); sfx("coin"); }} />}
+      {panel?.t === "training" && <TrainingPanel s={s} onClose={close} onTrain={(k) => { const r = act((n) => trainSkill(n, k)); sfx(r ? "level" : "fail"); }} onTech={(a, k) => { if (act((n) => learnTech(n, a, k))) sfx("level"); }} />}
+      {panel?.t === "companions" && <HirePanel s={s} onClose={close} onHire={(r, b) => { if (act((n) => hireCompanion(n, r, b))) sfx("level"); }} onParty={() => setPanel({ t: "party" })} />}
+      {panel?.t === "party" && <PartyPanel s={s} start={panel.cid} onClose={close} onEquip={(c, g, sl) => act((n) => compEquip(n, c, g, sl))} onTitle={(c, t) => act((n) => compTitle(n, c, t))}
+        onDismiss={(c) => confirmation.ask({ title: "Part ways?", text: "This companion will leave your party for good.", label: "Confirm", action: () => act((n) => dismissCompanion(n, c)) })} />}
       {panel?.t === "craftery" && <CrafteryPanel s={s} onClose={close} onCraft={(id, k) => { if (act((n) => craftTool(n, id, k))) sfx("loot"); else sfx("fail"); }} onRanged={(id) => act((n) => equipRanged(n, id))} />}
       {trapAt && <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-2" onClick={() => setTrapAt(null)}>
         <div className="pixel-panel w-full max-w-md p-3" onClick={(e) => e.stopPropagation()}>
