@@ -151,6 +151,8 @@ export function BuildingTabs({ tabs, cur, go }: { tabs: [string, string][]; cur:
 
 export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, onLevel }: { s: GameState; onClose: () => void; onToggle: (id: string) => void; onLevel: (id: string) => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
   const [tab, setTab] = useState<"schools" | "spells" | "rituals">("schools");
+  const [open, setOpen] = useState<Partial<Record<SchoolId, boolean>>>({});
+  const [showAll, setShowAll] = useState<Partial<Record<SchoolId, boolean>>>({});
   const matk = Math.round(playerStats(s).matk);
   const known = SCHOOLS.filter((x) => s.magic?.[x.id] !== undefined);
   return (
@@ -191,14 +193,17 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, o
           {isOpen && <>{shown.map((sp) => { const has = s.spells?.includes(sp.id); const on = equippedSpells(s).includes(sp.id); const lv = s.spellLv?.[sp.id] ?? 1; const uc = spellUpCost(sp.id, lv); return (
             <div key={sp.id} className={`border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
               <div className="flex justify-between gap-1"><span>{has ? (on ? "🟢" : "⚪") : "🔒"} {sp.name}{has && <span className="text-gold"> Lv {lv}/{SPELL_MAX_LV}</span>}</span>
-                <span className="text-xs">{sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {Math.round(sp.cost * (1 + (lv - 1) * 0.05))} MP</span></div>
+                <span className="shrink-0 text-xs">{Math.round(sp.cost * (1 + (lv - 1) * 0.05))} MP</span></div>
+              <div className="text-xs text-muted-foreground">{spellText(sp, lv)}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · School Lv {sp.lvl}</div>
               {!has && <div className="text-xs">Requires {spellLock(s, sp.id)}</div>}
               {has && <div className="mt-1 flex gap-1">
                 <button className="pixel-btn flex-1 py-1 text-xs" disabled={!on && equippedSpells(s).length >= MAX_SPELL_SLOTS} onClick={() => onToggle(sp.id)}>{on ? "Unequip" : equippedSpells(s).length >= MAX_SPELL_SLOTS ? "Slots full" : "Equip"}</button>
                 <button className="pixel-btn flex-1 py-1 text-xs" disabled={lv >= SPELL_MAX_LV || s.gold < uc} onClick={() => onLevel(sp.id)}>{lv >= SPELL_MAX_LV ? "MAX" : `📈 Lv up · ${fmt(uc)}g (+${Math.round(SPELL_LV_BONUS * 100)}%)`}</button>
               </div>}
             </div>); })}
-        </div>)}
+          {list.length > shown.length || all ? <button className="pixel-btn mt-1 w-full py-1 text-xs" onClick={() => setShowAll((o) => ({ ...o, [sc.id]: !all }))}>{all ? "Show fewer" : `Show all ${list.length} spells`}</button> : null}
+          </>}
+        </div>; })}
       </>}
       {tab === "rituals" && <>
         <p className="mb-2 text-xs text-muted-foreground">Forbidden rites can transform your race. Progress only counts after the school is learned.{s.char.origin ? ` Born a ${s.char.origin}.` : ""}</p>
