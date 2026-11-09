@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
 
 // All facades share a 32-pixel footprint but have their own architecture and signs.
+const ART = import.meta.glob("../assets/art/b_*.webp", { eager: true, import: "default" }) as Record<string, string>;
+const artFor = (k: string) => ART[`../assets/art/b_${k}.webp`];
+
 export function Building({ kind, name, stage = 0 }: { kind: string; name: string; stage?: number }) {
+  const art = artFor(kind);
+  if (art) return <span className="building-art building-cartoon" data-stage={stage}><img src={art} alt={name} width={256} height={256} loading="lazy" draggable={false} /></span>;
   const shapes: ReactNode[] = [];
   const r = (x: number, y: number, w: number, h: number, c: string) => shapes.push(<rect key={shapes.length} x={x} y={y} width={w} height={h} fill={`var(--sprite-${c})`} />);
   const roof = (points: string, c: string) => shapes.push(<polygon key={shapes.length} points={points} fill={`var(--sprite-${c})`} />);
