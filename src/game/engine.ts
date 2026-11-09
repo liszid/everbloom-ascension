@@ -1,4 +1,5 @@
 import { titleKit } from "./titles";
+import { CAPTURE_HP, HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, compLevel, rentPrice, techGold, techId, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { AILMENTS, AMMO_FOR, BLESSINGS, BLESS_BATTLES, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
 import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
@@ -61,6 +62,7 @@ export interface GameState {
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
   spots?: Record<string, number> | undefined;
   ailments?: Partial<Record<AilmentId, number>> | undefined; blessing?: { id: BlessingId; left: number } | undefined;
+  companions?: Companion[] | undefined; techs?: string[] | undefined;
   magic?: Partial<Record<SchoolId, number>> | undefined; spells?: string[] | undefined;
   tools?: Record<string, number> | undefined; ranged?: RangedId | undefined; prayed?: boolean | undefined; faith?: number | undefined;
 }
@@ -169,7 +171,9 @@ export function combatActives(s: GameState): ActiveSkill[] {
     const L = schoolLevel(s.magic?.[sp!.school] ?? 0);
     return { aff: "none", name: sp!.name, kind: sp!.kind as string, mult: sp!.kind === "heal" || sp!.kind === "guard" || sp!.kind === "lock" ? sp!.mult : sp!.mult * (1 + (L - 1) * 0.04), cost: sp!.cost, res: "mp" as const, el: sp!.el, school: sp!.school };
   });
-  return [...classActives(computeClass(s)), ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el, school: undefined as SchoolId | undefined })), ...spells];
+  const techs = (s.techs ?? []).filter((t) => t.endsWith(":active")).map((t) => { const a = t.split(":")[0]!; const d = AFF_BY_ID[a]!;
+    return { aff: a, name: `${d.titles[1]} Art`, kind: d.active.kind as string, mult: d.active.kind === "heal" || d.active.kind === "guard" || d.active.kind === "buff" ? d.active.mult * 1.3 : d.active.mult * 1.6, cost: Math.round(d.active.cost * 1.3), res: d.active.res, el: d.active.el, school: undefined as SchoolId | undefined }; });
+  return [...classActives(computeClass(s)), ...techs, ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el, school: undefined as SchoolId | undefined })), ...spells];
 }
 export function classActives(c: ClassInfo) {
   const out = [] as { aff: string; name: string; kind: string; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined; school?: SchoolId | undefined }[];
@@ -264,6 +268,7 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   applyMods(classPassives(classOverride ?? computeClass(s)));
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
   applyMods(kit.mods);
+  for (const t of s.techs ?? []) { const [a, k] = t.split(":"); if (k === "passive" && AFF_BY_ID[a!]) applyMods(Object.fromEntries(Object.entries(AFF_BY_ID[a!]!.passive).map(([kk, v]) => [kk, v * 2]))); }
   const asc = ASC_RACES.find((r) => r.id === s.char.race); if (asc) for (const [e, v] of Object.entries(asc.fx)) effects[e as EffectId] += v;
   for (const [e, v] of Object.entries(kit.effects)) effects[e as EffectId] += v;
   if (s.blessing && s.blessing.left > 0) { const b = BLESSINGS[s.blessing.id]; const { luck, ...rest } = b.mods; applyMods(rest); if (luck) st.luck += 25; }
@@ -444,6 +449,7 @@ export function equipGear(s: GameState, id: string) {
   const g = s.gear.find((x) => x.id === id); if (!g) return;
   if (s.equip[g.slot] === id) { s.equip[g.slot] = undefined; clampVitals(s); return; }
   s.equip[g.slot] = id;
+  for (const c of s.companions ?? []) for (const k of Object.keys(c.equip) as Slot[]) if (c.equip[k] === id) c.equip[k] = undefined;
   if (g.slot === "two_hand") { s.equip.one_hand = undefined; s.equip.shield = undefined; }
   if (g.slot === "one_hand" || g.slot === "shield") s.equip.two_hand = undefined;
   if (g.slot === "shield" || g.slot === "two_hand") s.ranged = undefined;
@@ -597,6 +603,90 @@ export function enchantGear(s: GameState, gid: string, el: Element): boolean {
 export function enchantMatFor(s: GameState, g: Gear, el: Element) {
   const c = enchantCost(g.grade, s.maxFloor);
   return (s.inv[ENCHANT_MAT[el]!] ?? 0) >= c.qty ? { mat: ENCHANT_MAT[el]!, qty: c.qty, gold: c.gold } : { mat: ENCHANT_ALT[el]!, qty: c.qty * 3, gold: c.gold };
+}
+
+// ---- adventurers guild ----
+const d0 = (s: GameState) => s.dungeon?.floor ?? Math.max(1, s.maxFloor);
+const uid = () => Math.random().toString(36).slice(2, 10);
+export function captureBlock(s: GameState): string | null {
+  const m = s.combat?.mon; if (!m) return "No target";
+  if (m.boss) return "Guardians cannot be captured.";
+  if ((s.companions?.length ?? 0) >= MAX_COMPANIONS) return `Party full (${MAX_COMPANIONS}).`;
+  if (m.hp > m.maxHp * CAPTURE_HP) return `Weaken it below ${CAPTURE_HP * 100}% HP first.`;
+  return null;
+}
+export function compStats(s: GameState, c: Companion) {
+  const L = compLevel(c.xp);
+  let hp = (60 + L * 12) * c.base.hp, atk = (5 + L * 1.3) * c.base.atk, def = (3 + L * 0.9) * c.base.def;
+  for (const id of Object.values(c.equip)) { const g = s.gear.find((x) => x.id === id); if (!g) continue; const gs = gearStats(g); hp += gs.hp; atk += c.base.magic ? gs.matk : gs.patk; def += c.base.magic ? gs.mdef : gs.pdef; }
+  const kit = titleKit(c.title, c.titleTime?.[c.title ?? ""] ?? 0);
+  hp *= 1 + (kit.mods.hp ?? 0); atk *= 1 + (c.base.magic ? kit.mods.matk ?? 0 : kit.mods.patk ?? 0); def *= 1 + (kit.mods.pdef ?? 0);
+  return { level: L, hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def), stars: kit.stars };
+}
+function companionsAct(s: GameState, c: Combat, p: PStats) {
+  for (const cp of s.companions ?? []) {
+    if (c.mon.hp <= 0) return;
+    const st = compStats(s, cp);
+    if (cp.role === "cleric" && c.turn % 2 === 0) { const h = Math.min(p.hp - s.hp, Math.round(st.atk * 2 + p.hp * 0.05)); if (h > 0) { s.hp += h; c.healed += h; clog(c, `✨ ${cp.name} heals you for ${h}.`); continue; } }
+    const hits = cp.role === "archer" && Math.random() < 0.3 ? 2 : 1;
+    for (let i = 0; i < hits; i++) {
+      const dmg = Math.max(1, Math.round(dmgFormula(st.atk, c.mon.defn * (cp.base.magic ? 0.75 : 1)) * rand(0.85, 1.15)));
+      c.mon.hp -= dmg; c.dealt += dmg; clog(c, `🤝 ${cp.name} hits for ${dmg}`);
+    }
+    if (cp.title) cp.titleTime = { ...cp.titleTime, [cp.title]: (cp.titleTime?.[cp.title] ?? 0) + 6 };
+  }
+}
+function tickRentals(s: GameState) {
+  if (!s.companions?.length) return;
+  for (const c of s.companions) if (c.rentLeft !== undefined) c.rentLeft--;
+  const gone = s.companions.filter((c) => c.rentLeft !== undefined && c.rentLeft <= 0);
+  if (gone.length) { s.companions = s.companions.filter((c) => !gone.includes(c)); log(s, `👋 ${gone.map((g) => g.name).join(", ")}'s contract ended.`); }
+}
+export function hireCompanion(s: GameState, role: CompRole, buy: boolean): boolean {
+  const h = HIRELINGS.find((x) => x.role === role); if (!h) return false;
+  if ((s.companions?.length ?? 0) >= MAX_COMPANIONS) { log(s, `❌ Party is full (${MAX_COMPANIONS}).`); return false; }
+  const price = buy ? buyPrice(s.maxFloor) : rentPrice(s.maxFloor);
+  if (!spend(s, price)) { log(s, "❌ Not enough gold."); return false; }
+  const L = Math.max(1, Math.round(s.maxFloor * 0.9) || 1);
+  const n = (s.companions ?? []).filter((c) => c.name.startsWith(h.name)).length;
+  s.companions = [...(s.companions ?? []), { id: uid(), name: n ? `${h.name} ${n + 1}` : h.name, kind: "human", role, race: h.race, gender: h.gender, xp: 15 * (L - 1) ** 2,
+    base: { hp: h.hp, atk: h.atk, def: h.def, magic: h.magic }, equip: {}, rentLeft: buy ? undefined : RENT_FLOORS }];
+  log(s, `🤝 ${h.name} ${buy ? "joins you for good" : `is hired for ${RENT_FLOORS} expeditions`}.`); return true;
+}
+export function dismissCompanion(s: GameState, id: string) { s.companions = (s.companions ?? []).filter((c) => c.id !== id); }
+export function freeGear(s: GameState) {
+  const used = new Set([...Object.values(s.equip), ...(s.companions ?? []).flatMap((c) => Object.values(c.equip))].filter(Boolean));
+  return s.gear.filter((g) => !used.has(g.id));
+}
+export function compEquip(s: GameState, cid: string, gid: string | undefined, slot: Slot) {
+  const c = s.companions?.find((x) => x.id === cid); if (!c) return;
+  if (gid && !freeGear(s).some((g) => g.id === gid && g.slot === slot)) return;
+  c.equip = { ...c.equip, [slot]: gid };
+}
+export function compTitle(s: GameState, cid: string, t: string | undefined) {
+  const c = s.companions?.find((x) => x.id === cid); if (!c) return;
+  if (t && !s.titles.includes(t)) return; c.title = t;
+}
+export function trainSkill(s: GameState, k: string): boolean | null {
+  const L = lvl(s, k); if (L >= MAX_SKILL) return null;
+  if (!spend(s, trainCost(L))) { log(s, "❌ Not enough gold for training."); return null; }
+  if (Math.random() < trainChance(L)) {
+    s.skills[k] = (s.skills[k] ?? 0) + (xpForLevel(L + 1) - xpForLevel(L)) * 0.5;
+    log(s, `🏋️ Training paid off! ${k} ${L} → ${lvl(s, k)}`); return true;
+  }
+  log(s, `🏋️ Training went poorly — no progress on ${k}.`); return false;
+}
+export function specAffinities(s: GameState) { return Object.entries(s.aff).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([a]) => a).filter((a) => AFF_BY_ID[a]); }
+export function techLock(s: GameState, aff: string, kind: "passive" | "active"): string | null {
+  if ((s.techs ?? []).includes(techId(aff, kind))) return "Learned";
+  if (!specAffinities(s).includes(aff)) return "Not your specialization";
+  if (affLevel(s.aff[aff] ?? 0) < TECH_REQ[kind]) return `Affinity Lv ${TECH_REQ[kind]}`;
+  return null;
+}
+export function learnTech(s: GameState, aff: string, kind: "passive" | "active"): boolean {
+  if (techLock(s, aff, kind)) return false;
+  if (!spend(s, techGold(kind))) { log(s, "❌ Not enough gold."); return false; }
+  s.techs = [...(s.techs ?? []), techId(aff, kind)]; log(s, `📖 Learned a ${AFF_BY_ID[aff]!.name} ${kind} technique!`); return true;
 }
 
 // ---- magic tower ----
@@ -795,7 +885,7 @@ export function enterDungeon(s: GameState, f: number) {
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
   s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
-  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; learnSpells(s); rerollQuestsIfDone(s);
+  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; learnSpells(s); tickRentals(s); rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
 export function mineVein(s: GameState, x: number, y: number) {
@@ -835,7 +925,7 @@ export function moveMonsters(s: GameState): Mon | null {
 }
 
 // ======================= combat =======================
-export type CombatAct = "attack" | "defend" | "flee" | "race" | "shoot" | { skill: number } | { eat: number } | { tool: string };
+export type CombatAct = "attack" | "defend" | "flee" | "race" | "shoot" | "capture" | { skill: number } | { eat: number } | { tool: string };
 const dmgFormula = (a: number, d: number) => (a * a) / (a + d);
 export function startCombat(s: GameState, m: Mon) {
   s.combat = {
@@ -914,6 +1004,20 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       case "devour": { const d = playerHit(s, c, p, 2.2, { magic: false, label: "Devour" }); const h = Math.round(d * 0.4); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; break; }
       case "radiance": { const h = Math.round(p.hp * 0.25); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; clog(c, `😇 Radiance heals ${h}.`); break; }
     }
+  } else if (a === "capture") {
+    const why = captureBlock(s); if (why) { clog(c, `🚫 ${why}`); c.turn--; return null; }
+    const chance = Math.min(0.85, 0.35 + lvl(s, "hunting") * 0.006 + (1 - m.hp / m.maxHp) * 0.2);
+    addXp(s, "hunting", 4);
+    if (Math.random() < chance) {
+      const def = MONSTERS.find((x) => x.id === m.def);
+      const L = Math.max(1, Math.round(d0(s) * 0.8));
+      const name = m.name.replace(/^(Guardian|Arch-Warden) /, "").replace(new RegExp(`^(${ELITE_AFFIX.join("|")}) `), "");
+      s.companions = [...(s.companions ?? []), { id: uid(), name, kind: "monster", role: "beast", race: "", gender: "", monDef: m.def, xp: 15 * (L - 1) ** 2,
+        base: { hp: def?.hp ?? 1, atk: def?.atk ?? 1, def: def?.def ?? 1, magic: m.magical }, equip: {} }];
+      bump(s, "captures"); clog(c, `🪢 ${name} was captured and joins your party!`); note(s, `🪢 Captured ${name}!`);
+      return finishCombat(s, "win");
+    }
+    clog(c, `🪢 ${m.name} breaks free!`);
   } else if (a === "shoot") {
     const r = s.ranged; const ammo = r ? AMMO_FOR[r] : ""; const def = r ? TOOL[r] : undefined;
     if (!r || !def || !(s.tools?.[ammo] ?? 0)) { clog(c, "No ammunition!"); c.turn--; return null; }
@@ -949,6 +1053,8 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (c.eats >= 2) { clog(c, "🤢 You can't eat more during this fight."); c.turn--; return null; }
     const h = eatFood(s, a.eat); c.eats++; c.healed += h; clog(c, `🍖 Ate and recovered ${h} HP.`);
   }
+  if (m.hp <= 0) return finishCombat(s, "win");
+  companionsAct(s, c, p);
   if (m.hp <= 0) return finishCombat(s, "win");
   // ---- DoTs ----
   if (c.monBurn) { m.hp -= c.monBurn; c.dealt += c.monBurn; clog(c, `🔥 Burn ${c.monBurn}`); c.monBurn = Math.round(c.monBurn * 0.6); }
@@ -1011,6 +1117,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   if (outcome === "win") {
     d.monsters = d.monsters.filter((x) => x.uid !== m.uid);
     if (m.boss) { d.bossAlive = false; bump(s, "bosses"); }
+    for (const cp of s.companions ?? []) cp.xp += m.xp * 1.2;
     if (c.school === "blood") bump(s, "bloodKills");
     if (c.school === "plague") bump(s, "plagueKills");
     if (UNDEAD.has(m.def) && s.spells?.some((x) => x.startsWith("necromancy_"))) bump(s, "undeadKills");
