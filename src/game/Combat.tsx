@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, MONSTERS } from "./data";
 import { TOOLS, ammoFor, TOOL } from "./items";
-import { captureBlock, combatActives, playerStats, race as raceOf, type CombatAct, type Evo, type GameState } from "./engine";
+import { captureBlock, combatActives, defendMode, mainSpell, playerStats, race as raceOf, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
 import { MonsterSprite } from "./MonsterSprite";
 import { useSettings } from "./settings";
@@ -9,7 +9,7 @@ import { useSettings } from "./settings";
 export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) => void }) {
   const c = s.combat!; const m = c.mon; const p = playerStats(s);
   const st = useSettings();
-  const [menu, setMenu] = useState<"main" | "skill" | "eat" | "item">("main");
+  const [menu, setMenu] = useState<"main" | "skill" | "item">("main");
   const [floats, setFloats] = useState<{ id: number; t: string; me: boolean }[]>([]);
   const [shake, setShake] = useState(false);
   const prev = useRef({ dealt: c.dealt, taken: c.taken });
@@ -23,6 +23,13 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
   }, [c.dealt, c.taken, st.dmgNumbers, st.shake, st.reducedMotion]);
   const race = raceOf(s);
   const acts = combatActives(s);
+  const main = mainSpell(s);
+  const dm = defendMode(s);
+  const wpn = s.equip.two_hand ?? s.equip.one_hand;
+  const weaponName = wpn ? (s.gear.find((g) => g.id === wpn)?.name ?? "weapon") : "fists";
+  const shooter = s.ranged && TOOL[s.ranged]?.kind === "ranged" ? TOOL[s.ranged]! : undefined;
+  const ammo = shooter ? (s.tools?.[ammoFor(s.ranged!)] ?? 0) : 0;
+  const throws = TOOLS.filter((t) => t.kind === "throw" && (s.tools?.[t.id] ?? 0) > 0);
   const logLines = st.detailedLog ? c.log.slice(0, 6) : c.log.slice(0, 2);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
@@ -41,29 +48,29 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
         </div>
         <div className="mt-2 h-24 overflow-hidden text-sm leading-tight">{logLines.map((l, i) => <div key={i} className={i ? "text-muted-foreground" : ""}>{l}</div>)}</div>
         {menu === "main" && <div className="mt-2 grid grid-cols-3 gap-2">
-          <button className="pixel-btn pixel-btn-primary col-span-2 py-4" onClick={() => onAct("attack")}>⚔️ Attack</button>
-          <button className="pixel-btn py-4" onClick={() => onAct("defend")}>🛡️ Defend</button>
-          <button className="pixel-btn py-3" onClick={() => setMenu("skill")}>✨ Skills</button>
-          <button className="pixel-btn py-3" disabled={c.raceUsed} onClick={() => onAct("race")}>{race.icon} {race.active.name.split(" ")[0]}</button>
-          <button className="pixel-btn py-3" disabled={c.eats >= 2} onClick={() => setMenu("eat")}>🍖 Eat {2 - c.eats}</button>
-          <button className="pixel-btn py-2" onClick={() => setMenu("item")}>🎒 Items</button>
-          <button className="pixel-btn col-span-3 py-2" disabled={!!captureBlock(s)} title={captureBlock(s) ?? ""} onClick={() => onAct("capture")}>🪢 Capture{captureBlock(s) ? ` · ${captureBlock(s)}` : ""}</button>
-          {s.ranged && TOOL[s.ranged]?.kind === "ranged" ? <button className="pixel-btn py-2" disabled={!(s.tools?.[ammoFor(s.ranged)] ?? 0)} onClick={() => onAct("shoot")}>{TOOL[s.ranged]!.icon} Shoot {s.tools?.[ammoFor(s.ranged)] ?? 0}</button> : <span />}
-          <button className="pixel-btn py-2" disabled={m.boss > 0} onClick={() => onAct("flee")}>🏃 Flee</button>
+          <button className="pixel-btn pixel-btn-primary py-4" onClick={() => onAct("attack")}>⚔️ Hit<span className="block text-[10px] opacity-80">{weaponName}</span></button>
+          {main ? <button className="pixel-btn py-4" disabled={s.mp < main.skill.cost} onClick={() => onAct({ skill: main.index })}>{main.skill.el ? ELEMENT_ICON[main.skill.el] : "🔮"} <span className="text-xs">{main.skill.name}</span><span className="block text-[10px] opacity-80">{main.skill.cost} MP</span></button>
+            : <button className="pixel-btn py-4" disabled title="Learn a spell at the Magic Tower">🔮 Magic<span className="block text-[10px] opacity-80">none learned</span></button>}
+          <button className="pixel-btn py-4" onClick={() => onAct("defend")}>{dm === "shield" ? "🛡️" : dm === "torch" ? "🔥" : "🙅"} Defend<span className="block text-[10px] opacity-80">{dm === "shield" ? "shield block" : dm === "torch" ? "torch ward" : "brace"}</span></button>
+          <button className="pixel-btn py-4" onClick={() => setMenu("item")}>🎒 Items</button>
+          <button className="pixel-btn py-4" onClick={() => setMenu("skill")}>✨ Skills</button>
+          <button className="pixel-btn py-4" disabled={m.boss > 0} title={m.boss > 0 ? "You cannot flee from a Guardian" : ""} onClick={() => onAct("flee")}>🏃 Flee</button>
         </div>}
-        {menu === "skill" && <div className="mt-2 space-y-1">
+        {menu === "skill" && <div className="mt-2 max-h-[45dvh] space-y-1 overflow-y-auto">
           {acts.map((a, i) => <button key={i} className="pixel-btn w-full py-3 text-left" disabled={(a.res === "mp" ? s.mp : s.sta) < a.cost} onClick={() => { onAct({ skill: i }); setMenu("main"); }}>
-            {a.name} <span className="text-xs">· {a.cost} {a.res === "mp" ? "MP" : "STA"} · {a.kind}{a.el ? ` ${ELEMENT_ICON[a.el]}` : ""}</span></button>)}
+            {a.spellId ? "🔮 " : ""}{a.name} <span className="text-xs">· {a.cost} {a.res === "mp" ? "MP" : "STA"} · {a.kind}{a.el ? ` ${ELEMENT_ICON[a.el]}` : ""}</span></button>)}
+          <button className="pixel-btn w-full py-3 text-left" disabled={c.raceUsed} onClick={() => { onAct("race"); setMenu("main"); }}>{race.icon} {race.active.name} <span className="text-xs">· race · {c.raceUsed ? "used" : "once per fight"}</span></button>
+          <button className="pixel-btn w-full py-3 text-left" disabled={!!captureBlock(s)} onClick={() => { onAct("capture"); setMenu("main"); }}>🪢 Capture <span className="text-xs">· {captureBlock(s) ?? "try to tame this monster"}</span></button>
           <button className="pixel-btn w-full py-2" onClick={() => setMenu("main")}>Back</button>
         </div>}
-        {menu === "item" && <div className="mt-2 space-y-1">
-          {TOOLS.filter((t) => t.kind === "throw" && (s.tools?.[t.id] ?? 0) > 0).map((t) => <button key={t.id} className="pixel-btn w-full py-3 text-left" onClick={() => { onAct({ tool: t.id }); setMenu("main"); }}>{t.icon} {t.name} ×{s.tools![t.id]} <span className="text-xs">· {t.desc}</span></button>)}
-          {!TOOLS.some((t) => t.kind === "throw" && (s.tools?.[t.id] ?? 0) > 0) && <p className="text-muted-foreground">No throwing items — craft some at the Craftery.</p>}
-          <button className="pixel-btn w-full py-2" onClick={() => setMenu("main")}>Back</button>
-        </div>}
-        {menu === "eat" && <div className="mt-2 space-y-1">
-          {s.foods.map((f, i) => <button key={i} className="pixel-btn w-full py-3 text-left" onClick={() => { onAct({ eat: i }); setMenu("main"); }}>{f.icon} {f.name} ×{f.qty} (+{fmt(f.heal)})</button>)}
-          {!s.foods.length && <p className="text-muted-foreground">No food!</p>}
+        {menu === "item" && <div className="mt-2 max-h-[45dvh] space-y-1 overflow-y-auto">
+          <div className="text-xs text-muted-foreground">🍖 Food · {Math.max(0, 2 - c.eats)} bites left this fight</div>
+          {s.foods.map((f, i) => <button key={`f${i}`} className="pixel-btn w-full py-3 text-left" disabled={c.eats >= 2} onClick={() => { onAct({ eat: i }); setMenu("main"); }}>{f.icon} {f.name} ×{f.qty} <span className="text-xs">· +{fmt(f.heal)} HP</span></button>)}
+          {!s.foods.length && <p className="text-sm text-muted-foreground">No food — cook some at Home.</p>}
+          <div className="pt-1 text-xs text-muted-foreground">🎯 Tools</div>
+          {shooter && <button className="pixel-btn w-full py-3 text-left" disabled={!ammo} onClick={() => { onAct("shoot"); setMenu("main"); }}>{shooter.icon} Shoot {shooter.name} <span className="text-xs">· ammo ×{ammo}</span></button>}
+          {throws.map((t) => <button key={t.id} className="pixel-btn w-full py-3 text-left" onClick={() => { onAct({ tool: t.id }); setMenu("main"); }}>{t.icon} {t.name} ×{s.tools![t.id]} <span className="text-xs">· {t.desc}</span></button>)}
+          {!throws.length && !shooter && <p className="text-sm text-muted-foreground">No usable tools — craft some at the Craftery.</p>}
           <button className="pixel-btn w-full py-2" onClick={() => setMenu("main")}>Back</button>
         </div>}
       </div>
