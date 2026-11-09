@@ -486,7 +486,7 @@ function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
   const r = CORNERS.map(([sx, sy]) => {
     const ks = [groundKind(x + sx, y), groundKind(x, y + sy), groundKind(x + sx, y + sy)];
     const opp = ks.every((k) => k !== null && (isG ? k !== "grass" : k === "grass"));
-    if (opp) { any = true; if (isG && !under) under = ks[2]; }
+    if (opp) { any = true; if (isG && !under) under = ks[2] ?? null; }
     return opp ? "45%" : "0";
   }).join(" ");
   if (!any) return undefined;
