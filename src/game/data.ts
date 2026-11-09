@@ -312,28 +312,29 @@ export const SKILLS: Record<string, { name: string; icon: string; desc: string; 
 
 // ---------- village ----------
 // # fence , path . grass | T B I E trees | R rock | F flower | W water | G plot | c s w animals | o decoration spot
-// Buildings occupy 2x2 tiles: H home A forge K kitchen C carpentry U smelter $ shop M market N tavern X casino Q warehouse D tower
+// Buildings occupy 2x2 tiles: H home M market A forge J church Z magic tower V craftery N guild X casino D tower
+// Gathering spots (2x2): L forest O mine P pond Y animal farm; G crop field plots
 export const BUILDINGS: Record<string, { name: string; icon: string }> = {
-  H: { name: "Home", icon: "🏠" }, A: { name: "Forge", icon: "⚒️" }, K: { name: "Kitchen", icon: "🍳" },
-  C: { name: "Carpentry", icon: "🪚" }, U: { name: "Smelter", icon: "🔥" }, $: { name: "Shop", icon: "🏪" },
-  M: { name: "Market", icon: "⚖️" }, N: { name: "Tavern", icon: "🍺" }, X: { name: "Casino", icon: "🎰" },
-  Q: { name: "Warehouse", icon: "📦" }, D: { name: "Tower", icon: "🗼" },
+  H: { name: "Home", icon: "🏠" }, M: { name: "Market", icon: "⚖️" }, A: { name: "Forge", icon: "⚒️" },
+  J: { name: "Church", icon: "⛪" }, Z: { name: "Magic Tower", icon: "🔮" }, V: { name: "Craftery", icon: "🪤" },
+  N: { name: "Adventurers Guild", icon: "🛡️" }, X: { name: "Casino", icon: "🎰" }, D: { name: "Tower", icon: "🗼" },
+  L: { name: "Forest", icon: "🌲" }, O: { name: "Mine", icon: "⛏️" }, P: { name: "Pond", icon: "🎣" }, Y: { name: "Animal Farm", icon: "🐄" },
 };
 export const VILLAGE_MAP = [
   "####################",
-  "#TTBT.F.F...WWWW.TI#",
-  "#TT.HH.KK.AA.WWW..E#",
-  "#B..HH.KK.AA.WWW.TB#",
-  "#T..,,,,,,,,,,,,,.T#",
-  "#..F,CC.UU.$$.QQ,..#",
-  "#.F.,CC.UU.$$.QQ,RR#",
-  "#GGG,,,,,,,,,,,,,RR#",
-  "#GGG,.cc..ss.o.,R.R#",
-  "#GGG,.c...s..o.,...#",
+  "#TBLL..HH..JJ..OOR.#",
+  "#TTLL..HH..JJ..OORR#",
+  "#T.,,,,,,,,,,,,,,,.#",
+  "#..,MM.AA.ZZ.VV,F..#",
+  "#F.,MM.AA.ZZ.VV,.F.#",
   "#...,,,,,,,,,,,,,,.#",
-  "#F.F.MM.NN.XX.DD,F.#",
-  "#.F.oMM.NN.XX.DD,.F#",
-  "#..F...o...o.,,,...#",
+  "#GGG,.NN.XX.o..,YY.#",
+  "#GGG,.NN.XX....,YYc#",
+  "#GGG,,,,,,,,,,,,,.s#",
+  "#WPP.F..o..DD.o,...#",
+  "#WPP....F..DD..,.F.#",
+  "#WW.,,,,,,,,,,,,,..#",
+  "#.F...o.......,,...#",
   "####################",
 ];
 
