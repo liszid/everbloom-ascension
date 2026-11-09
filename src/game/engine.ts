@@ -34,7 +34,7 @@ export interface Dungeon { floor: number; w: number; h: number; tiles: string[];
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
-  blind?: number; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
+  blind?: number; block?: boolean; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
