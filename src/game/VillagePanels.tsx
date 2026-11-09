@@ -9,7 +9,7 @@ const fmt = (n: number) => n.toLocaleString();
 const ACT_ICON: Record<SpotId, string> = { forest: "🪓", mine: "⛏️", pond: "🎣", ranch: "🧺", field: "🌼" };
 
 export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: {
-  s: GameState; spot: SpotId; onClose: () => void; onGather: (mat: string) => void; onUpgrade: () => void; onPlots?: () => void;
+  s: GameState; spot: SpotId; onClose: () => void; onGather: (mat: string) => void; onUpgrade: () => void; onPlots?: (() => void) | undefined;
 }) {
   const def = SPOTS[spot]; const L = spotLevel(s.spots, spot); const mats = spotMats(spot, L);
   const [mat, setMat] = useState(mats[mats.length - 1]!);
