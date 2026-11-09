@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES } from "./data";
+import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES, MONSTERS } from "./data";
 import { combatActives, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
 import { MonsterSprite } from "./MonsterSprite";
@@ -67,11 +67,12 @@ function Bar({ icon, cls, v, max }: { icon: string; cls: string; v: number; max:
 
 export function ResultView({ s, onCollect, onContinue }: { s: GameState; onCollect: () => void; onContinue: () => void }) {
   const r = s.result!;
+  const monsterKind = MONSTERS.find((monster) => monster.icon === r.icon)?.id ?? "sovereign";
   const title = r.died ? "☠️ Defeated" : r.fled ? "🏃 Escaped" : "🏆 Victory!";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
       <div className="pixel-panel max-h-[92dvh] w-full max-w-md overflow-y-auto p-3">
-        <div className="text-center"><div className="text-5xl">{r.icon}</div>
+        <div className="text-center"><div className="mx-auto h-20 w-20"><MonsterSprite kind={monsterKind} name={r.name} boss={r.boss} /></div>
           <h2 className={`text-lg ${r.died ? "text-destructive" : "text-primary"} title-glow`}>{title}</h2>
           <div className="text-sm text-muted-foreground">{r.name} · Floor {r.floor} · {r.turns} turns</div></div>
         <div className="mt-2 grid grid-cols-2 gap-1 text-sm">
