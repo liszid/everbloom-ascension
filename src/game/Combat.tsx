@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES, MONSTERS } from "./data";
+import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, MONSTERS } from "./data";
 import { TOOLS, ammoFor, TOOL } from "./items";
-import { captureBlock, combatActives, playerStats, type CombatAct, type Evo, type GameState } from "./engine";
+import { captureBlock, combatActives, playerStats, race as raceOf, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
 import { MonsterSprite } from "./MonsterSprite";
 import { useSettings } from "./settings";
@@ -21,7 +21,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
     if (dt > 0) { add.push({ id: Math.random(), t: `-${fmt(dt)}`, me: true }); if (st.shake && !st.reducedMotion) { setShake(true); setTimeout(() => setShake(false), 250); } }
     if (add.length && st.dmgNumbers) { setFloats((f) => [...f, ...add]); setTimeout(() => setFloats((f) => f.filter((x) => !add.includes(x))), 900); }
   }, [c.dealt, c.taken, st.dmgNumbers, st.shake, st.reducedMotion]);
-  const race = RACES.find((r) => r.id === s.char.race)!;
+  const race = raceOf(s);
   const acts = combatActives(s);
   const logLines = st.detailedLog ? c.log.slice(0, 6) : c.log.slice(0, 2);
   return (

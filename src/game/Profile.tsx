@@ -1,8 +1,8 @@
 import { Avatar } from "./Avatar";
 import { useState } from "react";
-import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, RACES, BACKGROUNDS, type StatKey } from "./data";
+import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, BACKGROUNDS, type StatKey } from "./data";
 import {
-  affLevel, charLevel, charXpFor, classActives, classInputs, computeClass, describePassives, favorite, levelOf, playerStats, statValue, xpForLevel,
+  affLevel, charLevel, charXpFor, classActives, classInputs, computeClass, describePassives, favorite, levelOf, playerStats, race as raceOf, raceClassProgress, statValue, xpForLevel,
   type GameState,
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
@@ -14,7 +14,7 @@ const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 
 export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; onClose: () => void; onTitle: (t: string | undefined) => void; onEquip: (id: string) => void }) {
   const [tab, setTab] = useState<"info" | "stats" | "equip" | "aff" | "skills" | "class" | "journal">("info");
   const p = playerStats(s); const L = charLevel(s.xp); const c = computeClass(s);
-  const race = RACES.find((r) => r.id === s.char.race)!; const bg = BACKGROUNDS.find((b) => b.id === s.char.bg);
+  const race = raceOf(s); const bg = BACKGROUNDS.find((b) => b.id === s.char.bg);
   const [sel, setSel] = useState<string | null>(null);
   const Row = ({ k, v }: { k: string; v: string | number }) => <div className="flex justify-between border-b border-border/30 py-0.5"><span className="text-muted-foreground">{k}</span><span>{v}</span></div>;
   return (
@@ -92,7 +92,20 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
         <div className="pixel-panel mb-2 p-2"><div className="text-primary">{c.name}</div>
           <div className="text-sm">Passives: {describePassives(c).join(", ") || "none yet"}</div>
           <div className="text-sm">Skills: {classActives(c).map((a) => a.name).join(", ")}</div></div>
-        {(() => { const ci = classInputs(s); return <div className="pixel-panel mb-2 p-2 text-sm">
+        {(() => { const rc = raceClassProgress(s); if (!rc) return null; return <div className="pixel-panel mb-2 p-2 text-sm">
+          <div className="text-accent">Bound to your race</div>
+          <p className="text-xs text-muted-foreground">{rc.line.lore} Your class can only rise along this path.</p>
+          <div className="my-1.5 flex flex-wrap items-center gap-1 text-xs">
+            {rc.line.ranks.map((r, i) => <span key={r} className="flex items-center gap-1">
+              <span className={`border px-1.5 py-0.5 ${i === rc.rank ? "border-primary text-primary" : i < rc.rank ? "border-border text-foreground" : "border-border/50 text-muted-foreground"}`}>{r}</span>
+              {i < rc.line.ranks.length - 1 && <span className="text-muted-foreground">→</span>}</span>)}
+          </div>
+          <div className="flex justify-between"><span>Race mastery</span><span>{rc.pct}%{rc.next !== undefined ? ` · next rank at ${rc.next}%` : " · highest rank"}</span></div>
+          <div className="bar bar-xp mb-1.5"><div style={{ width: `${rc.pct}%` }} /></div>
+          {rc.parts.map((p) => <div key={p.label} className="flex justify-between border-b border-border/30 py-0.5 text-xs">
+            <span className="text-muted-foreground">{p.label}</span><span>{fmt(Math.floor(p.cur))} / {fmt(p.max)}</span></div>)}
+        </div>; })()}
+        {!raceClassProgress(s) && (() => { const ci = classInputs(s); return <div className="pixel-panel mb-2 p-2 text-sm">
           <div className="text-accent">What shapes your class</div>
           <div>Top skills: {ci.skills.map((k) => `${SKILLS[k.k]?.name ?? k.k} ${k.l}`).join(", ") || "none"}</div>
           <div>Top affinities: {ci.affs.map((a) => `${AFFINITIES.find((x) => x.id === a.id)?.name} ${a.l}`).join(", ") || "none"}</div>

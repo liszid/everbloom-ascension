@@ -7,6 +7,7 @@ import { AILMENTS, BLESSINGS, BLDG_INFO, BLDG_MAX, TOOLS, TRAP_RANGE, BASE_SIGHT
 import { MAX_COMPANIONS, RENT_FLOORS, CAPTURE_HP, GUILD_BUY_MULT, TECH_REQ, techGold } from "./guild";
 import { SCHOOLS, SCHOOL_MAX, COMBO_LEVEL, ASCENSIONS, ASC_RACES, SPELLS } from "./magic";
 import { THEMES, THEME_SPAN } from "./themes";
+import { RACE_CLASSES, RANK_AT } from "./raceClasses";
 import { MAX_STARS, STAR_HOURS } from "./titles";
 import { GEAR_CAP, MAX_SKILL, MAX_SPELL_SLOTS, SPELL_MAX_LV } from "./engine";
 
@@ -149,6 +150,8 @@ export function Guide({ onBack }: { onBack: () => void }) {
           const r = ASC_RACES.find((x) => x.id === a.race)!;
           return [`${r.icon} ${r.name}`, SCHOOLS.find((x) => x.id === a.school)!.name, a.reqs.map((q) => `${q.label}: ${q.need.toLocaleString()}`).join("; ")];
         })} />
+        <P>Ascending <B>locks your class to the new race</B>. You start at its lowest rank and rise as your race mastery grows (its magic schools, skills, affinities and deeds). Mastery needed per rank: {RANK_AT.join("%, ")}%.</P>
+        <Grid head={["Race", "Class ranks"]} rows={RACE_CLASSES.map((l) => [`${ASC_RACES.find((x) => x.id === l.race)!.icon} ${ASC_RACES.find((x) => x.id === l.race)!.name}`, l.ranks.join(" → ")])} />
       </S>
 
       <S id="church" icon="⛪" title="Church services">
