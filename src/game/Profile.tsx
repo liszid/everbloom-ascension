@@ -1,6 +1,6 @@
 import { Avatar } from "./Avatar";
 import { useState } from "react";
-import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, RACES, BACKGROUNDS, type StatKey } from "./data";
+import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, BACKGROUNDS, type StatKey } from "./data";
 import {
   affLevel, charLevel, charXpFor, classActives, classInputs, computeClass, describePassives, favorite, levelOf, playerStats, race as raceOf, raceClassProgress, statValue, xpForLevel,
   type GameState,

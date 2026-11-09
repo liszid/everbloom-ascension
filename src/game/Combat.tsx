@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, RACES, MONSTERS } from "./data";
+import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, MONSTERS } from "./data";
 import { TOOLS, ammoFor, TOOL } from "./items";
 import { captureBlock, combatActives, playerStats, race as raceOf, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
