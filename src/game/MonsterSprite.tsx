@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Facing } from "./Avatar";
 
+const ART = import.meta.glob("../assets/art/m_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 type Pixel = [number, number, number, number, string];
 export function MonsterSprite({ kind, name, dir = "d", moving = false, motionTick = 0, boss = 0 }: { kind: string; name?: string; dir?: Facing; moving?: boolean; motionTick?: number; boss?: number }) {
   const [frame, setFrame] = useState(0);
@@ -12,6 +13,11 @@ export function MonsterSprite({ kind, name, dir = "d", moving = false, motionTic
     const stop = setTimeout(() => { clearInterval(timer); setWalking(false); setFrame(0); }, 360);
     return () => { clearInterval(timer); clearTimeout(stop); };
   }, [moving, motionTick]);
+  const art = ART[`../assets/art/m_${kind}.webp`];
+  const cls = `monster-art ${walking ? "monster-moving" : "monster-resting"} ${boss >= 2 ? "monster-warden" : boss ? "monster-guardian" : ""}`;
+  if (art) return <span className={`${cls} monster-cartoon`} data-facing={dir}>
+    <img src={art} alt={name ?? kind} width={256} height={256} loading="lazy" draggable={false} style={{ transform: `${dir === "l" ? "scaleX(-1) " : ""}translateY(${walking && frame ? -6 : 0}%) rotate(${walking ? (frame ? -4 : 4) : 0}deg)` }} />
+  </span>;
   const pixels: Pixel[] = [];
   const p = (x: number, y: number, w: number, h: number, c: string) => pixels.push([x, y, w, h, `var(--sprite-${c})`]);
   const back = dir === "u", side = dir === "l" || dir === "r";

@@ -266,3 +266,10 @@
 @keyframes ripple { 0% { transform: translateX(-20px); } 100% { transform: translateX(240px); } }
 @keyframes tool-swing { 0% { transform: rotate(-60deg); } 100% { transform: rotate(25deg); } }
 @keyframes gather-shake { 0%, 100% { transform: translateX(0); } 33% { transform: translateX(3px); } 66% { transform: translateX(-3px); } }
+
+/* Clean-cartoon illustrations */
+.building-cartoon img, .monster-cartoon img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
+.monster-cartoon { display: block; width: 100%; height: 100%; }
+.monster-cartoon img { transition: transform 120ms ease-out; transform-origin: 50% 100%; filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--ink) 45%, transparent)); }
+.monster-cartoon.monster-resting img { animation: cartoon-breathe 2.4s ease-in-out infinite; }
+@keyframes cartoon-breathe { 50% { scale: 1 1.04; } }
