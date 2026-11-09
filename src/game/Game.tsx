@@ -7,14 +7,14 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon,
 } from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
   TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,
 } from "./Panels";
-import { ChurchPanel, CrafteryPanel, GatherPanel, SoonPanel, BuildingTabs } from "./VillagePanels";
+import { MagicPanel, ChurchPanel, CrafteryPanel, GatherPanel, SoonPanel, BuildingTabs } from "./VillagePanels";
 import { TOOL, TOOLS, TRAP_RANGE } from "./items";
 import { SPOT_TILES, spotLevel, spotStage, type SpotId } from "./gathering";
 import { ProfilePanel } from "./Profile";
@@ -338,7 +338,8 @@ function GameSession({ userId }: { userId: string }) {
         onUpgrade={() => { if (act((n) => upgradeSpot(n, panel.spot!))) sfx("level"); }} onPlots={panel.spot === "field" ? () => setPanel({ t: "plot" }) : undefined} />}
       {panel?.t === "church" && <ChurchPanel s={s} onClose={close} onHeal={() => { if (act(churchHeal)) sfx("level"); }} onCure={(id) => { if (act((n) => cureAilment(n, id))) sfx("level"); }}
         onBless={(id) => { if (act((n) => buyBlessing(n, id))) sfx("level"); }} onPray={() => { act(pray); sfx("level"); }} onEnchant={(g, el) => { if (act((n) => enchantGear(n, g, el))) sfx("loot"); else sfx("fail"); }} />}
-      {panel?.t === "magic" && <SoonPanel title="🔮 Magic Tower" onClose={close} text="Schools of magic, spells unlocked by your stats and secret combined magics arrive in an upcoming update." />}
+      {panel?.t === "magic" && <MagicPanel s={s} onClose={close} onLearn={(id) => { if (act((n) => learnSchool(n, id))) sfx("level"); }} onStudy={(id) => { if (act((n) => studySchool(n, id))) sfx("ui"); }}
+        onAscend={(r) => confirmation.ask({ title: "Embrace the transformation?", text: "Your race changes permanently. Your old racial traits are replaced.", label: "Transform", action: () => { act((n) => ascend(n, r)); sfx("level"); } })} />}
       {panel?.t === "craftery" && <CrafteryPanel s={s} onClose={close} onCraft={(id, k) => { if (act((n) => craftTool(n, id, k))) sfx("loot"); else sfx("fail"); }} onRanged={(id) => act((n) => equipRanged(n, id))} />}
       {trapAt && <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-2" onClick={() => setTrapAt(null)}>
         <div className="pixel-panel w-full max-w-md p-3" onClick={(e) => e.stopPropagation()}>

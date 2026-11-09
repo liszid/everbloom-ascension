@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
+import { ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { AILMENTS, BLESSINGS, BLESS_BATTLES, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
-import { ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
+import { ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
@@ -137,5 +138,51 @@ export function BuildingTabs({ tabs, cur, go }: { tabs: [string, string][]; cur:
     <div className="flex shrink-0 gap-1 border-b-2 border-border px-2 py-1">
       {tabs.map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${cur === t ? "pixel-btn-active" : ""}`} onClick={() => go(t)}>{l}</button>)}
     </div>
+  );
+}
+
+export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: GameState; onClose: () => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
+  const [tab, setTab] = useState<"schools" | "spells" | "rituals">("schools");
+  const matk = Math.round(playerStats(s).matk);
+  const known = SCHOOLS.filter((x) => s.magic?.[x.id] !== undefined);
+  return (
+    <Sheet title="🔮 Magic Tower" onClose={onClose}>
+      <div className="mb-2 flex gap-1">
+        {([["schools", "📚 Schools"], ["spells", "✨ Spells"], ["rituals", "🌑 Rituals"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
+      </div>
+      <p className="mb-2 text-xs text-muted-foreground">Your M.Atk: {fmt(matk)} · Spells unlock automatically once school level and M.Atk are high enough. Casting spells also trains the school.</p>
+      {tab === "schools" && SCHOOLS.map((sc) => { const xp = s.magic?.[sc.id]; const L = xp === undefined ? 0 : schoolLevel(xp); const lock = xp === undefined ? schoolLock(s, sc.id) : null; const hidden = !!sc.combo && xp === undefined && !!lock && lock.startsWith("Undiscovered"); return (
+        <div key={sc.id} className="mb-1 border-2 border-border p-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{hidden ? "❔" : sc.icon}</span>
+            <div className="min-w-0 flex-1"><div className="text-sm">{hidden ? "Unknown combined magic" : sc.name}{xp !== undefined && <span className="text-gold"> · Lv {L}/{SCHOOL_MAX}</span>}</div>
+              <div className="text-xs text-muted-foreground">{hidden ? lock : sc.desc}{sc.combo && !hidden ? ` (${SCHOOL[sc.combo[0]].name} + ${SCHOOL[sc.combo[1]].name})` : ""}</div></div>
+          </div>
+          {xp === undefined && !hidden && <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={!!lock || s.gold < sc.gold} onClick={() => onLearn(sc.id)}>{lock ?? `${sc.combo ? "Discover" : "Learn"} · ${fmt(sc.gold)}g`}</button>}
+          {xp !== undefined && L < SCHOOL_MAX && <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={s.gold < studyCost(L)} onClick={() => onStudy(sc.id)}>📘 Study (+{STUDY_XP} xp) · {fmt(studyCost(L))}g</button>}
+        </div>); })}
+      {tab === "spells" && <>
+        {!known.length && <p className="text-sm text-muted-foreground">Learn a school first.</p>}
+        {known.map((sc) => <div key={sc.id} className="mb-2">
+          <h3 className="text-accent">{sc.icon} {sc.name}</h3>
+          {SPELLS.filter((sp) => sp.school === sc.id).map((sp) => { const has = s.spells?.includes(sp.id); return (
+            <div key={sp.id} className={`flex justify-between border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
+              <span>{has ? "✅" : "🔒"} {sp.name} <span className="text-xs">· {sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {sp.cost} MP</span></span>
+              {!has && <span className="text-xs">{spellLock(s, sp.id)}</span>}
+            </div>); })}
+        </div>)}
+      </>}
+      {tab === "rituals" && <>
+        <p className="mb-2 text-xs text-muted-foreground">Forbidden rites can transform your race. Progress only counts after the school is learned.{s.char.origin ? ` Born a ${s.char.origin}.` : ""}</p>
+        {ascensionProgress(s).map((a) => { const r = ASC_RACES.find((x) => x.id === a.race)!; const cur = s.char.race === a.race; return (
+          <div key={a.race} className="mb-1 border-2 border-border p-2">
+            <div className="text-sm">{r.icon} {r.name} {cur && <span className="text-gold">· your race</span>}</div>
+            <div className="text-xs text-muted-foreground">{r.passive.name}: {r.passive.desc} · {r.active.name}: {r.active.desc}</div>
+            <div className={`text-xs ${a.learned ? "text-gold" : ""}`}>{a.learned ? "✅" : "⬜"} Learn {SCHOOL[a.school].name}</div>
+            {a.reqs.map((q) => <div key={q.stat} className={`text-xs ${q.ok ? "text-gold" : q.failed ? "text-destructive" : ""}`}>{q.ok ? "✅" : q.failed ? "❌" : "⬜"} {q.label}: {fmt(Math.min(q.cur, q.need * 10))}/{fmt(q.need)}</div>)}
+            {!cur && <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={!a.ready} onClick={() => onAscend(a.race)}>{a.failed ? "Path closed" : a.ready ? `Become a ${r.name}` : "Conditions not met"}</button>}
+          </div>); })}
+      </>}
+    </Sheet>
   );
 }
