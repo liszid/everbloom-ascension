@@ -458,7 +458,7 @@ export function equipGear(s: GameState, id: string) {
 export function gearValue(g: Gear) { return Math.round(g.materials.reduce((a, m) => a + getMat(m.id).value * m.qty, 0) * 0.4 * (1 + g.grade * 0.5) * (1 + g.enh * 0.15)); }
 export function sellGear(s: GameState, id: string) {
   const g = s.gear.find((x) => x.id === id); if (!g) return;
-  SLOTS.forEach((sl) => { if (s.equip[sl] === id) s.equip[sl] = undefined; });
+  SLOTS.forEach((sl) => { if (s.equip[sl] === id) s.equip[sl] = undefined; for (const c of s.companions ?? []) if (c.equip[sl] === id) c.equip[sl] = undefined; });
   s.gear = s.gear.filter((x) => x.id !== id);
   const v = Math.round(gearValue(g) * (1 + lvl(s, "trading") * 0.005)); earn(s, v); addXp(s, "trading", 2 + g.grade);
   log(s, `💰 Sold ${g.name} for ${v}g.`); clampVitals(s);
@@ -607,7 +607,6 @@ export function enchantMatFor(s: GameState, g: Gear, el: Element) {
 
 // ---- adventurers guild ----
 const d0 = (s: GameState) => s.dungeon?.floor ?? Math.max(1, s.maxFloor);
-const uid = () => Math.random().toString(36).slice(2, 10);
 export function captureBlock(s: GameState): string | null {
   const m = s.combat?.mon; if (!m) return "No target";
   if (m.boss) return "Guardians cannot be captured.";
