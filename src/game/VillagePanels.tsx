@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
-import { ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId } from "./magic";
+import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
-import { bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
+import { MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
@@ -141,7 +141,7 @@ export function BuildingTabs({ tabs, cur, go }: { tabs: [string, string][]; cur:
   );
 }
 
-export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: GameState; onClose: () => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
+export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, onLevel }: { s: GameState; onClose: () => void; onToggle: (id: string) => void; onLevel: (id: string) => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
   const [tab, setTab] = useState<"schools" | "spells" | "rituals">("schools");
   const matk = Math.round(playerStats(s).matk);
   const known = SCHOOLS.filter((x) => s.magic?.[x.id] !== undefined);
@@ -150,7 +150,7 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: Game
       <div className="mb-2 flex gap-1">
         {([["schools", "📚 Schools"], ["spells", "✨ Spells"], ["rituals", "🌑 Rituals"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">Your M.Atk: {fmt(matk)} · Spells unlock automatically once school level and M.Atk are high enough. Casting spells also trains the school.</p>
+      <p className="mb-2 text-xs text-muted-foreground">Your M.Atk: {fmt(matk)} · Spells unlock once school level and M.Atk are high enough. Only 4 can be equipped for battle.</p>
       {tab === "schools" && SCHOOLS.map((sc) => { const xp = s.magic?.[sc.id]; const L = xp === undefined ? 0 : schoolLevel(xp); const lock = xp === undefined ? schoolLock(s, sc.id) : null; const hidden = !!sc.combo && xp === undefined && !!lock && lock.startsWith("Undiscovered"); return (
         <div key={sc.id} className="mb-1 border-2 border-border p-2">
           <div className="flex items-center gap-2">
@@ -163,12 +163,26 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: Game
         </div>); })}
       {tab === "spells" && <>
         {!known.length && <p className="text-sm text-muted-foreground">Learn a school first.</p>}
+        {known.length > 0 && <div className="mb-2 border-2 border-gold p-2">
+          <div className="mb-1 text-sm text-gold">Equipped spells {equippedSpells(s).length}/{MAX_SPELL_SLOTS}</div>
+          <div className="grid grid-cols-2 gap-1">
+            {Array.from({ length: MAX_SPELL_SLOTS }, (_, i) => { const id = equippedSpells(s)[i]; const sp = id ? SPELL[id] : undefined; return (
+              <button key={i} className="pixel-btn min-h-[2.6rem] p-1 text-left text-xs" disabled={!sp} onClick={() => sp && onToggle(sp.id)}>
+                {sp ? <>{SCHOOL[sp.school].icon} {sp.name} <span className="text-gold">Lv {s.spellLv?.[sp.id] ?? 1}</span><span className="block text-[0.6rem] text-muted-foreground">tap to unequip</span></> : <span className="text-muted-foreground">— empty slot —</span>}
+              </button>); })}
+          </div>
+        </div>}
         {known.map((sc) => <div key={sc.id} className="mb-2">
           <h3 className="text-accent">{sc.icon} {sc.name}</h3>
-          {SPELLS.filter((sp) => sp.school === sc.id).map((sp) => { const has = s.spells?.includes(sp.id); return (
-            <div key={sp.id} className={`flex justify-between border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
-              <span>{has ? "✅" : "🔒"} {sp.name} <span className="text-xs">· {sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {sp.cost} MP</span></span>
-              {!has && <span className="text-xs">{spellLock(s, sp.id)}</span>}
+          {SPELLS.filter((sp) => sp.school === sc.id).map((sp) => { const has = s.spells?.includes(sp.id); const on = equippedSpells(s).includes(sp.id); const lv = s.spellLv?.[sp.id] ?? 1; const uc = spellUpCost(sp.id, lv); return (
+            <div key={sp.id} className={`border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
+              <div className="flex justify-between gap-1"><span>{has ? (on ? "🟢" : "⚪") : "🔒"} {sp.name}{has && <span className="text-gold"> Lv {lv}/{SPELL_MAX_LV}</span>}</span>
+                <span className="text-xs">{sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {Math.round(sp.cost * (1 + (lv - 1) * 0.05))} MP</span></div>
+              {!has && <div className="text-xs">Requires {spellLock(s, sp.id)}</div>}
+              {has && <div className="mt-1 flex gap-1">
+                <button className="pixel-btn flex-1 py-1 text-xs" disabled={!on && equippedSpells(s).length >= MAX_SPELL_SLOTS} onClick={() => onToggle(sp.id)}>{on ? "Unequip" : equippedSpells(s).length >= MAX_SPELL_SLOTS ? "Slots full" : "Equip"}</button>
+                <button className="pixel-btn flex-1 py-1 text-xs" disabled={lv >= SPELL_MAX_LV || s.gold < uc} onClick={() => onLevel(sp.id)}>{lv >= SPELL_MAX_LV ? "MAX" : `📈 Lv up · ${fmt(uc)}g (+${Math.round(SPELL_LV_BONUS * 100)}%)`}</button>
+              </div>}
             </div>); })}
         </div>)}
       </>}
