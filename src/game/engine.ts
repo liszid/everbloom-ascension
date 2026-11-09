@@ -1,5 +1,5 @@
 import { titleKit } from "./titles";
-import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SCHOOLS, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
+import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { AILMENTS, AMMO_FOR, BLESSINGS, BLESS_BATTLES, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
 import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import {
@@ -447,7 +447,7 @@ export function equipGear(s: GameState, id: string) {
   if (g.slot === "two_hand") { s.equip.one_hand = undefined; s.equip.shield = undefined; }
   if (g.slot === "one_hand" || g.slot === "shield") s.equip.two_hand = undefined;
   if (g.slot === "shield" || g.slot === "two_hand") s.ranged = undefined;
-  clampVitals(s);
+  clampVitals(s); learnSpells(s);
 }
 export function gearValue(g: Gear) { return Math.round(g.materials.reduce((a, m) => a + getMat(m.id).value * m.qty, 0) * 0.4 * (1 + g.grade * 0.5) * (1 + g.enh * 0.15)); }
 export function sellGear(s: GameState, id: string) {
@@ -619,16 +619,17 @@ export function studySchool(s: GameState, id: SchoolId): boolean {
   const nl = schoolLevel(s.magic[id]!); if (nl > L) log(s, `📘 ${SCHOOL[id].name} reached Lv ${nl}.`);
   learnSpells(s); return true;
 }
-export function spellLock(s: GameState, id: string): string | null {
+export function spellLock(s: GameState, id: string, matk = playerStats(s).matk): string | null {
   const sp = SPELL[id]!; if (!knowsSchool(s, sp.school)) return "School not learned";
   if (schoolLevel(s.magic![sp.school]!) < sp.lvl) return `${SCHOOL[sp.school].name} Lv ${sp.lvl}`;
-  if (playerStats(s).matk < sp.matk) return `${sp.matk} M.Atk`;
+  if (matk < sp.matk) return `${sp.matk} M.Atk`;
   return null;
 }
 /** Auto-learns every spell whose school level and M.Atk requirements are met. */
 export function learnSpells(s: GameState) {
-  const have = new Set(s.spells ?? []);
-  for (const sp of SPELLS) if (!have.has(sp.id) && !spellLock(s, sp.id)) { have.add(sp.id); log(s, `✨ New spell: ${sp.name}!`); }
+  if (!s.magic) return;
+  const have = new Set(s.spells ?? []); const matk = playerStats(s).matk;
+  for (const sp of SPELLS) if (!have.has(sp.id) && !spellLock(s, sp.id, matk)) { have.add(sp.id); log(s, `✨ New spell: ${sp.name}!`); }
   s.spells = [...have];
 }
 export function ascensionProgress(s: GameState) {
@@ -794,7 +795,7 @@ export function enterDungeon(s: GameState, f: number) {
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
   s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
-  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; rerollQuestsIfDone(s);
+  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; learnSpells(s); rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
 export function mineVein(s: GameState, x: number, y: number) {
