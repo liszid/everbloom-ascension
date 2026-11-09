@@ -1,7 +1,7 @@
 import { titleKit } from "./titles";
 import { CAPTURE_HP, HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, compLevel, rentPrice, techGold, techId, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
-import { AILMENTS, AMMO_FOR, BLESSINGS, BLESS_BATTLES, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
+import { BLDG_MAX, bldgCost, blessBattles, churchDisc, guildMult, restPct, storageCap, ammoFor, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
 import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
@@ -62,6 +62,7 @@ export interface GameState {
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
   spots?: Record<string, number> | undefined;
   ailments?: Partial<Record<AilmentId, number>> | undefined; blessing?: { id: BlessingId; left: number } | undefined;
+  bldg?: Partial<Record<BldgId, number>> | undefined; spellSlots?: string[] | undefined; spellLv?: Record<string, number> | undefined;
   companions?: Companion[] | undefined; techs?: string[] | undefined;
   magic?: Partial<Record<SchoolId, number>> | undefined; spells?: string[] | undefined;
   tools?: Record<string, number> | undefined; ranged?: RangedId | undefined; prayed?: boolean | undefined; faith?: number | undefined;
@@ -167,9 +168,10 @@ export type ActiveSkill = ReturnType<typeof classActives>[number];
 /** Skills usable in combat: class skills followed by equipped-title skills. */
 export function combatActives(s: GameState): ActiveSkill[] {
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
-  const spells = (s.spells ?? []).map((id) => SPELL[id]).filter((x) => !!x).map((sp) => {
+  const spells = equippedSpells(s).map((id) => SPELL[id]).filter((x) => !!x).map((sp) => {
     const L = schoolLevel(s.magic?.[sp!.school] ?? 0);
-    return { aff: "none", name: sp!.name, kind: sp!.kind as string, mult: sp!.kind === "heal" || sp!.kind === "guard" || sp!.kind === "lock" ? sp!.mult : sp!.mult * (1 + (L - 1) * 0.04), cost: sp!.cost, res: "mp" as const, el: sp!.el, school: sp!.school };
+    const sl = s.spellLv?.[sp!.id] ?? 1; const lm = 1 + (sl - 1) * SPELL_LV_BONUS;
+    return { aff: "none", name: sl > 1 ? `${sp!.name} +${sl - 1}` : sp!.name, kind: sp!.kind as string, mult: sp!.kind === "heal" ? sp!.mult * lm : sp!.kind === "guard" || sp!.kind === "lock" ? sp!.mult : sp!.mult * (1 + (L - 1) * 0.04) * lm, cost: Math.round(sp!.cost * (1 + (sl - 1) * 0.05)), res: "mp" as const, el: sp!.el, school: sp!.school };
   });
   const techs = (s.techs ?? []).filter((t) => t.endsWith(":active")).map((t) => { const a = t.split(":")[0]!; const d = AFF_BY_ID[a]!;
     return { aff: a, name: `${d.titles[1]} Art`, kind: d.active.kind as string, mult: d.active.kind === "heal" || d.active.kind === "guard" || d.active.kind === "buff" ? d.active.mult * 1.3 : d.active.mult * 1.6, cost: Math.round(d.active.cost * 1.3), res: d.active.res, el: d.active.el, school: undefined as SchoolId | undefined }; });
@@ -452,7 +454,7 @@ export function equipGear(s: GameState, id: string) {
   for (const c of s.companions ?? []) for (const k of Object.keys(c.equip) as Slot[]) if (c.equip[k] === id) c.equip[k] = undefined;
   if (g.slot === "two_hand") { s.equip.one_hand = undefined; s.equip.shield = undefined; }
   if (g.slot === "one_hand" || g.slot === "shield") s.equip.two_hand = undefined;
-  if (g.slot === "shield" || g.slot === "two_hand") s.ranged = undefined;
+  if (g.slot === "shield" || g.slot === "two_hand" || (g.slot === "one_hand" && s.ranged && TOOL[s.ranged]?.two)) s.ranged = undefined;
   clampVitals(s); learnSpells(s);
 }
 export function gearValue(g: Gear) { return Math.round(g.materials.reduce((a, m) => a + getMat(m.id).value * m.qty, 0) * 0.4 * (1 + g.grade * 0.5) * (1 + g.enh * 0.15)); }
@@ -568,9 +570,35 @@ export function upgradeSpot(s: GameState, id: SpotId): boolean {
   const un = SPOTS[id].mats.find(([, l]) => l === L + 1);
   log(s, `⬆️ ${SPOTS[id].name} reached level ${L + 1}${un ? ` — ${getMat(un[0]).name} unlocked!` : ""}`); return true;
 }
+// ---- village building levels ----
+export const bldgLvl = (s: GameState, b: BldgId) => s.bldg?.[b] ?? 1;
+export function upgradeBldg(s: GameState, b: BldgId): boolean {
+  const L = bldgLvl(s, b); if (L >= BLDG_MAX) return false;
+  if (!spend(s, bldgCost(L))) { log(s, "❌ Not enough gold."); return false; }
+  s.bldg = { ...s.bldg, [b]: L + 1 }; log(s, `🏗️ Building upgraded to Lv ${L + 1}!`); return true;
+}
+export const storageUsed = (s: GameState) => s.whGear.length + Object.values(s.wh).filter((q) => q > 0).length;
+export const storageMax = (s: GameState) => storageCap(bldgLvl(s, "house"));
+export const marketMult = (s: GameState) => 1 + (bldgLvl(s, "market") - 1) * 0.04;
+export const guildSellMult = (s: GameState) => guildMult(bldgLvl(s, "guild"));
+export function storeGear(s: GameState, id: string): boolean {
+  const g = s.gear.find((x) => x.id === id); if (!g) return false;
+  if (storageUsed(s) >= storageMax(s)) { log(s, "📦 Storage is full — upgrade your Home."); return false; }
+  s.gear = s.gear.filter((x) => x.id !== id); SLOTS.forEach((sl) => { if (s.equip[sl] === id) s.equip[sl] = undefined; }); s.whGear.push(g); return true;
+}
+export function storeAll(s: GameState) {
+  let full = false;
+  for (const [id, q] of Object.entries(s.inv)) {
+    if (!q) continue;
+    if (!s.wh[id] && storageUsed(s) >= storageMax(s)) { full = true; continue; }
+    s.wh[id] = (s.wh[id] ?? 0) + q; delete s.inv[id];
+  }
+  if (full) log(s, "📦 Storage is full — some items stayed in your bag.");
+}
+
 // ---- church services ----
-export const ailmentCost = (s: GameState, id: AilmentId) => servicePrice(AILMENTS[id].cost, s.maxFloor);
-export const blessingCost = (s: GameState, id: BlessingId) => Math.round(servicePrice(BLESSINGS[id].cost, s.maxFloor) * (1 - Math.min(0.3, (s.faith ?? 0) * 0.01)));
+export const ailmentCost = (s: GameState, id: AilmentId) => Math.round(servicePrice(AILMENTS[id].cost, s.maxFloor) * churchDisc(bldgLvl(s, "church")));
+export const blessingCost = (s: GameState, id: BlessingId) => Math.round(servicePrice(BLESSINGS[id].cost, s.maxFloor) * (1 - Math.min(0.3, (s.faith ?? 0) * 0.01)) * churchDisc(bldgLvl(s, "church")));
 export function addAilment(s: GameState, id: AilmentId) { if (s.ailments?.[id]) return false; s.ailments = { ...s.ailments, [id]: 1 }; return true; }
 export function cureAilment(s: GameState, id: AilmentId): boolean {
   if (!s.ailments?.[id]) return false;
@@ -579,7 +607,7 @@ export function cureAilment(s: GameState, id: AilmentId): boolean {
 }
 export function buyBlessing(s: GameState, id: BlessingId): boolean {
   if (!spend(s, blessingCost(s, id))) { log(s, "❌ Not enough gold for the blessing."); return false; }
-  s.blessing = { id, left: BLESS_BATTLES }; log(s, `✨ ${BLESSINGS[id].name} lasts ${BLESS_BATTLES} battles.`); return true;
+  const n = blessBattles(bldgLvl(s, "church")); s.blessing = { id, left: n }; log(s, `✨ ${BLESSINGS[id].name} lasts ${n} battles.`); return true;
 }
 /** Free prayer once per return from the tower: builds faith (cheaper blessings) and grants a short random blessing. */
 export function pray(s: GameState): BlessingId | null {
@@ -669,7 +697,7 @@ export function compTitle(s: GameState, cid: string, t: string | undefined) {
 export function trainSkill(s: GameState, k: string): boolean | null {
   const L = lvl(s, k); if (L >= MAX_SKILL) return null;
   if (!spend(s, trainCost(L))) { log(s, "❌ Not enough gold for training."); return null; }
-  if (Math.random() < trainChance(L)) {
+  if (Math.random() < trainChance(L) + (bldgLvl(s, "guild") - 1) * 0.03) {
     s.skills[k] = (s.skills[k] ?? 0) + (xpForLevel(L + 1) - xpForLevel(L)) * 0.5;
     log(s, `🏋️ Training paid off! ${k} ${L} → ${lvl(s, k)}`); return true;
   }
@@ -720,6 +748,24 @@ export function learnSpells(s: GameState) {
   const have = new Set(s.spells ?? []); const matk = playerStats(s).matk;
   for (const sp of SPELLS) if (!have.has(sp.id) && !spellLock(s, sp.id, matk)) { have.add(sp.id); log(s, `✨ New spell: ${sp.name}!`); }
   s.spells = [...have];
+  if (!s.spellSlots) s.spellSlots = [...have].slice(0, MAX_SPELL_SLOTS);
+  for (const id of have) if (s.spellSlots.length < MAX_SPELL_SLOTS && !s.spellSlots.includes(id)) s.spellSlots = [...s.spellSlots, id];
+}
+export const MAX_SPELL_SLOTS = 4; export const SPELL_MAX_LV = 10; export const SPELL_LV_BONUS = 0.12;
+export function equippedSpells(s: GameState) { return (s.spellSlots ?? (s.spells ?? []).slice(0, MAX_SPELL_SLOTS)).filter((id) => s.spells?.includes(id)); }
+export function toggleSpell(s: GameState, id: string): boolean {
+  if (!s.spells?.includes(id)) return false;
+  const cur = equippedSpells(s);
+  if (cur.includes(id)) { s.spellSlots = cur.filter((x) => x !== id); return true; }
+  if (cur.length >= MAX_SPELL_SLOTS) { log(s, `❌ Only ${MAX_SPELL_SLOTS} Magic Tower spells can be equipped.`); return false; }
+  s.spellSlots = [...cur, id]; return true;
+}
+export const spellUpCost = (id: string, lv: number) => Math.round(150 * lv * lv * (1 + SPELLS.findIndex((x) => x.id === id) % 3) * (SCHOOL[SPELL[id]!.school].combo ? 2 : 1));
+export function levelSpell(s: GameState, id: string): boolean {
+  if (!s.spells?.includes(id)) return false;
+  const lv = s.spellLv?.[id] ?? 1; if (lv >= SPELL_MAX_LV) return false;
+  if (!spend(s, spellUpCost(id, lv))) { log(s, "❌ Not enough gold."); return false; }
+  s.spellLv = { ...s.spellLv, [id]: lv + 1 }; addXp(s, "spellcasting", 5); log(s, `📈 ${SPELL[id]!.name} reached Lv ${lv + 1}.`); return true;
 }
 export function ascensionProgress(s: GameState) {
   return ASCENSIONS.map((a) => {
@@ -738,6 +784,7 @@ export function ascend(s: GameState, raceId: string): boolean {
 // ---- craftery ----
 export function craftTool(s: GameState, id: string, times = 1): boolean {
   const t = TOOL[id]; if (!t) return false;
+  if ((t.lvl ?? 1) > bldgLvl(s, "craftery")) { log(s, `❌ Needs Craftery Lv ${t.lvl}.`); return false; }
   let made = 0;
   for (let i = 0; i < times; i++) {
     if (t.kind === "ranged" && (s.tools?.[id] ?? 0) > 0) break;
@@ -753,6 +800,7 @@ export function equipRanged(s: GameState, id: RangedId | undefined) {
   if (id && !(s.tools?.[id] ?? 0)) return false;
   if (id && s.equip.two_hand) { log(s, "❌ Two-handed weapons leave no hand free."); return false; }
   if (id && s.equip.shield) s.equip.shield = undefined;
+  if (id && TOOL[id]?.two && s.equip.one_hand) { s.equip.one_hand = undefined; log(s, "Your one-handed weapon was stowed — this needs both hands."); }
   s.ranged = id; log(s, id ? `🏹 ${TOOL[id]!.name} readied in your off-hand.` : "Off-hand cleared."); return true;
 }
 export function placeTrap(s: GameState, id: string, x: number, y: number): boolean {
@@ -799,8 +847,9 @@ export function harvest(s: GameState, x: number, y: number) {
   log(s, `🧺 Harvested ${q} ${getMat(p.crop).name}.`);
 }
 export function restAtHome(s: GameState) {
-  const p = playerStats(s); s.hp = p.hp; s.mp = p.mp; s.sta = p.sta; s.step += 60;
-  log(s, "🛌 You rest. Fully restored; the village grows a little.");
+  const p = playerStats(s); const k = restPct(bldgLvl(s, "house")) / 100;
+  s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * k)); s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * k)); s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * k)); s.step += 60;
+  log(s, `🛌 You rest and recover ${Math.round(k * 100)}%. The village grows a little.`);
 }
 
 // ======================= dungeon =======================
@@ -1018,11 +1067,11 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     }
     clog(c, `🪢 ${m.name} breaks free!`);
   } else if (a === "shoot") {
-    const r = s.ranged; const ammo = r ? AMMO_FOR[r] : ""; const def = r ? TOOL[r] : undefined;
+    const r = s.ranged; const ammo = r ? ammoFor(r) : ""; const def = r ? TOOL[r] : undefined;
     if (!r || !def || !(s.tools?.[ammo] ?? 0)) { clog(c, "No ammunition!"); c.turn--; return null; }
     s.tools = { ...s.tools, [ammo]: s.tools![ammo]! - 1 };
-    const pp = r === "crossbow" ? { ...p, effects: { ...p.effects, pierce: p.effects.pierce + 40 } } : p;
-    playerHit(s, c, pp, def.mult ?? 1.4, { magic: false, label: def.name });
+    const pp = def.pierce ? { ...p, effects: { ...p.effects, pierce: p.effects.pierce + def.pierce } } : p;
+    playerHit(s, c, pp, def.mult ?? 1.4, { magic: false, el: r === "laser" ? "light" : undefined, label: def.name });
     addXp(s, "hunting", 4); addAff(s, "hunting", 1);
   } else if ("tool" in a) {
     const t = TOOL[a.tool]; if (!t || t.kind !== "throw" || !(s.tools?.[t.id] ?? 0)) { c.turn--; return null; }
