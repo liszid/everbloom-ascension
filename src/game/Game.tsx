@@ -472,15 +472,16 @@ function camera(s: GameState) {
   return { cx: Math.max(0, Math.min(W - VW, s.pos.x - Math.floor(VW / 2))), cy: Math.max(0, Math.min(H - VH, s.pos.y - Math.floor(VH / 2))) };
 }
 
-/** Village ground kind for corner rounding: grass-backed, open ground (path/water/soil) or neutral (buildings, off-map). */
+/** Village ground kind for corner rounding: grass-backed or open ground (path/water/soil; buildings stand on path); off-map is neutral. */
 function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" | null {
   const t = VILLAGE[y]?.[x];
-  if (t === undefined || BUILDINGS[t]) return null;
-  return t === "," ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
+  if (t === undefined) return null;
+  return t === "," || BUILDINGS[t] ? "path" ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
 }
 const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 /** Rounds grass where it meets paths, water and soil: grass bulges get round tips, inner bends get soft fillets. */
 function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
+  const t = VILLAGE[y]?.[x]; if (t === undefined || BUILDINGS[t]) return undefined;
   const me = groundKind(x, y); if (!me) return undefined;
   const isG = me === "grass"; let under: string | null = null; let any = false;
   const r = CORNERS.map(([sx, sy]) => {
