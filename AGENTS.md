@@ -12,3 +12,4 @@
 - Game confirmations use the shared ConfirmationProvider rather than native browser dialogs to keep fullscreen intact.
 - Building and monster artwork uses browser-safe procedural SVG modules with palette tokens in src/styles.css so gameplay and presentation remain separate.
 - Mobile map width follows available horizontal space; short screens scroll vertically instead of compressing the map.
+- Village gathering spots are data-driven in src/game/gathering.ts (spot level gates materials); merged buildings reuse existing panels via a shared tab strip in Game.tsx GROUPS.

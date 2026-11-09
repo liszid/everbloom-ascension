@@ -1,4 +1,5 @@
-- [x] Replace native confirmations with an in-game dialog and preserve fullscreen.
-- [x] Restore full-width mobile map and compact shop/interior layout.
-- [x] Add directional animated pixel-art monsters and distinct building architecture.
-- [x] Verify mobile layout, Buy/Sell windows, and fullscreen through dungeon retreat in Chromium; physical mobile-browser fullscreen remains unverified.
+# Village rework (approved plan, 4 phases)
+- [x] Phase 1: new village map, merged Home/Market/Forge with tabs, Save in Settings, gathering windows (Forest, Mine, Pond, Animal Farm, Field) with spot levels and level-based map art, Church healing, keepers for new buildings.
+- [ ] Phase 2: Church prayers/blessings/ailments/elemental weapon blessing; Craftery single-use items, ammo for off-hand bows/crossbows/guns, long-press trap placement in dungeon.
+- [ ] Phase 3: Magic Tower schools, stat-gated spells, combined magics; mid-game race changes (Vampire, Ghost, Werewolf, Lich, Zombie, Ghoul).
+- [ ] Phase 4: Adventurers Guild buyer, skill training, specialization trainers, companions (rent/buy, up to 4, captured monsters) with companion tabs.
