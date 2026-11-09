@@ -26,7 +26,7 @@ describe("off-hand & torches", () => {
   });
   it("equipping a shield puts the torch away", () => {
     const s = fresh(); craftTool(s, "torch"); equipRanged(s, "torch");
-    s.gear.push({ ...s.gear[0]!, id: "sh1", slot: "shield" } as never); equipGear(s, "sh1");
+    s.gear.push({ id: "sh1", name: "Buckler", slot: "shield", grade: 0, enh: 0, dura: 10, maxDura: 10, materials: [], base: new Proxy({}, { get: () => 0 }) } as never); equipGear(s, "sh1");
     expect(s.ranged).toBeUndefined();
   });
 });
