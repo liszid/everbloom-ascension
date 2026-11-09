@@ -28,13 +28,15 @@ export const ENCHANT_ALT: Partial<Record<Element, string>> = { fire: "rose", wat
 export const enchantPower = (grade: number) => 10 + grade * 3;
 export const enchantCost = (grade: number, maxFloor: number) => ({ gold: Math.round(150 * (grade + 1) * (1 + maxFloor / 20)), qty: 2 + grade });
 
-export type ToolKind = "throw" | "trap" | "ammo" | "ranged";
+export type ToolKind = "throw" | "trap" | "ammo" | "ranged" | "torch";
+export type TorchFx = "sleep" | "siphon" | "blind" | "venom" | "chill" | "soul" | "burn";
 export type RangedId = string;
 export interface ToolDef {
   id: string; name: string; icon: string; kind: ToolKind; desc: string; makes: number;
   recipe: [string, number][]; gold: number;
   mult?: number; el?: Element; stun?: number; burn?: number; flee?: boolean; ammo?: RangedId; pct?: number;
   /** Craftery level needed. */ lvl?: number; /** Ranged: ammo item used, armor pierce %, two-handed. */ uses?: string; pierce?: number; two?: boolean;
+  /** Torch: extra sight radius, fire strike multiplier, special effect and its % chance. */ sight?: number; fire?: number; fx?: TorchFx; chance?: number;
 }
 export const TOOLS: ToolDef[] = [
   { id: "throw_knife", name: "Throwing Knife", icon: "🔪", kind: "throw", desc: "Sure hit, 1.5× physical", makes: 3, recipe: [["iron_ore", 1], ["oak_log", 1]], gold: 10, mult: 1.5 },
@@ -65,10 +67,20 @@ export const TOOLS: ToolDef[] = [
   { id: "cannon", name: "Hand Cannon", icon: "🧨", kind: "ranged", desc: "Two-handed · Shoot 5.5×", makes: 1, recipe: [["adamant_ingot", 2], ["gold_ingot", 3]], gold: 20000, mult: 5.5, uses: "bullet", two: true, lvl: 7 },
   { id: "laser", name: "Laser Gun", icon: "🔆", kind: "ranged", desc: "Shoot 6× light, pierces armor", makes: 1, recipe: [["starmetal", 1], ["mithril_ingot", 3]], gold: 50000, mult: 6, uses: "cell", pierce: 60, lvl: 9 },
   { id: "railgun", name: "Arcane Railgun", icon: "🛰️", kind: "ranged", desc: "Two-handed · Shoot 8×, ignores most armor", makes: 1, recipe: [["void_ore", 1], ["adamant_ingot", 3]], gold: 150000, mult: 8, uses: "cell", pierce: 80, two: true, lvl: 10 },
+  { id: "torch", name: "Torch", icon: "🔥", kind: "torch", desc: "Light +1 · 0.3× fire strike when you attack or defend", makes: 1, recipe: [["oak_log", 2], ["hide", 1]], gold: 40, sight: 1, fire: 0.3 },
+  { id: "alluring_torch", name: "Alluring Torch", icon: "💞", kind: "torch", desc: "Light +1 · 0.3× fire · 20% lulls the foe to sleep (2 turns)", makes: 1, recipe: [["oak_log", 2], ["rose", 3], ["slime_gel", 1]], gold: 200, sight: 1, fire: 0.3, fx: "sleep", chance: 20, lvl: 2 },
+  { id: "siphon_torch", name: "Siphoning Torch", icon: "🩸", kind: "torch", desc: "Light +1 · 0.35× fire · heals you for 60% of its burn", makes: 1, recipe: [["birch_log", 2], ["bat_wing", 3], ["nightshade", 1]], gold: 450, sight: 1, fire: 0.35, fx: "siphon", chance: 100, lvl: 3 },
+  { id: "blinding_torch", name: "Sunflare Torch", icon: "☀️", kind: "torch", desc: "Light +2.5 · 0.35× fire · 30% blinds the foe (half its attacks miss)", makes: 1, recipe: [["moonpetal", 2], ["daisy", 3], ["copper_ingot", 1]], gold: 900, sight: 2.5, fire: 0.35, fx: "blind", chance: 30, lvl: 4 },
+  { id: "witch_torch", name: "Witchfire Torch", icon: "☠️", kind: "torch", desc: "Light +1 · 0.4× fire · 35% venom that keeps eating at the foe", makes: 1, recipe: [["venom_sac", 2], ["nightshade", 2], ["oak_log", 2]], gold: 1600, sight: 1, fire: 0.4, fx: "venom", chance: 35, lvl: 5 },
+  { id: "frost_torch", name: "Frostflame Torch", icon: "❄️", kind: "torch", desc: "Light +1.5 · 0.45× fire · 35% chills the foe (−25% attack, 2 turns)", makes: 1, recipe: [["frost_shard", 2], ["iron_ingot", 1], ["oak_log", 2]], gold: 3000, sight: 1.5, fire: 0.45, fx: "chill", chance: 35, lvl: 6 },
+  { id: "soul_torch", name: "Soulfire Torch", icon: "👻", kind: "torch", desc: "Light +2 · 0.55× fire · restores mana equal to half its burn", makes: 1, recipe: [["mana_crystal", 2], ["spider_silk", 2], ["silver_ingot", 1]], gold: 9000, sight: 2, fire: 0.55, fx: "soul", chance: 100, lvl: 8 },
+  { id: "dragon_torch", name: "Dragonbreath Brand", icon: "🐉", kind: "torch", desc: "Light +3 · 0.9× fire · 50% sets the foe ablaze", makes: 1, recipe: [["fire_core", 3], ["obsidian", 2], ["gold_ingot", 1]], gold: 30000, sight: 3, fire: 0.9, fx: "burn", chance: 50, lvl: 10 },
 ];
 export const TOOL: Record<string, ToolDef> = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 export const ammoFor = (r: RangedId) => TOOL[r]?.uses ?? "arrow";
 export const TRAP_RANGE = 3;
+/** Dungeon sight radius in tiles without a torch. */
+export const BASE_SIGHT = 4;
 
 // ---- village building levels ----
 export type BldgId = "house" | "craftery" | "church" | "guild" | "market";

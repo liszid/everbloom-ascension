@@ -203,7 +203,7 @@ export const zeroStats = (): Stats => Object.fromEntries(STAT_KEYS.map((k) => [k
 export const SLOT_INFO: Record<Slot, { name: string; icon: string; nouns: string[]; w: Partial<Record<StatKey, number>> }> = {
   one_hand: { name: "One-Handed Weapon", icon: "🗡️", nouns: ["Blade", "Sabre", "Mace", "Wand", "Falchion"], w: { patk: 1, matk: 0.7, crit: 1, critDmg: 1, acc: 1 } },
   two_hand: { name: "Two-Handed Weapon", icon: "⚔️", nouns: ["Greatsword", "Warhammer", "Halberd", "Greatstaff", "Claymore"], w: { patk: 1.7, matk: 1.2, crit: 0.8, critDmg: 1.6, acc: 0.6 } },
-  shield: { name: "Shield", icon: "🛡️", nouns: ["Buckler", "Kite Shield", "Tower Shield", "Aegis"], w: { pdef: 1.4, mdef: 0.9, hp: 0.6 } },
+  shield: { name: "Off-hand", icon: "🛡️", nouns: ["Buckler", "Kite Shield", "Tower Shield", "Aegis"], w: { pdef: 1.4, mdef: 0.9, hp: 0.6 } },
   helm: { name: "Helm", icon: "⛑️", nouns: ["Helm", "Coif", "Circlet", "Visor"], w: { pdef: 0.6, mdef: 0.8, mp: 1, acc: 0.6 } },
   chest: { name: "Chest", icon: "🦺", nouns: ["Cuirass", "Hauberk", "Robe", "Brigandine"], w: { pdef: 1.1, mdef: 0.8, hp: 1.4 } },
   shoulders: { name: "Shoulders", icon: "🎽", nouns: ["Pauldrons", "Spaulders", "Mantle"], w: { pdef: 0.6, mdef: 0.5, hp: 0.6, patk: 0.25 } },

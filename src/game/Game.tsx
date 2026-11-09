@@ -8,7 +8,7 @@ import {
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
   setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
-  type CombatAct, type GameState, type Mon,
+  type CombatAct, type GameState, type Mon, sightRadius,
 } from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
@@ -482,6 +482,10 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     const tr = d.traps?.find((q) => q.x === x && q.y === y); if (tr) { glyph = TOOL[tr.id]?.icon ?? "🪤"; art = icon(tr.id) ?? icon("bear_trap"); dim = true; }
     const m = d.monsters.find((mm) => mm.x === x && mm.y === y);
     if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; mon = m; }
+    // vision: beyond sight only walls/floor (and the stairs beacon) show; torches widen it
+    const dist = Math.hypot(x - s.pos.x, y - s.pos.y), sight = sightRadius(s);
+    if (dist > sight) { cls += " tile-fog"; if (t !== ">") { glyph = ""; art = undefined; mon = undefined; boss = false; } }
+    else if (dist > sight - 1) cls += " tile-dusk";
   }
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`} style={tileBg}>

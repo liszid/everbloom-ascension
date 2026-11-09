@@ -48,7 +48,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
           <button className="pixel-btn py-3" disabled={c.eats >= 2} onClick={() => setMenu("eat")}>🍖 Eat {2 - c.eats}</button>
           <button className="pixel-btn py-2" onClick={() => setMenu("item")}>🎒 Items</button>
           <button className="pixel-btn col-span-3 py-2" disabled={!!captureBlock(s)} title={captureBlock(s) ?? ""} onClick={() => onAct("capture")}>🪢 Capture{captureBlock(s) ? ` · ${captureBlock(s)}` : ""}</button>
-          {s.ranged ? <button className="pixel-btn py-2" disabled={!(s.tools?.[ammoFor(s.ranged)] ?? 0)} onClick={() => onAct("shoot")}>{TOOL[s.ranged]!.icon} Shoot {s.tools?.[ammoFor(s.ranged)] ?? 0}</button> : <span />}
+          {s.ranged && TOOL[s.ranged]?.kind === "ranged" ? <button className="pixel-btn py-2" disabled={!(s.tools?.[ammoFor(s.ranged)] ?? 0)} onClick={() => onAct("shoot")}>{TOOL[s.ranged]!.icon} Shoot {s.tools?.[ammoFor(s.ranged)] ?? 0}</button> : <span />}
           <button className="pixel-btn py-2" disabled={m.boss > 0} onClick={() => onAct("flee")}>🏃 Flee</button>
         </div>}
         {menu === "skill" && <div className="mt-2 space-y-1">

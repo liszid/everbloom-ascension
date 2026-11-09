@@ -18,3 +18,4 @@
 - Guild companions, trainers and pricing are pure data in src/game/guild.ts; companion stats derive from shared player gear/titles via engine.compStats.
 - Map item cartoon icons are looked up by id/emoji in src/game/art.ts; gameplay data keeps emoji ids so art stays presentation-only.
 - Dungeon theme names/rotation are pure data in src/game/themes.ts; their floor/wall look (procedural textures spanning several tiles, wall trims, ambience) lives in src/game/dungeonStyle.ts so art never touches gameplay.
+- The off-hand holds one of: a shield (gear slot id stays "shield" for save compatibility, shown as Off-hand) or a Craftery ranged weapon/torch in GameState.ranged; equipping one clears the others.

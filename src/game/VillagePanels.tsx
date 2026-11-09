@@ -92,12 +92,12 @@ export function ChurchPanel({ s, onClose, onHeal, onCure, onBless, onPray, onEnc
         <p className="text-xs text-muted-foreground">Only one blessing can be active; a new one replaces the old.</p>
       </>}
       {tab === "ench" && <>
-        {!gears.length && <p className="text-sm text-muted-foreground">Craft a weapon or shield first.</p>}
+        {!gears.length && <p className="text-sm text-muted-foreground">Craft a weapon or off-hand shield first.</p>}
         {sel && <>
           <select className="pixel-btn mb-2 w-full p-2 text-sm" value={sel.id} onChange={(e) => setGid(e.target.value)}>
-            {gears.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.slot === "shield" ? "shield" : "weapon"}){g.ench ? ` · ${ELEMENT_ICON[g.ench.el]}${g.ench.v}%` : ""}</option>)}
+            {gears.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.slot === "shield" ? "off-hand" : "weapon"}){g.ench ? ` · ${ELEMENT_ICON[g.ench.el]}${g.ench.v}%` : ""}</option>)}
           </select>
-          <p className="mb-2 text-xs text-muted-foreground">{sel.slot === "shield" ? `Shield: reduces damage from monsters of that element by ${Math.min(50, enchantPower(sel.grade) * 2)}%+ and +5% defense.` : `Weapon: attacks take the element and deal +${enchantPower(sel.grade)}%+ damage (hit weaknesses for 1.5×).`} Rare essences add +5%.</p>
+          <p className="mb-2 text-xs text-muted-foreground">{sel.slot === "shield" ? `Off-hand shield: reduces damage from monsters of that element by ${Math.min(50, enchantPower(sel.grade) * 2)}%+ and +5% defense.` : `Weapon: attacks take the element and deal +${enchantPower(sel.grade)}%+ damage (hit weaknesses for 1.5×).`} Rare essences add +5%.</p>
           <div className="grid grid-cols-2 gap-1">
             {ENCHANT_ELEMENTS.map((el) => { const need = enchantMatFor(s, sel, el); const ok = s.gold >= need.gold && (s.inv[need.mat] ?? 0) >= need.qty; return (
               <button key={el} className="pixel-btn flex flex-col items-center p-2" disabled={!ok} onClick={() => onEnchant(sel.id, el)}>
@@ -115,20 +115,20 @@ export function CrafteryPanel({ s, onClose, onCraft, onRanged }: { s: GameState;
   const [tab, setTab] = useState<ToolKind>("throw");
   return (
     <Sheet title="🪤 Craftery" onClose={onClose}>
-      <div className="mb-2 flex gap-1">
-        {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Off-hand"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
+      <div className="mb-2 grid grid-cols-5 gap-1">
+        {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Ranged"], ["torch", "🔥 Torch"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn min-w-0 px-0.5 py-2 text-[0.65rem] ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : `Off-hand ranged weapons replace your shield; two-handed ones also stow your one-handed weapon. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
-      {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const owned = t.kind === "ranged" && have > 0; return (
+      <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : tab === "torch" ? `Torches go in your off-hand instead of a shield or ranged weapon. They light up more of the dungeon and burn foes whenever you attack or defend. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.` : `Off-hand ranged weapons replace your shield or torch; two-handed ones also stow your one-handed weapon. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
+      {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const held = t.kind === "ranged" || t.kind === "torch"; const owned = held && have > 0; return (
         <div key={t.id} className="mb-1 border-2 border-border p-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">{t.icon}</span>
-            <div className="min-w-0 flex-1"><div className="text-sm">{t.name} {t.kind !== "ranged" && <span className="text-xs text-muted-foreground">×{have}</span>}</div><div className="text-xs text-muted-foreground">{t.two ? "🙌 Two-handed · " : t.kind === "ranged" ? "Off-hand · " : ""}{t.desc}{t.uses ? ` (uses ${TOOL[t.uses]?.name})` : ""}{locked ? ` · 🔒 Craftery Lv ${t.lvl}` : ""}</div></div>
+            <div className="min-w-0 flex-1"><div className="text-sm">{t.name} {!held && <span className="text-xs text-muted-foreground">×{have}</span>}</div><div className="text-xs text-muted-foreground">{t.two ? "🙌 Two-handed · " : held ? "Off-hand · " : ""}{t.desc}{t.uses ? ` (uses ${TOOL[t.uses]?.name})` : ""}{locked ? ` · 🔒 Craftery Lv ${t.lvl}` : ""}</div></div>
           </div>
           <div className="mt-1 text-[0.7rem] text-muted-foreground">{fmt(t.gold)}g · {t.recipe.map(([m, q]) => `${q}× ${getMat(m).name} (${s.inv[m] ?? 0})`).join(" · ")}{t.makes > 1 ? ` → makes ${t.makes}` : ""}</div>
           <div className="mt-1 flex gap-1">
             {!owned && <button className="pixel-btn flex-1 py-2 text-xs" disabled={!ok} onClick={() => onCraft(t.id, 1)}>Craft</button>}
-            {!owned && t.kind !== "ranged" && <button className="pixel-btn flex-1 py-2 text-xs" disabled={!ok} onClick={() => onCraft(t.id, 5)}>Craft ×5</button>}
+            {!owned && !held && <button className="pixel-btn flex-1 py-2 text-xs" disabled={!ok} onClick={() => onCraft(t.id, 5)}>Craft ×5</button>}
             {owned && <button className="pixel-btn flex-1 py-2 text-xs" onClick={() => onRanged(s.ranged === t.id ? undefined : t.id as RangedId)}>{s.ranged === t.id ? "Unequip" : "Ready in off-hand"}</button>}
           </div>
         </div>); })}

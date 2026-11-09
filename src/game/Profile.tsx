@@ -6,6 +6,7 @@ import {
   type GameState,
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
+import { TOOL } from "./items";
 import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
@@ -53,7 +54,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
           {SLOTS.map((sl) => { const g = s.gear.find((x) => x.id === s.equip[sl]); return (
             <button key={sl} className={`pixel-btn flex min-h-16 flex-col items-center py-2 ${sel === sl ? "pixel-btn-active" : ""}`} onClick={() => setSel(sl)}>
               <span className="text-xl">{SLOT_INFO[sl].icon}</span>
-              <span className={`w-full truncate text-[0.65rem] ${g ? `grade-${g.grade}` : "text-muted-foreground"}`}>{g ? g.name : SLOT_INFO[sl].name}</span>
+              <span className={`w-full truncate text-[0.65rem] ${g ? `grade-${g.grade}` : "text-muted-foreground"}`}>{g ? g.name : sl === "shield" && s.ranged && TOOL[s.ranged] ? `${TOOL[s.ranged]!.icon} ${TOOL[s.ranged]!.name}` : SLOT_INFO[sl].name}</span>
             </button>); })}
         </div>
         {sel && (() => {
@@ -63,6 +64,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
             {g
               ? <div className="mt-2"><GearCard g={g} equipped actions={<button className="pixel-btn py-2" onClick={() => onEquip(g.id)}>Unequip</button>} /><p className="text-xs text-muted-foreground">Grade {GRADES[g.grade]} · durability {g.dura}/{g.maxDura}</p></div>
               : <p className="mt-2 text-muted-foreground">Empty slot.{sel === "shield" && s.equip.two_hand ? " Two-handed weapon equipped." : ""}</p>}
+            {sel === "shield" && s.ranged && TOOL[s.ranged] && <p className="mt-1 text-sm">Readied: {TOOL[s.ranged]!.icon} <b>{TOOL[s.ranged]!.name}</b> <span className="text-xs text-muted-foreground">· {TOOL[s.ranged]!.desc}. Swap it at the Craftery; equipping a shield here puts it away.</span></p>}
             <h3 className="mt-2 text-accent">Available ({spare.length})</h3>
             {spare.map((x) => <GearCard key={x.id} g={x} actions={<button className="pixel-btn pixel-btn-primary py-2" onClick={() => onEquip(x.id)}>{g ? "Swap" : "Equip"}</button>} />)}
             {!spare.length && <p className="text-sm text-muted-foreground">No other gear of this type in your bag.</p>}
