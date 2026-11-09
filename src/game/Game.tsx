@@ -7,14 +7,15 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon,
 } from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
   TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,
 } from "./Panels";
-import { ChurchPanel, GatherPanel, SoonPanel, BuildingTabs } from "./VillagePanels";
+import { ChurchPanel, CrafteryPanel, GatherPanel, SoonPanel, BuildingTabs } from "./VillagePanels";
+import { TOOL, TOOLS, TRAP_RANGE } from "./items";
 import { SPOT_TILES, spotLevel, spotStage, type SpotId } from "./gathering";
 import { ProfilePanel } from "./Profile";
 import { CombatView, EvoModal, ResultView } from "./Combat";
@@ -137,7 +138,7 @@ function GameSession({ userId }: { userId: string }) {
         const t = villageTile(tx, ty);
         if (WALKABLE_V.has(t)) {
           n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 0.5);
-          const p = playerStats(n); n.sta = Math.min(p.sta, n.sta + 1); if (n.hp < p.hp) n.hp = Math.min(p.hp, n.hp + 1);
+          const p = playerStats(n); n.sta = Math.min(p.sta, n.sta + 1); if (n.hp < p.hp && !n.ailments?.poisoned) n.hp = Math.min(p.hp, n.hp + 1);
           return null;
         }
         return interactVillage(n, tx, ty);
@@ -152,7 +153,7 @@ function GameSession({ userId }: { userId: string }) {
       else if (t === ">") {
         if (d.bossAlive) { log(n, "🔒 The Guardian must fall before the stairs open!"); return null; }
         return { t: "tower", x: -1 };
-      } else { n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 0.5); }
+      } else { n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 0.5); stepAilments(n); }
       const attacker = moveMonsters(n);
       if (attacker) startCombat(n, attacker);
       return null;
@@ -227,10 +228,21 @@ function GameSession({ userId }: { userId: string }) {
     const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     const start = { x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, moved: false, id: e.pointerId };
     const target = e.target as HTMLElement;
+    let held = false;
+    const lp = window.setTimeout(() => {
+      if (start.moved) return;
+      const c = ref.current; const cell = target.closest("[data-x]") as HTMLElement | null;
+      if (!c || c.loc !== "dungeon" || !cell || blocked() || panel) return;
+      const x = Number(cell.dataset["x"]), y = Number(cell.dataset["y"]); const d = c.dungeon!;
+      const dist = Math.abs(c.pos.x - x) + Math.abs(c.pos.y - y);
+      held = true;
+      if (dist === 0 || dist > TRAP_RANGE || d.tiles[y]?.[x] !== "." || d.monsters.some((m) => m.x === x && m.y === y) || d.traps?.some((q) => q.x === x && q.y === y)) { pushToast(`Traps go on empty floor within ${TRAP_RANGE} steps`); return; }
+      pathRef.current = []; setTrapAt({ x, y });
+    }, 500);
     const onMove = (ev: PointerEvent) => {
       const dx = ev.clientX - start.x, dy = ev.clientY - start.y; const dist = Math.hypot(dx, dy);
       if (dist > 18 || (start.moved && dist > 8)) {
-        start.moved = true;
+        start.moved = true; clearTimeout(lp);
         const cl = Math.min(dist, 44); setStick({ ox: start.ox, oy: start.oy, dx: (dx / dist) * cl, dy: (dy / dist) * cl });
         const nd: [number, number] = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
         const od = joy.current.dir;
@@ -241,8 +253,8 @@ function GameSession({ userId }: { userId: string }) {
     };
     const onUp = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp);
-      joy.current.dir = null; setStick(null);
-      if (!start.moved) {
+      joy.current.dir = null; setStick(null); clearTimeout(lp);
+      if (!start.moved && !held) {
         const hit = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null) ?? target;
         const cell = (hit.closest("[data-x]") ?? target.closest("[data-x]")) as HTMLElement | null;
         if (cell) tapTile(Number(cell.dataset["x"]), Number(cell.dataset["y"]));
@@ -322,9 +334,18 @@ function GameSession({ userId }: { userId: string }) {
       </> : null}>
       {panel?.t === "gather" && panel.spot && <GatherPanel key={panel.spot} s={s} spot={panel.spot} onClose={close} onGather={(m) => { if (act((n) => gatherSpot(n, panel.spot!, m))) sfx("ui"); else sfx("fail"); }}
         onUpgrade={() => { if (act((n) => upgradeSpot(n, panel.spot!))) sfx("level"); }} onPlots={panel.spot === "field" ? () => setPanel({ t: "plot" }) : undefined} />}
-      {panel?.t === "church" && <ChurchPanel s={s} onClose={close} onHeal={() => { if (act(churchHeal)) sfx("level"); }} />}
+      {panel?.t === "church" && <ChurchPanel s={s} onClose={close} onHeal={() => { if (act(churchHeal)) sfx("level"); }} onCure={(id) => { if (act((n) => cureAilment(n, id))) sfx("level"); }}
+        onBless={(id) => { if (act((n) => buyBlessing(n, id))) sfx("level"); }} onPray={() => { act(pray); sfx("level"); }} onEnchant={(g, el) => { if (act((n) => enchantGear(n, g, el))) sfx("loot"); else sfx("fail"); }} />}
       {panel?.t === "magic" && <SoonPanel title="🔮 Magic Tower" onClose={close} text="Schools of magic, spells unlocked by your stats and secret combined magics arrive in an upcoming update." />}
-      {panel?.t === "craftery" && <SoonPanel title="🪤 Craftery" onClose={close} text="Traps, throwing weapons and ammunition arrive in the next update." />}
+      {panel?.t === "craftery" && <CrafteryPanel s={s} onClose={close} onCraft={(id, k) => { if (act((n) => craftTool(n, id, k))) sfx("loot"); else sfx("fail"); }} onRanged={(id) => act((n) => equipRanged(n, id))} />}
+      {trapAt && <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-2" onClick={() => setTrapAt(null)}>
+        <div className="pixel-panel w-full max-w-md p-3" onClick={(e) => e.stopPropagation()}>
+          <h2 className="mb-2 text-accent">🪤 Place a trap</h2>
+          {TOOLS.filter((t) => t.kind === "trap").map((t) => <button key={t.id} className="pixel-btn mb-1 w-full py-3 text-left" disabled={!(s.tools?.[t.id] ?? 0)} onClick={() => { if (act((n) => placeTrap(n, t.id, trapAt.x, trapAt.y))) sfx("ui"); setTrapAt(null); }}>{t.icon} {t.name} ×{s.tools?.[t.id] ?? 0} <span className="text-xs">· {t.desc}</span></button>)}
+          {!TOOLS.some((t) => t.kind === "trap" && (s.tools?.[t.id] ?? 0) > 0) && <p className="mb-1 text-sm text-muted-foreground">No traps — craft them at the Craftery.</p>}
+          <button className="pixel-btn w-full py-2" onClick={() => setTrapAt(null)}>Cancel</button>
+        </div>
+      </div>}
       {panel?.t === "forge" && <ForgePanel s={s} onClose={close} onCraft={(m, sl) => { const g = act((n) => craftGear(n, m, sl)); sfx(g ? "loot" : "fail"); }}
         onEnhance={(id) => act((n) => enhance(n, id))} onRepair={(id) => act((n) => repair(n, id))} onUpgrade={() => act(upgradeForge)} />}
       {panel?.t === "bag" && <BagPanel s={s} onClose={close} onEat={(i) => act((n) => { eatFood(n, i); })} onEquip={(id) => act((n) => equipGear(n, id))} onSell={(id) => { act((n) => sellGear(n, id)); sfx("coin"); }} />}
@@ -431,6 +452,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     if (t === "V") glyph = "💎";
     if (t === "$") glyph = "🧰";
     if (t === ">") glyph = d.bossAlive ? "🔒" : "🪜";
+    const tr = d.traps?.find((q) => q.x === x && q.y === y); if (tr) { glyph = TOOL[tr.id]?.icon ?? "🪤"; dim = true; }
     const m = d.monsters.find((mm) => mm.x === x && mm.y === y);
     if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; mon = m; }
   }
