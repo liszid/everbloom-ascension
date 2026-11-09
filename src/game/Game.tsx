@@ -476,7 +476,7 @@ function camera(s: GameState) {
 function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" | null {
   const t = VILLAGE[y]?.[x];
   if (t === undefined) return null;
-  return t === "," || BUILDINGS[t] ? "path" ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
+  return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
 }
 const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 /** Rounds grass where it meets paths, water and soil: grass bulges get round tips, inner bends get soft fillets. */
