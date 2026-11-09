@@ -13,6 +13,7 @@ import { restPct } from "./items";
 import { useGameConfirm } from "./Confirm";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "./Avatar";
+import { Guide } from "./Guide";
 import { useSettings, updateSettings, type Settings, type Speed } from "./settings";
 
 export const fmt = (n: number) => {
@@ -422,6 +423,7 @@ export interface CharSlots { list: GameState[]; active: number; max: number; onS
 export function SettingsPanel({ onClose, chars, saving, onSave, onSignOut }: { onClose: () => void; chars?: CharSlots; saving?: string; onSave?: () => void; onSignOut?: () => void }) {
   const st = useSettings();
   const [tab, setTab] = useState<"chars" | "display" | "audio" | "game" | "access">(chars ? "chars" : "display");
+  const [guide, setGuide] = useState(false);
   const confirmation = useGameConfirm();
   const T = ({ k, label }: { k: keyof Settings; label: string }) => (
     <label className="flex min-h-11 items-center justify-between border-b border-border/40 py-1">
@@ -440,6 +442,7 @@ export function SettingsPanel({ onClose, chars, saving, onSave, onSignOut }: { o
       <div className="mt-1 grid grid-cols-4 gap-1">{(["slow", "normal", "fast", "instant"] as Speed[]).map((v) =>
         <button key={v} className={`pixel-btn py-2 capitalize ${st[k] === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ [k]: v })}>{v}</button>)}</div></div>
   );
+  if (guide) return <Sheet title="📖 Guide" onClose={onClose}><Guide onBack={() => setGuide(false)} /></Sheet>;
   return (
     <Sheet title="⚙️ Settings" onClose={onClose}>
       {onSave && <div className="mb-2 flex items-center gap-2">
@@ -449,6 +452,7 @@ export function SettingsPanel({ onClose, chars, saving, onSave, onSignOut }: { o
       {onSave && <p className="mb-2 text-center text-xs text-muted-foreground">{saving || "Autosaves regularly."}</p>}
       <Tabs tabs={[...(chars ? [["chars", "Characters"] as ["chars", string]] : []), ["display", "Display"], ["audio", "Audio"], ["game", "Gameplay"], ["access", "Accessibility"]]} cur={tab} set={setTab} />
       {tab === "chars" && chars && <>
+        <button className="pixel-btn pixel-btn-primary mb-2 w-full py-3" onClick={() => setGuide(true)}>📖 Game Guide — buildings, items & rules</button>
         <p className="py-1 text-sm text-muted-foreground">{chars.list.length}/{chars.max} characters</p>
         {chars.list.map((c, i) => (
           <div key={i} className={`mb-1 flex items-center gap-2 border-2 p-2 ${i === chars.active ? "border-primary" : "border-border"}`}>
