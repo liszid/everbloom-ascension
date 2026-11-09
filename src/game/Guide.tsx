@@ -88,7 +88,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
         <Grid head={["Spot", "Materials (unlock level)"]} rows={(Object.keys(SPOTS) as SpotId[]).map((id) => [
           `${SPOTS[id].icon} ${SPOTS[id].name}`, SPOTS[id].mats.map(([m, l]) => `${getMat(m).name} (${l})`).join(", "),
         ])} />
-        <P><B>Crop field:</B> tap it to open the whole field, pick a seed and plant or harvest every plot at once. Crops grow while you are in the Tower.</P>
+        <P><B>Crop field:</B> tap it to open the whole field, pick a seed and plant or harvest every plot at once. Crops grow as time passes: walking, resting and every trip to the Tower move them closer to harvest.</P>
       </S>
 
       <S id="craft" icon="⚒️" title="Crafting gear">
@@ -204,7 +204,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
       <S id="items" icon="🎒" title="Materials, food & selling">
         <L items={[
           <>Every material has a tier (0–10). Higher tiers come from deeper floors, upgraded gathering spots and refining.</>,
-          <>Materials you collect in the dungeon go into your expedition bag and are only kept when you clear the floor.</>,
+          <>Materials you collect in the dungeon go into your expedition bag. You keep them when you take the stairs or retreat, but lose them if you fall.</>,
           <>Cook any edible materials together at the Kitchen. More and better ingredients make stronger meals that heal more.</>,
           <>Selling shows each item's tier and lists the highest tiers first. The Trading skill improves prices.</>,
           <>Storage at Home grows by 10 slots per Home level.</>,
