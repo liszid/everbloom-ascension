@@ -26,6 +26,7 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
       <div className={`gather-scene gather-${spot}`} style={{ backgroundImage: `url(${sceneArt(spot)})` }}>
         {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 30) / 3 }}><Em e={d} /></span>)}
         {spot === "pond" && [0, 1, 2].map((i) => <span key={i} className="gather-ripple" style={{ animationDelay: `${i * 0.5}s`, bottom: `${10 + i * 8}%` }} />)}
+        {spot === "pond" && [0, 1].map((i) => <img key={`lp${i}`} src={icon("lilypad")} alt="" draggable={false} className="gather-lilypad" style={{ right: `${8 + i * 22}%`, bottom: `${6 + i * 14}%`, animationDelay: `${i * 0.9}s` }} />)}
         <div className={`gather-hero ${swing ? "gather-swing" : ""}`} key={`h${swing}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
         <div className="gather-tool"><Em e={ACT_ICON[spot]} /></div>
         <div className="gather-target">{TARGET[spot]() ? <img src={TARGET[spot]()} alt={getMat(mat).name} draggable={false} className="gather-img" /> : getMat(mat).icon}</div>

@@ -317,3 +317,5 @@
 .gather-hero, .gather-target { animation-timing-function: ease-in-out; }
 .gather-ripple { border-radius: 9999px; }
 @media (max-width: 480px) { .interior-counter { top: 30px; height: 20px; } .interior-bed { width: 64px; } }
+.gather-lilypad { position: absolute; width: 34px; height: 34px; object-fit: contain; animation: lily-float 3s ease-in-out infinite; filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--ink) 40%, transparent)); }
+@keyframes lily-float { 50% { transform: translateY(-3px) rotate(6deg); } }

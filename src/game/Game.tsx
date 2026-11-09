@@ -302,7 +302,7 @@ function GameSession({ userId }: { userId: string }) {
             <span className="h-9 w-9 shrink-0"><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} /></span>
             <span className="min-w-0"><span className="block truncate text-sm text-primary">{s.char.name} · Lv {p.level}</span><span className="block truncate text-xs text-muted-foreground">{s.className}</span></span>
           </button>
-          <div className="text-right text-xs"><div className="text-gold">💰 {fmt(s.gold)}</div><div className="text-muted-foreground">{inV ? "Thornvale" : `Floor ${s.dungeon!.floor}`} · best {s.maxFloor}</div></div>
+          <div className="text-right text-xs"><div className="text-gold">💰 {fmt(s.gold)}</div><div className="text-muted-foreground">{inV ? "Thornvale" : `Floor ${s.dungeon!.floor} · ${themeFor(s.dungeon!.floor).icon} ${themeFor(s.dungeon!.floor).name}`} · best {s.maxFloor}</div></div>
         </div>
         <div className="mt-1 grid grid-cols-3 gap-1 text-[0.7rem]">
           <MiniBar cls="bar-hp" v={s.hp} max={p.hp} label="HP" /><MiniBar cls="bar-mp" v={s.mp} max={p.mp} label="MP" /><MiniBar cls="bar-sta" v={s.sta} max={p.sta} label="STA" />
@@ -432,14 +432,15 @@ function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
 const DECO_SPOTS: [number, number][] = [];
 VILLAGE.forEach((r, y) => [...r].forEach((c, x) => { if (c === "o") DECO_SPOTS.push([x, y]); }));
 
-import { icon, decoArt } from "./art";
+import { icon, decoArt, dungeonArt } from "./art";
+import { themeFor, themeIndex } from "./themes";
 const OBJ_ART = import.meta.glob("../assets/art/o_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const obj = (id: string) => OBJ_ART[`../assets/art/o_${id}.webp`];
 
 function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode, cx: number, cy: number, walking: boolean) {
   const k = `${x},${y}`;
   const isP = s.pos.x === x && s.pos.y === y;
-  let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "", bldg: React.ReactNode = null, mon: Mon | undefined, art: string | undefined;
+  let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "", bldg: React.ReactNode = null, mon: Mon | undefined, art: string | undefined, tileBg: React.CSSProperties | undefined;
   if (s.loc === "village") {
     const t = VILLAGE[y]?.[x] ?? "#";
     const depleted = (s.village.nodes[k] ?? 0) > s.step;
@@ -471,6 +472,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     const d = s.dungeon!;
     const t = d.tiles[y]?.[x] ?? "#";
     cls = t === "#" ? "tile-wall" : (x + y) % 2 ? "tile-floor" : "tile-floor-2";
+    const ti = themeIndex(d.floor); tileBg = { backgroundImage: `url(${dungeonArt(ti, t === "#")})` };
     if (t === "V") { glyph = "💎"; art = icon("gem"); }
     if (t === "$") { glyph = "🧰"; art = icon("chest"); }
     if (t === ">") { glyph = d.bossAlive ? "🔒" : "🪜"; art = icon(d.bossAlive ? "locked" : "stairs"); }
@@ -479,7 +481,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; mon = m; }
   }
   return (
-    <div key={k} data-x={x} data-y={y} className={`tile ${cls}`}>
+    <div key={k} data-x={x} data-y={y} className={`tile ${cls}`} style={tileBg}>
       {bldg}
       {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
         : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />

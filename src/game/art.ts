@@ -19,3 +19,6 @@ const EMOJI_ART: Record<string, () => string | undefined> = {
   "🪓": () => icon("axe"), "⛏️": () => icon("hammer"), "🐟": () => icon("fish"),
 };
 export const emojiArt = (e: string) => EMOJI_ART[e]?.();
+const DUN = import.meta.glob("../assets/art/d_*.webp", { eager: true, import: "default" }) as Record<string, string>;
+export const dungeonArt = (i: number, wall: boolean) => DUN[`../assets/art/d_${i}${wall ? "_w" : ""}.webp`];
+Object.assign(EMOJI_ART, { "🎣": () => icon("rod"), "🧺": () => icon("basket"), "🪷": () => icon("lotus"), "🌷": () => icon("tulip"), "🌸": () => icon("blossom") });
