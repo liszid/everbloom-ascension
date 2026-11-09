@@ -28,7 +28,26 @@ export function parseClass(classId: string) {
 }
 
 export type Facing = "d" | "u" | "l" | "r";
-export function Avatar({ race, gender, classId, size = "100%", dir = "d", frame }: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined }) {
+const ART = import.meta.glob("../assets/art/a_*.webp", { eager: true, import: "default" }) as Record<string, string>;
+const artFor = (race: string, gender: string) => ART[`../assets/art/a_${race}_${gender === "Female" ? "f" : "m"}.webp`];
+
+export function Avatar(props: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined }) {
+  const { race, gender, classId, size = "100%", dir = "d", frame } = props;
+  const src = artFor(race, gender);
+  if (!src) return <PixelAvatar {...props} />;
+  const { p, tier } = parseClass(classId);
+  const [main, trim] = OUTFIT[p] ?? OUTFIT["none"]!;
+  const step = frame === undefined ? 0 : frame === 0 ? -4 : 4;
+  return (
+    <span className="avatar-cartoon" style={{ width: size, height: size, opacity: race === "ghost" ? 0.8 : 1 }} aria-label={`${gender} ${race}`}>
+      <img src={src} alt={`${gender} ${race}`} draggable={false} loading="lazy" width={256} height={256}
+        style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)`, filter: dir === "u" ? "brightness(0.8)" : undefined }} />
+      {p !== "none" && <span className="avatar-badge" style={{ background: main, borderColor: trim }}>{tier >= 3 ? "★" : ""}</span>}
+    </span>
+  );
+}
+
+function PixelAvatar({ race, gender, classId, size = "100%", dir = "d", frame }: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined }) {
   const back = dir === "u", side = dir === "l" || dir === "r";
   const { p, q, tier } = parseClass(classId);
   const skin = SKIN[race] ?? SKIN["human"]!, hair = HAIR[race] ?? HAIR["human"]!;
