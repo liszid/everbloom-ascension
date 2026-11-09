@@ -1,4 +1,5 @@
 import { titleKit } from "./titles";
+import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
   MONSTERS, ORES, PCT_STATS, POND, PROPS, RACES, SKILLS, SLOTS, SLOT_INFO, STAT_KEYS, TREES, VEINS, VILLAGE_MAP, MATERIALS,
@@ -56,6 +57,7 @@ export interface GameState {
   classId: string; className: string; classHistory: { from: string; to: string; floor: number; at: number }[]; classesSeen: string[];
   pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number; agiFix?: boolean;
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
+  spots?: Record<string, number> | undefined;
 }
 
 // ======================= utils =======================
@@ -72,7 +74,7 @@ export function pickWeighted<T>(items: [T, number][]): T {
 function seeded(seed: number) { let x = seed % 2147483647 || 1; return () => (x = (x * 16807) % 2147483647) / 2147483647; }
 export const VILLAGE = VILLAGE_MAP;
 export const VW_ = 20, VH_ = 15;
-export const VILLAGE_START = { x: 5, y: 4 };
+export const VILLAGE_START = { x: 12, y: 12 };
 export const villageTile = (x: number, y: number) => VILLAGE[y]?.[x] ?? "#";
 export const WALKABLE_V = new Set([".", ",", "o"]);
 export function log(s: GameState, msg: string) { s.log = [msg, ...s.log].slice(0, 40); }
@@ -518,6 +520,34 @@ export function gather(s: GameState, x: number, y: number): boolean {
   }
   return false;
 }
+/** One repeatable gathering action at a village spot. Costs stamina, no cooldown. */
+export function gatherSpot(s: GameState, id: SpotId, mat: string): boolean {
+  const L = spotLevel(s.spots, id);
+  if (!spotMats(id, L).includes(mat)) { log(s, `🔒 Upgrade the ${SPOTS[id].name} to gather that.`); return false; }
+  if (s.sta < 2) { log(s, "😮‍💨 Too tired. Eat or rest at home."); return false; }
+  s.sta -= 2; s.step++;
+  const def = SPOTS[id]; const sk = lvl(s, def.skill); const tier = getMat(mat).tier;
+  const base = Math.max(1, Math.floor((1 + Math.random() * (1 + sk / 15)) * playerStats(s).gatherEff * (1 + L / 40)));
+  const q = id === "mine" && s.char.race === "dwarf" ? Math.ceil(base * 1.25) : base;
+  addMat(s, mat, q); addXp(s, def.skill, 4 + tier * 4); bump(s, def.stat); bump(s, "g:" + mat, q);
+  if (id === "pond") addAff(s, "water", 1);
+  if (id === "field" && Math.random() < 0.25 + sk * 0.01) { const sd = pickWeighted(FLOWER_SEEDS); addMat(s, sd, 1); }
+  log(s, `${def.icon} +${q} ${getMat(mat).name}`); return true;
+}
+export function upgradeSpot(s: GameState, id: SpotId): boolean {
+  const L = spotLevel(s.spots, id); if (L >= SPOT_MAX) return false;
+  const c = spotUpgradeCost(id, L);
+  if (s.gold < c.gold || (s.inv[c.mat] ?? 0) < c.qty) { log(s, `❌ Need ${fmt(c.gold)}g and ${c.qty}× ${getMat(c.mat).name}.`); return false; }
+  spend(s, c.gold); takeMat(s, c.mat, c.qty);
+  s.spots = { ...s.spots, [id]: L + 1 };
+  const un = SPOTS[id].mats.find(([, l]) => l === L + 1);
+  log(s, `⬆️ ${SPOTS[id].name} reached level ${L + 1}${un ? ` — ${getMat(un[0]).name} unlocked!` : ""}`); return true;
+}
+export function churchHealCost(s: GameState) { return 10 + Math.floor(s.maxFloor * 2); }
+export function churchHeal(s: GameState): boolean {
+  if (!spend(s, churchHealCost(s))) { log(s, "❌ Not enough gold for the offering."); return false; }
+  const p = playerStats(s); s.hp = p.hp; s.mp = p.mp; log(s, "⛪ The priest's blessing restores you."); return true;
+}
 export function plant(s: GameState, x: number, y: number, seed: string) {
   const mt = getMat(seed); if (!mt.seedOf || !takeMat(s, seed, 1)) return;
   const L = lvl(s, "farming");
@@ -617,7 +647,7 @@ export function enterDungeon(s: GameState, f: number) {
 }
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
-  s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { x: 14, y: 13 };
+  s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
   s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
