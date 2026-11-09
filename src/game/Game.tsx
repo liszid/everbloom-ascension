@@ -312,7 +312,6 @@ function GameSession({ userId }: { userId: string }) {
 
   const p = playerStats(s);
   const inV = s.loc === "village";
-  const W = inV ? 20 : s.dungeon!.w, H = inV ? 15 : s.dungeon!.h;
   const { cx, cy } = camera(s);
   const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir={face} frame={walkF} />;
   const cells = [];
