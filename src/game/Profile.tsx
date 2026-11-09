@@ -6,6 +6,7 @@ import {
   type GameState,
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
+import { TOOL } from "./items";
 import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;

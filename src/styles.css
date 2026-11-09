@@ -340,3 +340,7 @@
 .map-dungeon .tile:has(.tile-player)::before { content: ""; position: absolute; left: 10%; right: 10%; bottom: 4%; height: 26%; border-radius: 50%; background: radial-gradient(rgba(255,230,170,.55), transparent 70%); pointer-events: none; }
 .map-dungeon .monster-cartoon img { filter: drop-shadow(0 0 1px rgba(0,0,0,.9)) drop-shadow(0 2px 1px rgba(0,0,0,.5)); }
 .map-dungeon .tile-player { position: relative; }
+/* dungeon vision: unseen tiles fade into darkness, the edge of the light is dim */
+.tile-fog::after, .tile-dusk::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.tile-fog::after { background: rgba(6, 5, 10, 0.68); }
+.tile-dusk::after { background: rgba(6, 5, 10, 0.28); }
