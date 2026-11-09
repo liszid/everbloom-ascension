@@ -30,7 +30,7 @@ export const studyCost = (lvl: number) => 100 * lvl * lvl;
 export const STUDY_XP = 40;
 
 export type SpellKind = "mag" | "heal" | "guard" | "lock" | "drain" | "phys";
-export interface Spell { id: string; name: string; school: SchoolId; lvl: number; matk: number; kind: SpellKind; mult: number; cost: number; el?: Element }
+export interface Spell { id: string; name: string; school: SchoolId; lvl: number; matk: number; kind: SpellKind; mult: number; cost: number; el?: Element | undefined }
 const T: [SchoolId, [string, SpellKind, number][]][] = [
   ["fire", [["Ember", "mag", 1.4], ["Fireball", "mag", 2.2], ["Inferno", "mag", 3.4]]],
   ["water", [["Water Jet", "mag", 1.3], ["Mending Tide", "heal", 0.3], ["Glacier Lance", "mag", 3.2]]],
