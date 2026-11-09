@@ -110,7 +110,7 @@ export function Avatar({ race, gender, classId, size = "100%", dir = "d", frame 
   const small = race === "halfling" || race === "gnome";
   const tf = small ? "translate(2.4 3.6) scale(0.72)" : race === "dwarf" ? "translate(-0.8 2) scale(1.1 0.88)" : race === "orc" || race === "dragonborn" ? "translate(-0.5 0) scale(1.06 1)" : "";
   return (
-    <svg viewBox="0 -3 16 19" width={size} height={size} shapeRendering="crispEdges" style={{ display: "block", overflow: "visible" }} aria-label={`${gender} ${race}`}>
+    <svg viewBox="0 -3 16 19" width={size} height={size} shapeRendering="crispEdges" style={{ display: "block", overflow: "visible", opacity: race === "ghost" ? 0.7 : 1 }} aria-label={`${gender} ${race}`}>
       <g transform={dir === "r" ? "translate(16 0) scale(-1 1)" : undefined}><g transform={tf}>{r.map(([x, y, w, h, c], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={c} />)}</g></g>
     </svg>
   );
