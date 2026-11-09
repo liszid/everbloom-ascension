@@ -6,6 +6,9 @@ import { MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpC
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
+import { emojiArt, objArt, icon, sceneArt } from "./art";
+const TARGET: Record<SpotId, () => string | undefined> = { forest: () => objArt("T"), mine: () => objArt("R"), pond: () => icon("fish"), ranch: () => objArt("w"), field: () => objArt("F") };
+const Em = ({ e, cls }: { e: string; cls?: string }) => { const a = emojiArt(e); return a ? <img src={a} alt={e} draggable={false} className={`gather-img ${cls ?? ""}`} /> : <>{e}</>; };
 
 const fmt = (n: number) => n.toLocaleString();
 const DECOR: Record<SpotId, string[]> = { forest: ["🌲", "🌳", "🌲", "🌳", "🌲"], mine: ["🪨", "⛏️", "🪨", "💎", "🪨"], pond: ["🌾", "🪷", "🌾"], ranch: ["🐄", "🐔", "🐑", "🌾"], field: ["🌼", "🌷", "🌻", "🌸", "🌼"] };
@@ -20,12 +23,12 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
   const nx = nextUnlock(spot, L); const cost = spotUpgradeCost(spot, L); const max = playerStats(s).sta;
   return (
     <Sheet title={`${def.icon} ${def.name} · Lv ${L}`} onClose={onClose}>
-      <div className={`gather-scene gather-${spot}`}>
-        {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 30) / 3 }}>{d}</span>)}
+      <div className={`gather-scene gather-${spot}`} style={{ backgroundImage: `url(${sceneArt(spot)})` }}>
+        {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 30) / 3 }}><Em e={d} /></span>)}
         {spot === "pond" && [0, 1, 2].map((i) => <span key={i} className="gather-ripple" style={{ animationDelay: `${i * 0.5}s`, bottom: `${10 + i * 8}%` }} />)}
         <div className={`gather-hero ${swing ? "gather-swing" : ""}`} key={`h${swing}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
-        <div className="gather-tool">{ACT_ICON[spot]}</div>
-        <div className="gather-target">{getMat(mat).icon}</div>
+        <div className="gather-tool"><Em e={ACT_ICON[spot]} /></div>
+        <div className="gather-target">{TARGET[spot]() ? <img src={TARGET[spot]()} alt={getMat(mat).name} draggable={false} className="gather-img" /> : getMat(mat).icon}</div>
         {swing > 0 && <span key={`p${swing}`} className="gather-pop">+{getMat(mat).icon}</span>}
       </div>
       <div className="mb-2 flex justify-between text-sm"><span>⚡ Stamina {Math.floor(s.sta)}/{max}</span><span className="text-muted-foreground">2 per action</span></div>

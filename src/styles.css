@@ -301,3 +301,19 @@
 @keyframes fish-jump { 0%,70%,100% { transform: translateY(10%) scale(0.85); opacity: 0.7; } 80% { transform: translateY(-18%) rotate(-12deg); opacity: 1; } }
 .tile-deco .tile-obj { animation: breathe 3s ease-in-out infinite; }
 @keyframes breathe { 50% { transform: scale(1.04); } }
+
+/* cartoon interiors & gathering scenes */
+.interior { background-size: cover; background-position: center 30%; border-bottom: 2.5px solid var(--ink); }
+.interior-counter { background: none; border: 0; box-shadow: none; height: 26px; top: 38px; }
+.interior-counter img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--ink) 60%, transparent)); }
+.interior-counter span { position: relative; top: -10px; filter: drop-shadow(0 1px 0 var(--ink)); }
+.interior-bed { width: 90px; } .interior-bed img { width: 100%; filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--ink) 60%, transparent)); }
+.interior-door { border-radius: 4px 4px 0 0; }
+.interior-bubble { border-radius: 0.8rem; border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.interior-npc, .interior-hero { filter: drop-shadow(0 3px 2px color-mix(in oklab, var(--ink) 50%, transparent)); }
+.gather-scene { background-size: cover !important; background-position: center bottom !important; border: 2.5px solid var(--ink); border-radius: 1rem; }
+.gather-img { width: 1.4em; height: 1.4em; object-fit: contain; display: inline-block; filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--ink) 50%, transparent)); }
+.gather-target .gather-img { width: 1.5em; height: 1.5em; }
+.gather-hero, .gather-target { animation-timing-function: ease-in-out; }
+.gather-ripple { border-radius: 9999px; }
+@media (max-width: 480px) { .interior-counter { top: 30px; height: 20px; } .interior-bed { width: 64px; } }
