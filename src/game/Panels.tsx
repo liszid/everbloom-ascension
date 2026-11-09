@@ -284,14 +284,12 @@ export function TowerPanel({ s, onClose, onEnter }: { s: GameState; onClose: () 
     </Sheet>
   );
 }
-export function HousePanel({ s, saving, onClose, onRest, onSave, onSignOut }: { s: GameState; saving: string; onClose: () => void; onRest: () => void; onSave: () => void; onSignOut: () => void }) {
+export function HousePanel({ s, onClose, onRest }: { s: GameState; onClose: () => void; onRest: () => void }) {
   return (
     <Sheet title="🏠 Home" onClose={onClose}>
       <button className="pixel-btn pixel-btn-primary mb-2 w-full py-3" onClick={onRest}>🛌 Rest (full restore, time passes)</button>
-      <button className="pixel-btn mb-2 w-full py-3" onClick={onSave}>💾 Save now</button>
-      <p className="mb-3 text-center text-sm text-muted-foreground">{saving || "Autosaves regularly."}</p>
       {s.decos.length > 0 && <p className="mb-2 text-sm">Village decorations: {s.decos.join(" ")}</p>}
-      <button className="pixel-btn pixel-btn-danger w-full py-3" onClick={onSignOut}>Sign out</button>
+      <p className="text-sm text-muted-foreground">Use the Storage tab to keep items safe and the Kitchen tab to cook. Saving is in Settings.</p>
     </Sheet>
   );
 }
@@ -418,7 +416,7 @@ export function WarehousePanel({ s, onClose, onStoreGear, onTakeGear, onStoreAll
 
 // ======================= SETTINGS =======================
 export interface CharSlots { list: GameState[]; active: number; max: number; onSwitch: (i: number) => void; onNew: () => void; onDelete: (i: number) => void }
-export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?: CharSlots }) {
+export function SettingsPanel({ onClose, chars, saving, onSave, onSignOut }: { onClose: () => void; chars?: CharSlots; saving?: string; onSave?: () => void; onSignOut?: () => void }) {
   const st = useSettings();
   const [tab, setTab] = useState<"chars" | "display" | "audio" | "game" | "access">(chars ? "chars" : "display");
   const confirmation = useGameConfirm();
@@ -441,6 +439,11 @@ export function SettingsPanel({ onClose, chars }: { onClose: () => void; chars?:
   );
   return (
     <Sheet title="⚙️ Settings" onClose={onClose}>
+      {onSave && <div className="mb-2 flex items-center gap-2">
+        <button className="pixel-btn pixel-btn-primary flex-1 py-3" onClick={onSave}>💾 Save now</button>
+        {onSignOut && <button className="pixel-btn pixel-btn-danger py-3" onClick={onSignOut}>Sign out</button>}
+      </div>}
+      {onSave && <p className="mb-2 text-center text-xs text-muted-foreground">{saving || "Autosaves regularly."}</p>}
       <Tabs tabs={[...(chars ? [["chars", "Characters"] as ["chars", string]] : []), ["display", "Display"], ["audio", "Audio"], ["game", "Gameplay"], ["access", "Accessibility"]]} cur={tab} set={setTab} />
       {tab === "chars" && chars && <>
         <p className="py-1 text-sm text-muted-foreground">{chars.list.length}/{chars.max} characters</p>

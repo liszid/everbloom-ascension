@@ -245,3 +245,15 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* gathering window scene */
+.gather-scene { position: relative; height: 84px; margin-bottom: 8px; border: 2px solid var(--border); overflow: hidden; background: var(--tile-grass); image-rendering: pixelated; }
+.gather-mine { background: var(--sprite-stone); }
+.gather-pond { background: linear-gradient(var(--tile-grass) 0 45%, var(--sprite-teal) 45%); }
+.gather-hero { position: absolute; left: 22%; bottom: 6px; width: 52px; height: 52px; }
+.gather-target { position: absolute; left: 55%; bottom: 10px; font-size: 40px; line-height: 1; }
+.gather-tool { position: absolute; left: calc(22% + 40px); bottom: 34px; font-size: 20px; transform-origin: bottom left; animation: tool-swing 260ms steps(3) both; }
+.gather-swing { animation: walk-bob 260ms steps(2); }
+.gather-hit { animation: gather-shake 260ms steps(3); }
+@keyframes tool-swing { 0% { transform: rotate(-60deg); } 100% { transform: rotate(20deg); } }
+@keyframes gather-shake { 0%, 100% { transform: translateX(0); } 33% { transform: translateX(3px); } 66% { transform: translateX(-3px); } }

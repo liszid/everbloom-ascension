@@ -537,7 +537,7 @@ export function gatherSpot(s: GameState, id: SpotId, mat: string): boolean {
 export function upgradeSpot(s: GameState, id: SpotId): boolean {
   const L = spotLevel(s.spots, id); if (L >= SPOT_MAX) return false;
   const c = spotUpgradeCost(id, L);
-  if (s.gold < c.gold || (s.inv[c.mat] ?? 0) < c.qty) { log(s, `❌ Need ${fmt(c.gold)}g and ${c.qty}× ${getMat(c.mat).name}.`); return false; }
+  if (s.gold < c.gold || (s.inv[c.mat] ?? 0) < c.qty) { log(s, `❌ Need ${c.gold.toLocaleString()}g and ${c.qty}× ${getMat(c.mat).name}.`); return false; }
   spend(s, c.gold); takeMat(s, c.mat, c.qty);
   s.spots = { ...s.spots, [id]: L + 1 };
   const un = SPOTS[id].mats.find(([, l]) => l === L + 1);
