@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AFFINITIES, SKILLS, SLOTS, SLOT_INFO, getMat, type Slot } from "./data";
-import { compStats, freeGear, lvl, techLock, specAffinities, type GameState } from "./engine";
-import { GUILD_BUY_MULT, HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, rentPrice, techGold, trainChance, trainCost, type CompRole, type Companion } from "./guild";
+import { guildSellMult, compStats, freeGear, lvl, techLock, specAffinities, type GameState } from "./engine";
+import { HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, rentPrice, techGold, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { Sheet, fmt } from "./Panels";
 import { Avatar } from "./Avatar";
 import { MonsterSprite } from "./MonsterSprite";
@@ -14,9 +14,9 @@ export function GuildShopPanel({ s, onClose, onSell }: { s: GameState; onClose: 
   const parts = Object.entries(s.inv).filter(([id, q]) => q > 0 && getMat(id).src === "monster").sort((a, b) => getMat(b[0]).tier - getMat(a[0]).tier);
   return (
     <Sheet title="🦴 Guild Merchant" onClose={onClose}>
-      <p className="mb-2 text-xs text-muted-foreground">The Guild pays {GUILD_BUY_MULT}× the shop price for monster parts.</p>
+      <p className="mb-2 text-xs text-muted-foreground">The Guild pays {guildSellMult(s).toFixed(2)}× the shop price for monster parts.</p>
       {!parts.length && <p className="text-sm text-muted-foreground">No monster parts in your bag.</p>}
-      {parts.map(([id, q]) => { const m = getMat(id); const each = Math.max(1, Math.round(m.value * GUILD_BUY_MULT)); return (
+      {parts.map(([id, q]) => { const m = getMat(id); const each = Math.max(1, Math.round(m.value * guildSellMult(s))); return (
         <div key={id} className="mb-1 flex items-center gap-2 border-2 border-border p-2 text-sm">
           <span className="text-lg">{m.icon}</span>
           <span className="min-w-0 flex-1">{m.name} <span className="text-xs text-muted-foreground">T{m.tier} · ×{q} · {fmt(each)}g</span></span>

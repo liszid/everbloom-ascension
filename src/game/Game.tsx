@@ -7,7 +7,7 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon,
 } from "./engine";
 import {
@@ -15,7 +15,8 @@ import {
   TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,
 } from "./Panels";
 import { GuildShopPanel, TrainingPanel, HirePanel, PartyPanel, CompAvatar } from "./GuildPanels";
-import { GUILD_BUY_MULT } from "./guild";
+import { BldgUpgrade } from "./VillagePanels";
+import type { BldgId } from "./items";
 import { MagicPanel, ChurchPanel, CrafteryPanel, GatherPanel, SoonPanel, BuildingTabs } from "./VillagePanels";
 import { TOOL, TOOLS, TRAP_RANGE } from "./items";
 import { SPOT_TILES, spotLevel, spotStage, type SpotId } from "./gathering";
@@ -38,6 +39,7 @@ const GROUPS: [string, string][][] = [
   [["tavern", "📜 Missions"], ["guildshop", "🦴 Merchant"], ["training", "🏋️ Train"], ["companions", "🤝 Hire"]],
   [["forge", "⚒️ Smithy"], ["carve", "🪚 Sawmill"], ["smelt", "🔥 Smelter"]],
 ];
+const BLDG_OF: Partial<Record<string, BldgId>> = { house: "house", warehouse: "house", kitchen: "house", craftery: "craftery", church: "church", tavern: "guild", guildshop: "guild", training: "guild", companions: "guild", shop: "market", market: "market" };
 type PanelS = { t: PanelT; x?: number; y?: number; spot?: SpotId; cid?: string };
 const tileOpen = (t: string): PanelS | null => STATIONS[t] ? { t: STATIONS[t]! } : SPOT_TILES[t] ? { t: "gather", spot: SPOT_TILES[t] } : t === "G" ? { t: "plot" } : null;
 const VW = 11, VH = 11;
@@ -340,14 +342,15 @@ function GameSession({ userId }: { userId: string }) {
       <SceneCtx.Provider value={panel && INTERIOR_PANELS.has(panel.t) ? <>
         <Interior panel={panel.t} hero={{ race: s.char.race, gender: s.char.gender, classId: s.classId }} />
         {(() => { const g = GROUPS.find((x) => x.some(([t]) => t === panel.t)); return g ? <BuildingTabs tabs={g} cur={panel.t} go={(t) => setPanel({ t: t as PanelT })} /> : null; })()}
+        {BLDG_OF[panel.t] && <BldgUpgrade s={s} b={BLDG_OF[panel.t]!} onUp={() => { if (act((n) => upgradeBldg(n, BLDG_OF[panel.t]!))) sfx("level"); }} />}
       </> : null}>
       {panel?.t === "gather" && panel.spot && <GatherPanel key={panel.spot} s={s} spot={panel.spot} onClose={close} onGather={(m) => { if (act((n) => gatherSpot(n, panel.spot!, m))) sfx("ui"); else sfx("fail"); }}
         onUpgrade={() => { if (act((n) => upgradeSpot(n, panel.spot!))) sfx("level"); }} onPlots={panel.spot === "field" ? () => setPanel({ t: "plot" }) : undefined} />}
       {panel?.t === "church" && <ChurchPanel s={s} onClose={close} onHeal={() => { if (act(churchHeal)) sfx("level"); }} onCure={(id) => { if (act((n) => cureAilment(n, id))) sfx("level"); }}
         onBless={(id) => { if (act((n) => buyBlessing(n, id))) sfx("level"); }} onPray={() => { act(pray); sfx("level"); }} onEnchant={(g, el) => { if (act((n) => enchantGear(n, g, el))) sfx("loot"); else sfx("fail"); }} />}
-      {panel?.t === "magic" && <MagicPanel s={s} onClose={close} onLearn={(id) => { if (act((n) => learnSchool(n, id))) sfx("level"); }} onStudy={(id) => { if (act((n) => studySchool(n, id))) sfx("ui"); }}
+      {panel?.t === "magic" && <MagicPanel s={s} onClose={close} onToggle={(id) => act((n) => toggleSpell(n, id))} onLevel={(id) => { if (act((n) => levelSpell(n, id))) sfx("level"); }} onLearn={(id) => { if (act((n) => learnSchool(n, id))) sfx("level"); }} onStudy={(id) => { if (act((n) => studySchool(n, id))) sfx("ui"); }}
         onAscend={(r) => confirmation.ask({ title: "Embrace the transformation?", text: "Your race changes permanently. Your old racial traits are replaced.", label: "Transform", action: () => { act((n) => ascend(n, r)); sfx("level"); } })} />}
-      {panel?.t === "guildshop" && <GuildShopPanel s={s} onClose={close} onSell={(id, q) => { act((n) => sellMat(n, id, q, GUILD_BUY_MULT)); sfx("coin"); }} />}
+      {panel?.t === "guildshop" && <GuildShopPanel s={s} onClose={close} onSell={(id, q) => { act((n) => sellMat(n, id, q, guildSellMult(n))); sfx("coin"); }} />}
       {panel?.t === "training" && <TrainingPanel s={s} onClose={close} onTrain={(k) => { const r = act((n) => trainSkill(n, k)); sfx(r ? "level" : "fail"); }} onTech={(a, k) => { if (act((n) => learnTech(n, a, k))) sfx("level"); }} />}
       {panel?.t === "companions" && <HirePanel s={s} onClose={close} onHire={(r, b) => { if (act((n) => hireCompanion(n, r, b))) sfx("level"); }} onParty={() => setPanel({ t: "party" })} />}
       {panel?.t === "party" && <PartyPanel s={s} start={panel.cid} onClose={close} onEquip={(c, g, sl) => act((n) => compEquip(n, c, g, sl))} onTitle={(c, t) => act((n) => compTitle(n, c, t))}
@@ -377,15 +380,15 @@ function GameSession({ userId }: { userId: string }) {
         onHarvest={(cells) => { act((n) => { for (const [x, y] of cells) { harvest(n, x, y); n.step++; } }); sfx("loot"); }} />}
       {panel?.t === "tower" && <TowerPanel s={s} onClose={close} onEnter={(f) => { act((n) => enterDungeon(n, f)); close(); }} />}
       {panel?.t === "house" && <HousePanel s={s} onClose={close} onRest={() => act(restAtHome)} />}
-      {panel?.t === "shop" && <ShopPanel s={s} onClose={close} onBuy={(i) => act((n) => buyShop(n, i))} onSell={(id, q) => { act((n) => sellMat(n, id, q)); sfx("coin"); }} />}
+      {panel?.t === "shop" && <ShopPanel s={s} onClose={close} onBuy={(i) => act((n) => buyShop(n, i))} onSell={(id, q) => { act((n) => sellMat(n, id, q, marketMult(n))); sfx("coin"); }} />}
       {panel?.t === "market" && <MarketPanel s={s} onClose={close} onBuy={(i) => act((n) => marketBuy(n, i))} onSell={(id, q, m) => { act((n) => sellMat(n, id, q, m)); sfx("coin"); }} />}
       {panel?.t === "tavern" && <TavernPanel s={s} onClose={close} onClaim={(id) => { act((n) => claimQuest(n, id)); sfx("coin"); }} onReroll={() => act((n) => { if (spend(n, 20)) rerollQuests(n); })} />}
       {panel?.t === "casino" && <CasinoPanel s={s} onClose={close} onDice={(b, h) => act((n) => { playDice(n, b, h); })} onSlots={(b) => act((n) => { playSlots(n, b); })}
         onHL={(b, cur, hi) => act((n) => playHighLow(n, b, cur, hi)?.next ?? null)} onToken={(i) => act((n) => buyToken(n, i))} />}
       {panel?.t === "warehouse" && <WarehousePanel s={s} onClose={close}
-        onStoreGear={(id) => act((n) => { const g = n.gear.find((x) => x.id === id); if (g) { n.gear = n.gear.filter((x) => x.id !== id); n.whGear.push(g); } })}
+        onStoreGear={(id) => act((n) => { storeGear(n, id); })}
         onTakeGear={(id) => act((n) => { const g = n.whGear.find((x) => x.id === id); if (g) { n.whGear = n.whGear.filter((x) => x.id !== id); n.gear.push(g); } })}
-        onStoreAll={() => act((n) => { for (const [id, q] of Object.entries(n.inv)) { n.wh[id] = (n.wh[id] ?? 0) + q; } n.inv = {}; })}
+        onStoreAll={() => act(storeAll)}
         onTake={(id) => act((n) => { const q = n.wh[id] ?? 0; if (takeMat(n, id, q, "wh")) addMat(n, id, q); })} />}
       </SceneCtx.Provider>
 

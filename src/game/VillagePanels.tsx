@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
-import { ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId } from "./magic";
-import { AILMENTS, BLESSINGS, BLESS_BATTLES, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
-import { ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
+import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId } from "./magic";
+import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
+import { MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
 
 const fmt = (n: number) => n.toLocaleString();
+const DECOR: Record<SpotId, string[]> = { forest: ["🌲", "🌳", "🌲", "🌳", "🌲"], mine: ["🪨", "⛏️", "🪨", "💎", "🪨"], pond: ["🌾", "🪷", "🌾"], ranch: ["🐄", "🐔", "🐑", "🌾"], field: ["🌼", "🌷", "🌻", "🌸", "🌼"] };
 const ACT_ICON: Record<SpotId, string> = { forest: "🪓", mine: "⛏️", pond: "🎣", ranch: "🧺", field: "🌼" };
 
 export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: {
@@ -20,9 +21,12 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
   return (
     <Sheet title={`${def.icon} ${def.name} · Lv ${L}`} onClose={onClose}>
       <div className={`gather-scene gather-${spot}`}>
-        <div key={swing} className={`gather-hero ${swing ? "gather-swing" : ""}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
-        <div key={`t${swing}`} className={`gather-target ${swing ? "gather-hit" : ""}`}>{getMat(mat).icon}</div>
-        <div key={`f${swing}`} className="gather-tool">{ACT_ICON[spot]}</div>
+        {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 30) / 3 }}>{d}</span>)}
+        {spot === "pond" && [0, 1, 2].map((i) => <span key={i} className="gather-ripple" style={{ animationDelay: `${i * 0.5}s`, bottom: `${10 + i * 8}%` }} />)}
+        <div className={`gather-hero ${swing ? "gather-swing" : ""}`} key={`h${swing}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
+        <div className="gather-tool">{ACT_ICON[spot]}</div>
+        <div className="gather-target">{getMat(mat).icon}</div>
+        {swing > 0 && <span key={`p${swing}`} className="gather-pop">+{getMat(mat).icon}</span>}
       </div>
       <div className="mb-2 flex justify-between text-sm"><span>⚡ Stamina {Math.floor(s.sta)}/{max}</span><span className="text-muted-foreground">2 per action</span></div>
       <div className="mb-2 grid grid-cols-3 gap-1">
@@ -79,7 +83,7 @@ export function ChurchPanel({ s, onClose, onHeal, onCure, onBless, onPray, onEnc
         {s.blessing && <p className="mb-2 text-sm text-gold">Active: {BLESSINGS[s.blessing.id].icon} {BLESSINGS[s.blessing.id].name} · {s.blessing.left} battles left</p>}
         {(Object.keys(BLESSINGS) as BlessingId[]).map((id) => { const b = BLESSINGS[id]; const cost = blessingCost(s, id); return (
           <button key={id} className="pixel-btn mb-1 flex w-full items-center gap-2 p-2 text-left" disabled={s.gold < cost} onClick={() => onBless(id)}>
-            <span className="text-xl">{b.icon}</span><span className="min-w-0 flex-1"><span className="block text-sm">{b.name}</span><span className="block text-xs text-muted-foreground">{b.desc} · {BLESS_BATTLES} battles</span></span><span className="text-xs">{fmt(cost)}g</span>
+            <span className="text-xl">{b.icon}</span><span className="min-w-0 flex-1"><span className="block text-sm">{b.name}</span><span className="block text-xs text-muted-foreground">{b.desc} · {blessBattles(bldgLvl(s, "church"))} battles</span></span><span className="text-xs">{fmt(cost)}g</span>
           </button>); })}
         <p className="text-xs text-muted-foreground">Only one blessing can be active; a new one replaces the old.</p>
       </>}
@@ -110,12 +114,12 @@ export function CrafteryPanel({ s, onClose, onCraft, onRanged }: { s: GameState;
       <div className="mb-2 flex gap-1">
         {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Off-hand"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : `Off-hand ranged weapons replace your shield. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
-      {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const ok = s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const owned = t.kind === "ranged" && have > 0; return (
+      <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : `Off-hand ranged weapons replace your shield; two-handed ones also stow your one-handed weapon. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
+      {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const owned = t.kind === "ranged" && have > 0; return (
         <div key={t.id} className="mb-1 border-2 border-border p-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">{t.icon}</span>
-            <div className="min-w-0 flex-1"><div className="text-sm">{t.name} {t.kind !== "ranged" && <span className="text-xs text-muted-foreground">×{have}</span>}</div><div className="text-xs text-muted-foreground">{t.desc}</div></div>
+            <div className="min-w-0 flex-1"><div className="text-sm">{t.name} {t.kind !== "ranged" && <span className="text-xs text-muted-foreground">×{have}</span>}</div><div className="text-xs text-muted-foreground">{t.two ? "🙌 Two-handed · " : t.kind === "ranged" ? "Off-hand · " : ""}{t.desc}{t.uses ? ` (uses ${TOOL[t.uses]?.name})` : ""}{locked ? ` · 🔒 Craftery Lv ${t.lvl}` : ""}</div></div>
           </div>
           <div className="mt-1 text-[0.7rem] text-muted-foreground">{fmt(t.gold)}g · {t.recipe.map(([m, q]) => `${q}× ${getMat(m).name} (${s.inv[m] ?? 0})`).join(" · ")}{t.makes > 1 ? ` → makes ${t.makes}` : ""}</div>
           <div className="mt-1 flex gap-1">
@@ -141,7 +145,7 @@ export function BuildingTabs({ tabs, cur, go }: { tabs: [string, string][]; cur:
   );
 }
 
-export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: GameState; onClose: () => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
+export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, onLevel }: { s: GameState; onClose: () => void; onToggle: (id: string) => void; onLevel: (id: string) => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
   const [tab, setTab] = useState<"schools" | "spells" | "rituals">("schools");
   const matk = Math.round(playerStats(s).matk);
   const known = SCHOOLS.filter((x) => s.magic?.[x.id] !== undefined);
@@ -150,7 +154,7 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: Game
       <div className="mb-2 flex gap-1">
         {([["schools", "📚 Schools"], ["spells", "✨ Spells"], ["rituals", "🌑 Rituals"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">Your M.Atk: {fmt(matk)} · Spells unlock automatically once school level and M.Atk are high enough. Casting spells also trains the school.</p>
+      <p className="mb-2 text-xs text-muted-foreground">Your M.Atk: {fmt(matk)} · Spells unlock once school level and M.Atk are high enough. Only 4 can be equipped for battle.</p>
       {tab === "schools" && SCHOOLS.map((sc) => { const xp = s.magic?.[sc.id]; const L = xp === undefined ? 0 : schoolLevel(xp); const lock = xp === undefined ? schoolLock(s, sc.id) : null; const hidden = !!sc.combo && xp === undefined && !!lock && lock.startsWith("Undiscovered"); return (
         <div key={sc.id} className="mb-1 border-2 border-border p-2">
           <div className="flex items-center gap-2">
@@ -163,12 +167,26 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: Game
         </div>); })}
       {tab === "spells" && <>
         {!known.length && <p className="text-sm text-muted-foreground">Learn a school first.</p>}
+        {known.length > 0 && <div className="mb-2 border-2 border-gold p-2">
+          <div className="mb-1 text-sm text-gold">Equipped spells {equippedSpells(s).length}/{MAX_SPELL_SLOTS}</div>
+          <div className="grid grid-cols-2 gap-1">
+            {Array.from({ length: MAX_SPELL_SLOTS }, (_, i) => { const id = equippedSpells(s)[i]; const sp = id ? SPELL[id] : undefined; return (
+              <button key={i} className="pixel-btn min-h-[2.6rem] p-1 text-left text-xs" disabled={!sp} onClick={() => sp && onToggle(sp.id)}>
+                {sp ? <>{SCHOOL[sp.school].icon} {sp.name} <span className="text-gold">Lv {s.spellLv?.[sp.id] ?? 1}</span><span className="block text-[0.6rem] text-muted-foreground">tap to unequip</span></> : <span className="text-muted-foreground">— empty slot —</span>}
+              </button>); })}
+          </div>
+        </div>}
         {known.map((sc) => <div key={sc.id} className="mb-2">
           <h3 className="text-accent">{sc.icon} {sc.name}</h3>
-          {SPELLS.filter((sp) => sp.school === sc.id).map((sp) => { const has = s.spells?.includes(sp.id); return (
-            <div key={sp.id} className={`flex justify-between border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
-              <span>{has ? "✅" : "🔒"} {sp.name} <span className="text-xs">· {sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {sp.cost} MP</span></span>
-              {!has && <span className="text-xs">{spellLock(s, sp.id)}</span>}
+          {SPELLS.filter((sp) => sp.school === sc.id).map((sp) => { const has = s.spells?.includes(sp.id); const on = equippedSpells(s).includes(sp.id); const lv = s.spellLv?.[sp.id] ?? 1; const uc = spellUpCost(sp.id, lv); return (
+            <div key={sp.id} className={`border-b border-border py-1 text-sm ${has ? "" : "text-muted-foreground"}`}>
+              <div className="flex justify-between gap-1"><span>{has ? (on ? "🟢" : "⚪") : "🔒"} {sp.name}{has && <span className="text-gold"> Lv {lv}/{SPELL_MAX_LV}</span>}</span>
+                <span className="text-xs">{sp.kind}{sp.el ? ` ${ELEMENT_ICON[sp.el]}` : ""} · {Math.round(sp.cost * (1 + (lv - 1) * 0.05))} MP</span></div>
+              {!has && <div className="text-xs">Requires {spellLock(s, sp.id)}</div>}
+              {has && <div className="mt-1 flex gap-1">
+                <button className="pixel-btn flex-1 py-1 text-xs" disabled={!on && equippedSpells(s).length >= MAX_SPELL_SLOTS} onClick={() => onToggle(sp.id)}>{on ? "Unequip" : equippedSpells(s).length >= MAX_SPELL_SLOTS ? "Slots full" : "Equip"}</button>
+                <button className="pixel-btn flex-1 py-1 text-xs" disabled={lv >= SPELL_MAX_LV || s.gold < uc} onClick={() => onLevel(sp.id)}>{lv >= SPELL_MAX_LV ? "MAX" : `📈 Lv up · ${fmt(uc)}g (+${Math.round(SPELL_LV_BONUS * 100)}%)`}</button>
+              </div>}
             </div>); })}
         </div>)}
       </>}
@@ -184,5 +202,17 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend }: { s: Game
           </div>); })}
       </>}
     </Sheet>
+  );
+}
+
+/** Compact building-level bar shown under the interior scene of upgradeable buildings. */
+export function BldgUpgrade({ s, b, onUp }: { s: GameState; b: BldgId; onUp: () => void }) {
+  const L = bldgLvl(s, b); const c = bldgCost(L);
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b-2 border-border px-2 py-1 text-xs">
+      <span className="min-w-0 flex-1"><b className="text-gold">{BLDG_INFO[b].name} Lv {L}</b> · <span className="text-muted-foreground">{BLDG_INFO[b].perk(L)}</span>
+        {L < BLDG_MAX && <span className="block text-muted-foreground">Next: {BLDG_INFO[b].perk(L + 1)}</span>}</span>
+      {L < BLDG_MAX ? <button className="pixel-btn shrink-0 px-2 py-1 text-xs" disabled={s.gold < c} onClick={onUp}>⬆️ {fmt(c)}g</button> : <span className="text-gold">MAX</span>}
+    </div>
   );
 }

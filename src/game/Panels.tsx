@@ -7,7 +7,9 @@ import {
   EFFECT_INFO, GEAR_CAP, computeClass, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
   forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice, sellableList,
   type GameState, type Gear,
+  bldgLvl, storageUsed, storageMax,
 } from "./engine";
+import { restPct } from "./items";
 import { useGameConfirm } from "./Confirm";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "./Avatar";
@@ -287,7 +289,7 @@ export function TowerPanel({ s, onClose, onEnter }: { s: GameState; onClose: () 
 export function HousePanel({ s, onClose, onRest }: { s: GameState; onClose: () => void; onRest: () => void }) {
   return (
     <Sheet title="🏠 Home" onClose={onClose}>
-      <button className="pixel-btn pixel-btn-primary mb-2 w-full py-3" onClick={onRest}>🛌 Rest (full restore, time passes)</button>
+      <button className="pixel-btn pixel-btn-primary mb-2 w-full py-3" onClick={onRest}>🛌 Rest (recover {restPct(bldgLvl(s, "house"))}%, time passes)</button>
       {s.decos.length > 0 && <p className="mb-2 text-sm">Village decorations: {s.decos.join(" ")}</p>}
       <p className="text-sm text-muted-foreground">Use the Storage tab to keep items safe and the Kitchen tab to cook. Saving is in Settings.</p>
     </Sheet>
@@ -393,6 +395,7 @@ export function WarehousePanel({ s, onClose, onStoreGear, onTakeGear, onStoreAll
   const eq = new Set(Object.values(s.equip));
   return (
     <Sheet title="📦 Warehouse" onClose={onClose}>
+      <p className="mb-1 text-xs text-muted-foreground">📦 Storage {storageUsed(s)}/{storageMax(s)} slots (each gear piece or material type uses one). Upgrade Home for more.</p>
       <Tabs tabs={[["gear", `Gear (${s.whGear.length})`], ["mats", "Materials"]]} cur={tab} set={setTab} />
       {tab === "gear" && <>
         <h3 className="text-accent">Carried ({s.gear.length}/{GEAR_CAP})</h3>
