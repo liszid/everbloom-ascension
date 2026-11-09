@@ -7,7 +7,9 @@ import {
   EFFECT_INFO, GEAR_CAP, computeClass, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
   forgeUpgradeCost, gearStats, gearValue, lvl, marketOffers, maxBet, questProgress, repairCost, sellPrice, sellableList,
   type GameState, type Gear,
+  bldgLvl, storageUsed, storageMax,
 } from "./engine";
+import { restPct } from "./items";
 import { useGameConfirm } from "./Confirm";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "./Avatar";
