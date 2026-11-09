@@ -647,7 +647,7 @@ export function enterDungeon(s: GameState, f: number) {
 }
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
-  s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { x: 14, y: 13 };
+  s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
   s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
