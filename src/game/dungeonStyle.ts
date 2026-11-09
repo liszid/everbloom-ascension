@@ -32,7 +32,7 @@ export function dungeonTileStyle(theme: number, x: number, y: number, isWall: (x
   if (isWall(x, y)) {
     const tex = `url(${dungeonArt(theme, true)}) ${pos(x, WALL_SPAN)} ${pos(y, WALL_SPAN)} / ${WALL_SPAN * 100}% ${WALL_SPAN * 100}%`;
     if (isWall(x, y + 1)) // wall top seen from above: dark cap, lighter rim where it meets a lit face or floor
-      return { background: `linear-gradient(${look.cap}, ${look.cap}), ${tex}`, boxShadow: `inset 0 0 0 1px rgba(0,0,0,.35)` };
+      return { background: `linear-gradient(${look.cap}c4, ${look.cap}c4), ${tex}`, boxShadow: `inset 0 0 0 1px rgba(0,0,0,.3)` };
     // wall face: brick front with a stone cap and a dark base line
     return { background: `linear-gradient(to bottom, ${look.cap} 0 22%, rgba(0,0,0,.6) 22% 26%, transparent 26% 88%, rgba(0,0,0,.45) 88%), ${tex}` };
   }
