@@ -344,3 +344,22 @@
 .tile-fog::after, .tile-dusk::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
 .tile-fog::after { background: rgba(6, 5, 10, 0.68); }
 .tile-dusk::after { background: rgba(6, 5, 10, 0.28); }
+
+/* Smooth movement: the tile grid slides as one layer; hero and monsters slide between tiles */
+.map-inner { position: absolute; display: grid; gap: 0; aspect-ratio: 1; will-change: transform; }
+.map-village .map-inner { background: url("./assets/art/g_grass.webp") 0 0 / calc(300% / var(--cols)) calc(300% / var(--cols)); }
+.tile-mover { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; pointer-events: none; will-change: transform; }
+.tile-mover-p { z-index: 6; }
+.tile-mover-p .tile-player { display: flex; align-items: center; justify-content: center; }
+.tile-player.walking { animation: walk-step 0.3s ease-in-out infinite; }
+.mon-walk { animation: walk-step 0.3s ease-in-out 1; }
+@keyframes walk-step { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-3px) rotate(-3deg); } 50% { transform: translateY(0) rotate(0); } 75% { transform: translateY(-3px) rotate(3deg); } }
+.avatar-cartoon img { transition: transform 0.18s ease-out; }
+
+/* Rounded grass: grass tiles at a corner of path/water/soil paint their grass on a rounded layer above that ground */
+.tile-cvx::before { content: ""; position: absolute; inset: 0; border-radius: var(--br); pointer-events: none; background: url("./assets/art/g_grass.webp") 0 0 / 300% 300%; }
+.tile-cvx.tile-grass-2::before { background-position: 50% 50%; }
+.tile-cvx > :not(.tile-mover):not(.tile-label):not(.bldg) { position: relative; }
+.tile-cvx.under-path { background: url("./assets/art/g_path.webp") 0 0 / 300% 300%; }
+.tile-cvx.under-water { background: url("./assets/art/g_water.webp") 0 0 / 300% 300%; animation: water-drift 6s linear infinite; }
+.tile-cvx.under-soil { background: url("./assets/art/g_soil.webp") 0 0 / 200% 200%; }

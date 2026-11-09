@@ -12,6 +12,7 @@
 - Game confirmations use the shared ConfirmationProvider rather than native browser dialogs to keep fullscreen intact.
 - Building and monster artwork uses browser-safe procedural SVG modules with palette tokens in src/styles.css so gameplay and presentation remain separate.
 - Mobile map width follows available horizontal space; short screens scroll vertically instead of compressing the map.
+- The map renders one extra ring of tiles inside a sliding inner grid so camera and sprite moves animate between tiles (Web Animations in Game.tsx); gameplay stays tile-based.
 - Village gathering spots are data-driven in src/game/gathering.ts (spot level gates materials); merged buildings reuse existing panels via a shared tab strip in Game.tsx GROUPS.
 - Church services and Craftery item definitions live as pure data in src/game/items.ts; engine.ts applies them so UI and rules stay separate.
 - Magic schools, spells and ascended races are pure data in src/game/magic.ts; progress counters live in GameState.stats.

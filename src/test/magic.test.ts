@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ascend, ascensionProgress, learnSchool, newGame, schoolLock, spellLock, playerStats } from "@/game/engine";
-import { SPELLS } from "@/game/magic";
+import { SCHOOLS, SCHOOL_MAX, SPELLS } from "@/game/magic";
 
 const fresh = () => { const s = newGame({ name: "T", gender: "Male", race: "human", bg: "farmer" }); s.gold = 1e7; return s; };
 
@@ -19,6 +19,20 @@ describe("magic tower", () => {
     expect(s.spells).toContain("fire_0");
     expect(spellLock(s, "fire_1")).toMatch(/Lv 5/);
     expect(playerStats(s).matk).toBeGreaterThan(0);
+  });
+  it("every school offers 24 spells, all learnable by school Lv 20", () => {
+    for (const sc of SCHOOLS) {
+      const list = SPELLS.filter((x) => x.school === sc.id);
+      expect(list.length).toBe(24);
+      expect(Math.max(...list.map((x) => x.lvl))).toBe(SCHOOL_MAX);
+    }
+    const s = fresh(); s.magic = { fire: 1e7 };
+    const fire = SPELLS.filter((x) => x.school === "fire");
+    expect(fire.filter((x) => spellLock(s, x.id, 1e6) === null).length).toBe(24);
+  });
+  it("a school at Lv 19 cannot yet learn its Lv 20 spells", () => {
+    const s = fresh(); s.magic = { fire: 25 * 18 * 18 }; // exactly Lv 19
+    expect(spellLock(s, SPELLS.filter((x) => x.school === "fire").at(-1)!.id, 1e6)).toMatch(/Lv 20/);
   });
 });
 
