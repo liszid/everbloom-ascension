@@ -1,6 +1,6 @@
 import { titleStars } from "./titles";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPE } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPE } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ANIMALS, BUILDINGS, TREES, getMat } from "./data";
 import {
@@ -281,17 +281,43 @@ function GameSession({ userId }: { userId: string }) {
     return () => window.removeEventListener("keydown", h);
   }, [move]);
 
+  // ---- smooth movement: slide the hero, moved monsters and the camera between tiles ----
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const prevView = useRef<{ loc: string; floor: number; x: number; y: number; cx: number; cy: number; step: number; t: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!s) return;
+    const { cx, cy } = camera(s);
+    const now = performance.now(); const pv = prevView.current;
+    const floor = s.dungeon?.floor ?? 0;
+    prevView.current = { loc: s.loc, floor, x: s.pos.x, y: s.pos.y, cx, cy, step: s.step, t: now };
+    const el = innerRef.current;
+    if (!pv || !el || pv.loc !== s.loc || pv.floor !== floor || pv.step === s.step) return;
+    if (document.documentElement.classList.contains("rm")) return;
+    const dur = Math.max(90, Math.min(170, now - pv.t));
+    const opts: KeyframeAnimationOptions = { duration: dur, easing: "linear" };
+    const dx = s.pos.x - pv.x, dy = s.pos.y - pv.y;
+    if (Math.abs(dx) + Math.abs(dy) === 1) {
+      const dcx = cx - pv.cx, dcy = cy - pv.cy, cols = VW + 2, rows = VH + 2;
+      if (dcx || dcy) el.animate([{ transform: `translate(${(dcx * 100) / cols}%, ${(dcy * 100) / rows}%)` }, { transform: "translate(0, 0)" }], opts);
+      el.querySelector(".tile-mover-p")?.animate([{ transform: `translate(${-dx * 100}%, ${-dy * 100}%)` }, { transform: "translate(0, 0)" }], opts);
+    }
+    el.querySelectorAll<HTMLElement>(".tile-mover[data-slide]").forEach((m) => {
+      const f = m.dataset["slide"]; const [mx, my] = f === "r" ? [1, 0] : f === "l" ? [-1, 0] : f === "u" ? [0, -1] : [0, 1];
+      m.animate([{ transform: `translate(${-mx * 100}%, ${-my * 100}%)` }, { transform: "translate(0, 0)" }], opts);
+    });
+  }, [s]);
+
   if (needChar) return <CreateCharacter hadOld={needChar.hadOld} onCancel={slots.current.length ? () => { setNeedChar(null); } : undefined} onDone={(c) => { const g = newGame(c); if (ref.current) slots.current[active.current] = ref.current; slots.current.push(g); active.current = slots.current.length - 1; ref.current = g; setPanel(null); dirty.current = true; setS(g); setNeedChar(null); setTimeout(() => void save(), 50); }} />;
   if (!s) return <div className="flex min-h-dvh items-center justify-center font-display text-primary">Loading your adventure…</div>;
 
   const p = playerStats(s);
   const inV = s.loc === "village";
   const W = inV ? 20 : s.dungeon!.w, H = inV ? 15 : s.dungeon!.h;
-  const cx = Math.max(0, Math.min(W - VW, s.pos.x - Math.floor(VW / 2)));
-  const cy = Math.max(0, Math.min(H - VH, s.pos.y - Math.floor(VH / 2)));
+  const { cx, cy } = camera(s);
   const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir={face} frame={walkF} />;
   const cells = [];
-  for (let y = cy; y < cy + VH; y++) for (let x = cx; x < cx + VW; x++) cells.push(renderTile(s, x, y, avatar, cx, cy, walkF !== undefined));
+  // one extra ring of tiles around the view so the camera can slide smoothly
+  for (let y = cy - 1; y < cy + VH + 1; y++) for (let x = cx - 1; x < cx + VW + 1; x++) cells.push(renderTile(s, x, y, avatar, cx - 1, cy - 1, walkF !== undefined));
   const close = () => setPanel(null);
 
   return (
@@ -313,7 +339,8 @@ function GameSession({ userId }: { userId: string }) {
 
       <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
-          <div className={`map-grid ${inV ? "" : "map-dungeon"}`} style={{ gridTemplateColumns: `repeat(${VW}, 1fr)` }}>{cells}
+          <div className={`map-grid ${inV ? "map-village" : "map-dungeon"}`}>
+            <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}</div>
             {!inV && <div aria-hidden className={`torchlight amb-${ambience(themeIndex(s.dungeon!.floor)) ?? "none"}`} style={{ background: `radial-gradient(circle at ${((s.pos.x - cx + 0.5) / VW) * 100}% ${((s.pos.y - cy + 0.5) / VH) * 100}%, transparent 22%, rgba(8,6,12,.16) 48%, rgba(8,6,12,.42) 90%)` }} />}
           </div>
           {stick && <div className="joy-base" style={{ left: stick.ox - 50, top: stick.oy - 50 }}><div className="joy-knob" style={{ transform: `translate(${stick.dx}px, ${stick.dy}px)` }} /></div>}
@@ -440,6 +467,33 @@ import { themeFor, themeIndex } from "./themes";
 const OBJ_ART = import.meta.glob("../assets/art/o_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const obj = (id: string) => OBJ_ART[`../assets/art/o_${id}.webp`];
 
+/** Camera origin: keeps the hero centred, clamped to the map edges. */
+function camera(s: GameState) {
+  const W = s.loc === "village" ? 20 : s.dungeon!.w, H = s.loc === "village" ? 15 : s.dungeon!.h;
+  return { cx: Math.max(0, Math.min(W - VW, s.pos.x - Math.floor(VW / 2))), cy: Math.max(0, Math.min(H - VH, s.pos.y - Math.floor(VH / 2))) };
+}
+
+/** Village ground kind for corner rounding: grass-backed, open ground (path/water/soil) or neutral (buildings, off-map). */
+function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" | null {
+  const t = VILLAGE[y]?.[x];
+  if (t === undefined || BUILDINGS[t]) return null;
+  return t === "," ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
+}
+const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+/** Rounds grass where it meets paths, water and soil: grass bulges get round tips, inner bends get soft fillets. */
+function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
+  const me = groundKind(x, y); if (!me) return undefined;
+  const isG = me === "grass"; let under: string | null = null; let any = false;
+  const r = CORNERS.map(([sx, sy]) => {
+    const ks = [groundKind(x + sx, y), groundKind(x, y + sy), groundKind(x + sx, y + sy)];
+    const opp = ks.every((k) => k !== null && (isG ? k !== "grass" : k === "grass"));
+    if (opp) { any = true; if (isG && !under) under = ks[2]; }
+    return opp ? "45%" : "0";
+  }).join(" ");
+  if (!any) return undefined;
+  return isG ? ({ "--br": r, "--under": under } as React.CSSProperties) : { borderRadius: r };
+}
+
 function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode, cx: number, cy: number, walking: boolean) {
   const k = `${x},${y}`;
   const isP = s.pos.x === x && s.pos.y === y;
@@ -448,6 +502,8 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     const t = VILLAGE[y]?.[x] ?? "#";
     const depleted = (s.village.nodes[k] ?? 0) > s.step;
     cls = (x + y) % 2 ? "tile-grass" : "tile-grass-2";
+    tileBg = roundedCorners(x, y);
+    if (tileBg && (tileBg as Record<string, string>)["--under"]) { cls += ` tile-cvx under-${(tileBg as Record<string, string>)["--under"]}`; }
     if (t === "#") { cls = "tile-fence"; art = obj("fence"); }
     else if (t === ",") cls = "tile-path";
     else if (t === "o") { const i = DECO_SPOTS.findIndex(([a, b]) => a === x && b === y); glyph = s.decos[i] ?? ""; if (glyph) { cls += " tile-deco"; art = decoArt(glyph); } }
@@ -490,8 +546,8 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`} style={tileBg}>
       {bldg}
-      {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
-        : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />
+      {isP ? <span className="tile-mover tile-mover-p"><span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span></span>
+        : mon ? <span className="tile-mover tile-mover-m" data-slide={mon.movedAt === s.step ? mon.face ?? "d" : undefined}><MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} /></span>
         : art ? <img src={art} alt={glyph || "fence"} draggable={false} loading="lazy" width={256} height={256} className={`tile-obj ${dim ? (mon ? "" : "tile-dim") : ""} ${cls.includes("tile-water") ? "tile-fish" : ""}`} />
         : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
