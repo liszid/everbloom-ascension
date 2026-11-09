@@ -1,4 +1,5 @@
 import { titleKit } from "./titles";
+import { AILMENTS, AMMO_FOR, BLESSINGS, BLESS_BATTLES, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
 import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
@@ -17,16 +18,16 @@ export const EFFECT_INFO: Record<EffectId, string> = {
 export interface Gear {
   id: string; name: string; slot: Slot; grade: number; base: Stats; element: Element;
   effects: { id: EffectId; v: number }[]; materials: { id: string; qty: number }[]; avgTier: number;
-  dura: number; maxDura: number; enh: number; crafted: number;
+  dura: number; maxDura: number; enh: number; crafted: number; ench?: { el: Element; v: number } | undefined;
 }
 export interface Food { name: string; icon: string; heal: number; qty: number; tier: number }
 export interface Mon {
-  face?: "l" | "r" | "u" | "d" | undefined; movedAt?: number | undefined;
+  face?: "l" | "r" | "u" | "d" | undefined; movedAt?: number | undefined; rooted?: number | undefined; trapStun?: number | undefined; trapBurn?: number | undefined;
   uid: string; def: string; name: string; icon: string; x: number; y: number; hp: number; maxHp: number;
   atk: number; defn: number; weak: Element; element: Element; tier: number; boss: 0 | 1 | 2 | 3; magical: boolean;
   ability?: MonsterDef["ability"] | undefined; affix?: string | undefined; xp: number; drops: string[]; dodge: number;
 }
-export interface Dungeon { floor: number; w: number; h: number; tiles: string[]; monsters: Mon[]; stairs: { x: number; y: number }; bossAlive: boolean }
+export interface Dungeon { floor: number; w: number; h: number; tiles: string[]; monsters: Mon[]; stairs: { x: number; y: number }; bossAlive: boolean; traps?: { x: number; y: number; id: string }[] | undefined }
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
@@ -58,6 +59,8 @@ export interface GameState {
   pendingEvo?: Evo | undefined; quests: Quest[]; marketSeed: number; casinoPlays: number; agiFix?: boolean;
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
   spots?: Record<string, number> | undefined;
+  ailments?: Partial<Record<AilmentId, number>> | undefined; blessing?: { id: BlessingId; left: number } | undefined;
+  tools?: Record<string, number> | undefined; ranged?: RangedId | undefined; prayed?: boolean | undefined; faith?: number | undefined;
 }
 
 // ======================= utils =======================
@@ -208,6 +211,7 @@ export function newGame(char: GameState["char"]): GameState {
 export interface PStats extends Stats {
   element: Element; effects: Record<EffectId, number>; weaponSkill: string; magicWeapon: boolean;
   craftEff: number; gatherEff: number; itemFind: number; rareDrop: number; level: number;
+  enchDmg: number; wardEl: Element; wardV: number;
 }
 export const gearStats = (g: Gear): Stats => {
   const m = (1 + g.enh * 0.08) * (g.dura <= 0 ? 0.5 : 1);
@@ -225,14 +229,16 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   };
   const effects = { burn: 0, lifesteal: 0, regen: 0, guard: 0, pierce: 0, haste: 0, holy: 0, bleed: 0, manaflow: 0 } as Record<EffectId, number>;
   let element: Element = "none";
-  let weaponSkill = "unarmed"; let magicWeapon = false;
+  let weaponSkill = "unarmed"; let magicWeapon = false; let enchDmg = 0; let wardEl: Element = "none"; let wardV = 0;
   for (const g of equipped(s)) {
     const gs = gearStats(g);
     for (const k of STAT_KEYS) st[k] += gs[k];
     for (const e of g.effects) effects[e.id] += e.v * (1 + Math.floor(g.enh / 5) * 0.25);
     if (g.slot === "one_hand" || g.slot === "two_hand") {
       weaponSkill = g.slot; element = g.element; magicWeapon = g.base.matk > g.base.patk;
+      if (g.ench) { element = g.ench.el; enchDmg = g.ench.v; }
     }
+    if (g.slot === "shield" && g.ench) { wardEl = g.ench.el; wardV = Math.min(50, g.ench.v * 2); st.pdef *= 1.05; st.mdef *= 1.05; }
   }
   const sk = (k: string) => lvl(s, k) - 1;
   st.patk *= 1 + sk(weaponSkill) * 0.015;
@@ -253,12 +259,17 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
   applyMods(kit.mods);
   for (const [e, v] of Object.entries(kit.effects)) effects[e as EffectId] += v;
+  if (s.blessing && s.blessing.left > 0) { const b = BLESSINGS[s.blessing.id]; const { luck, ...rest } = b.mods; applyMods(rest); if (luck) st.luck += 25; }
+  const ail = s.ailments ?? {};
+  if (ail.weakened) { st.patk *= 0.85; st.matk *= 0.85; }
+  if (ail.cursed) { st.pdef *= 0.9; st.mdef *= 0.9; st.luck -= 10; st.crit -= 5; }
+  if (ail.bleeding) st.hp *= 0.9;
   if (s.char.race === "dragonborn") { st.pdef *= 1.1; st.mdef *= 1.1; }
   if (s.char.race === "halfling") st.luck += 10;
   st.crit = Math.min(75, st.crit); st.dodge = Math.max(0, Math.min(60, st.dodge)); effects.guard = Math.min(50, effects.guard);
   for (const k of ["hp", "mp", "sta"] as StatKey[]) st[k] = Math.round(st[k]);
   return {
-    ...st, element, effects, weaponSkill, magicWeapon, level: L,
+    ...st, element, effects, weaponSkill, magicWeapon, level: L, enchDmg, wardEl, wardV,
     craftEff: 1 + sk("smithing") * 0.01 + affLevel(s.aff["crafting"] ?? 0) * 0.01,
     gatherEff: 1 + affLevel(s.aff["nature"] ?? 0) * 0.01 + (s.char.race === "dwarf" ? 0.1 : 0),
     itemFind: 1 + st.luck / 200 + (s.char.race === "elf" ? 0.2 : 0),
@@ -543,6 +554,87 @@ export function upgradeSpot(s: GameState, id: SpotId): boolean {
   const un = SPOTS[id].mats.find(([, l]) => l === L + 1);
   log(s, `⬆️ ${SPOTS[id].name} reached level ${L + 1}${un ? ` — ${getMat(un[0]).name} unlocked!` : ""}`); return true;
 }
+// ---- church services ----
+export const ailmentCost = (s: GameState, id: AilmentId) => servicePrice(AILMENTS[id].cost, s.maxFloor);
+export const blessingCost = (s: GameState, id: BlessingId) => Math.round(servicePrice(BLESSINGS[id].cost, s.maxFloor) * (1 - Math.min(0.3, (s.faith ?? 0) * 0.01)));
+export function addAilment(s: GameState, id: AilmentId) { if (s.ailments?.[id]) return false; s.ailments = { ...s.ailments, [id]: 1 }; return true; }
+export function cureAilment(s: GameState, id: AilmentId): boolean {
+  if (!s.ailments?.[id]) return false;
+  if (!spend(s, ailmentCost(s, id))) { log(s, "❌ Not enough gold for the cure."); return false; }
+  const a = { ...s.ailments }; delete a[id]; s.ailments = a; clampVitals(s); log(s, `⛪ ${AILMENTS[id].name} cured.`); return true;
+}
+export function buyBlessing(s: GameState, id: BlessingId): boolean {
+  if (!spend(s, blessingCost(s, id))) { log(s, "❌ Not enough gold for the blessing."); return false; }
+  s.blessing = { id, left: BLESS_BATTLES }; log(s, `✨ ${BLESSINGS[id].name} lasts ${BLESS_BATTLES} battles.`); return true;
+}
+/** Free prayer once per return from the tower: builds faith (cheaper blessings) and grants a short random blessing. */
+export function pray(s: GameState): BlessingId | null {
+  if (s.prayed) return null;
+  s.prayed = true; s.faith = (s.faith ?? 0) + 1; addAff(s, "light", 3);
+  const ids = Object.keys(BLESSINGS) as BlessingId[]; const id = ids[ri(0, ids.length - 1)]!;
+  if (!s.blessing || s.blessing.left < 3) s.blessing = { id, left: 3 };
+  log(s, `🙏 You pray. Faith ${s.faith}. ${BLESSINGS[id].name} settles on you.`); return id;
+}
+export function enchantGear(s: GameState, gid: string, el: Element): boolean {
+  const g = s.gear.find((x) => x.id === gid);
+  if (!g || !["one_hand", "two_hand", "shield"].includes(g.slot)) return false;
+  const c = enchantCost(g.grade, s.maxFloor);
+  const mat = (s.inv[ENCHANT_MAT[el]!] ?? 0) >= c.qty ? ENCHANT_MAT[el]! : ENCHANT_ALT[el]!;
+  const qty = mat === ENCHANT_MAT[el] ? c.qty : c.qty * 3;
+  if (s.gold < c.gold || (s.inv[mat] ?? 0) < qty) { log(s, `❌ Need ${c.gold}g and ${qty}× ${getMat(mat).name}.`); return false; }
+  spend(s, c.gold); takeMat(s, mat, qty);
+  g.ench = { el, v: enchantPower(g.grade) + (mat === ENCHANT_MAT[el] ? 5 : 0) };
+  log(s, `🌟 ${g.name} blessed with ${el}.`); return true;
+}
+export function enchantMatFor(s: GameState, g: Gear, el: Element) {
+  const c = enchantCost(g.grade, s.maxFloor);
+  return (s.inv[ENCHANT_MAT[el]!] ?? 0) >= c.qty ? { mat: ENCHANT_MAT[el]!, qty: c.qty, gold: c.gold } : { mat: ENCHANT_ALT[el]!, qty: c.qty * 3, gold: c.gold };
+}
+
+// ---- craftery ----
+export function craftTool(s: GameState, id: string, times = 1): boolean {
+  const t = TOOL[id]; if (!t) return false;
+  let made = 0;
+  for (let i = 0; i < times; i++) {
+    if (t.kind === "ranged" && (s.tools?.[id] ?? 0) > 0) break;
+    if (s.gold < t.gold || t.recipe.some(([m, q]) => (s.inv[m] ?? 0) < q)) break;
+    spend(s, t.gold); for (const [m, q] of t.recipe) takeMat(s, m, q);
+    s.tools = { ...s.tools, [id]: (s.tools?.[id] ?? 0) + t.makes }; made++;
+    addXp(s, "smithing", 2); addAff(s, "crafting", 0.5);
+  }
+  if (!made) { log(s, `❌ Missing materials or gold for ${t.name}.`); return false; }
+  log(s, `🪤 Crafted ${t.makes * made}× ${t.name}.`); return true;
+}
+export function equipRanged(s: GameState, id: RangedId | undefined) {
+  if (id && !(s.tools?.[id] ?? 0)) return false;
+  if (id && s.equip.two_hand) { log(s, "❌ Two-handed weapons leave no hand free."); return false; }
+  if (id && s.equip.shield) s.equip.shield = undefined;
+  s.ranged = id; log(s, id ? `🏹 ${TOOL[id]!.name} readied in your off-hand.` : "Off-hand cleared."); return true;
+}
+export function placeTrap(s: GameState, id: string, x: number, y: number): boolean {
+  const d = s.dungeon; const t = TOOL[id];
+  if (!d || !t || t.kind !== "trap" || !(s.tools?.[id] ?? 0)) return false;
+  if (Math.abs(s.pos.x - x) + Math.abs(s.pos.y - y) > TRAP_RANGE || d.tiles[y]?.[x] !== "." || (x === s.pos.x && y === s.pos.y)) return false;
+  if (d.monsters.some((m) => m.x === x && m.y === y) || d.traps?.some((q) => q.x === x && q.y === y)) return false;
+  s.tools = { ...s.tools, [id]: s.tools![id]! - 1 }; d.traps = [...(d.traps ?? []), { x, y, id }];
+  addXp(s, "hunting", 2); log(s, `${t.icon} ${t.name} set.`); return true;
+}
+function triggerTrap(s: GameState, m: Mon) {
+  const d = s.dungeon!; const tr = d.traps?.find((q) => q.x === m.x && q.y === m.y); if (!tr) return;
+  const t = TOOL[tr.id]!; d.traps = d.traps!.filter((q) => q !== tr);
+  const dmg = Math.round(m.maxHp * (t.pct ?? 0) * (m.boss ? 0.4 : 1));
+  m.hp -= dmg; bump(s, "dmgDealt", dmg); addXp(s, "hunting", 3);
+  if (t.stun) { m.rooted = 5; m.trapStun = t.stun; }
+  if (t.burn) m.trapBurn = Math.round(m.maxHp * t.burn);
+  if (m.hp <= 0) {
+    d.monsters = d.monsters.filter((x) => x !== m); bump(s, "kills"); addCharXp(s, m.xp);
+    const id = m.drops[ri(0, m.drops.length - 1)]!; addMat(s, id, 1, true);
+    log(s, `${t.icon} ${m.name} died in your ${t.name}! +${getMat(id).name}`);
+  } else log(s, `${t.icon} ${m.name} triggered your ${t.name} (−${dmg}).`);
+}
+/** Per-step ailment ticks while exploring. */
+export function stepAilments(s: GameState) { if (s.ailments?.poisoned && s.hp > 1) s.hp -= 1; }
+
 export function churchHealCost(s: GameState) { return 10 + Math.floor(s.maxFloor * 2); }
 export function churchHeal(s: GameState): boolean {
   if (!spend(s, churchHealCost(s))) { log(s, "❌ Not enough gold for the offering."); return false; }
@@ -648,7 +740,7 @@ export function enterDungeon(s: GameState, f: number) {
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
   s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
-  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; rerollQuestsIfDone(s);
+  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
 export function mineVein(s: GameState, x: number, y: number) {
@@ -674,20 +766,21 @@ export function moveMonsters(s: GameState): Mon | null {
     if (m.boss) continue;
     const dx = s.pos.x - m.x, dy = s.pos.y - m.y, dist = Math.abs(dx) + Math.abs(dy);
     if (dist === 1) { attacker = attacker ?? m; continue; }
+    if (m.rooted) { m.rooted--; continue; }
     if (dist > 6 || Math.random() < 0.35) continue;
     const opts = Math.abs(dx) > Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
     for (const [ox, oy] of opts) {
       if (!ox && !oy) continue;
       const nx = m.x + ox!, ny = m.y + oy!;
       const tt = d.tiles[ny]?.[nx];
-      if (tt === "." && !d.monsters.some((o) => o.x === nx && o.y === ny) && !(nx === s.pos.x && ny === s.pos.y)) { m.face = ox! > 0 ? "r" : ox! < 0 ? "l" : oy! > 0 ? "d" : "u"; m.movedAt = s.step; m.x = nx; m.y = ny; break; }
+      if (tt === "." && !d.monsters.some((o) => o.x === nx && o.y === ny) && !(nx === s.pos.x && ny === s.pos.y)) { m.face = ox! > 0 ? "r" : ox! < 0 ? "l" : oy! > 0 ? "d" : "u"; m.movedAt = s.step; m.x = nx; m.y = ny; triggerTrap(s, m); break; }
     }
   }
-  return attacker;
+  return attacker && d.monsters.includes(attacker) ? attacker : null;
 }
 
 // ======================= combat =======================
-export type CombatAct = "attack" | "defend" | "flee" | "race" | { skill: number } | { eat: number };
+export type CombatAct = "attack" | "defend" | "flee" | "race" | "shoot" | { skill: number } | { eat: number } | { tool: string };
 const dmgFormula = (a: number, d: number) => (a * a) / (a + d);
 export function startCombat(s: GameState, m: Mon) {
   s.combat = {
@@ -695,6 +788,8 @@ export function startCombat(s: GameState, m: Mon) {
     xp0: { ...s.skills }, charXp0: s.xp, gold0: s.gold, stoneskin: 0, guardT: 0, roar: 0, stun: 0, monBurn: 0, monBleed: 0, pPoison: 0,
     lockT: 0, lockHp: 0, charging: false, shieldT: 0, frenzy: 0, raceUsed: false, eats: 0, healed: 0,
   };
+  if (m.trapStun) { s.combat.stun = m.trapStun; s.combat.log.unshift(`🪤 ${m.name} is caught in your trap!`); m.trapStun = 0; }
+  if (m.trapBurn) { s.combat.monBurn = m.trapBurn; m.trapBurn = 0; }
 }
 const clog = (c: Combat, msg: string) => { c.log = [msg, ...c.log].slice(0, 20); };
 
@@ -707,6 +802,7 @@ function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { mag
   def *= 1 - Math.min(0.6, p.effects.pierce / 100);
   let dmg = dmgFormula(atk, def) * rand(0.9, 1.1);
   const el = opts.el ?? p.element;
+  if (p.enchDmg && el === p.element) dmg *= 1 + p.enchDmg / 100;
   if (el !== "none" && el === m.weak) dmg *= 1.5; else if (el !== "none" && el === m.element) dmg *= 0.7;
   if (p.effects.holy && m.element === "dark") dmg *= 1 + p.effects.holy / 100;
   if (s.char.race === "orc" && s.hp < playerStats(s).hp * 0.5) dmg *= 1.15;
@@ -757,6 +853,22 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       case "breath": playerHit(s, c, p, 2.6, { el: p.element === "none" ? "fire" : p.element, magic: true, label: "Dragon Breath" }); break;
       case "radiance": { const h = Math.round(p.hp * 0.25); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; clog(c, `😇 Radiance heals ${h}.`); break; }
     }
+  } else if (a === "shoot") {
+    const r = s.ranged; const ammo = r ? AMMO_FOR[r] : ""; const def = r ? TOOL[r] : undefined;
+    if (!r || !def || !(s.tools?.[ammo] ?? 0)) { clog(c, "No ammunition!"); c.turn--; return null; }
+    s.tools = { ...s.tools, [ammo]: s.tools![ammo]! - 1 };
+    const pp = r === "crossbow" ? { ...p, effects: { ...p.effects, pierce: p.effects.pierce + 40 } } : p;
+    playerHit(s, c, pp, def.mult ?? 1.4, { magic: false, label: def.name });
+    addXp(s, "hunting", 4); addAff(s, "hunting", 1);
+  } else if ("tool" in a) {
+    const t = TOOL[a.tool]; if (!t || t.kind !== "throw" || !(s.tools?.[t.id] ?? 0)) { c.turn--; return null; }
+    s.tools = { ...s.tools, [t.id]: s.tools![t.id]! - 1 }; use(s.usage.skill, t.name);
+    if (t.flee) { if (m.boss === 0) { clog(c, "💨 You vanish in smoke!"); return finishCombat(s, "fled"); } clog(c, "🚫 The Guardian sees through the smoke."); }
+    else {
+      if (t.mult) { const d = playerHit(s, c, p, t.mult, { magic: !!t.el, el: t.el, sure: true, label: t.name }); if (t.burn) c.monBurn = Math.max(c.monBurn, Math.round(d * t.burn * 3)); }
+      if (t.stun) { c.stun = Math.max(c.stun, m.boss ? 1 : t.stun); clog(c, `${t.icon} ${m.name} is snared!`); }
+    }
+    addXp(s, "hunting", 3);
   } else if ("skill" in a) {
     const sk = combatActives(s)[a.skill]; if (!sk) return null;
     const have = sk.res === "mp" ? s.mp : s.sta;
@@ -797,6 +909,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
         if (c.guardT > 0) dmg *= 0.5;
         if (c.stoneskin > 0) dmg *= 0.5;
         dmg *= 1 - p.effects.guard / 100;
+        if (p.wardEl !== "none" && m.element === p.wardEl) dmg *= 1 - p.wardV / 100;
         if (s.char.race === "tiefling" && m.element === "fire") dmg *= 0.7;
         if (s.char.race === "aasimar" && m.element === "dark") dmg *= 0.7;
         dmg = Math.max(1, Math.round(dmg));
@@ -804,7 +917,10 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
         addXp(s, "endurance", 2); if (defending) { addXp(s, "defense", 2); addAff(s, "shield", 0.8); }
         clog(c, `${mult > 2 ? "💢 DEVASTATING! " : ""}${m.name} hits you for ${dmg}`);
         if (m.ability === "drain") { const h = Math.round(dmg * 0.3); m.hp = Math.min(m.maxHp, m.hp + h); }
-        if (m.ability === "poison" && Math.random() < 0.35) { c.pPoison = 3; clog(c, "🤢 You are poisoned!"); }
+        if (m.ability === "poison" && Math.random() < 0.35) { c.pPoison = 3; clog(c, "🤢 You are poisoned!"); if (Math.random() < 0.4 && addAilment(s, "poisoned")) clog(c, "🤢 The venom lingers — visit the Church."); }
+        if (m.ability === "drain" && Math.random() < 0.12 && addAilment(s, "weakened")) clog(c, "🥀 You feel weakened.");
+        if (m.ability === "frenzy" && Math.random() < 0.12 && addAilment(s, "bleeding")) clog(c, "🩸 A deep wound keeps bleeding.");
+        if (m.element === "dark" && m.boss > 0 && Math.random() < 0.15 && addAilment(s, "cursed")) clog(c, "🌑 A curse takes hold of you.");
       }
     }
   }
@@ -827,6 +943,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   let xp = 0, gold = 0, sold = 0;
   // durability wear
   for (const g of equipped(s)) g.dura = Math.max(0, g.dura - ((g.slot === "one_hand" || g.slot === "two_hand") ? 2 : 1));
+  if (s.blessing) { s.blessing.left--; if (s.blessing.left <= 0) s.blessing = undefined; }
   if (outcome === "win") {
     d.monsters = d.monsters.filter((x) => x.uid !== m.uid);
     if (m.boss) { d.bossAlive = false; bump(s, "bosses"); }
@@ -852,7 +969,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
     }
     clog(c, `🏆 ${m.name} defeated!`);
   } else if (outcome === "lose") {
-    bump(s, "deaths"); s.stats["streak"] = 0;
+    bump(s, "deaths"); s.stats["streak"] = 0; addAilment(s, "cursed");
   }
   const gains = Object.keys(s.skills).map((k) => ({ k, xp: (s.skills[k] ?? 0) - (c.xp0[k] ?? 0), from: levelOf(c.xp0[k] ?? 0), to: levelOf(s.skills[k] ?? 0) }))
     .filter((g) => g.xp > 0.01).sort((a, b) => b.xp - a.xp);
