@@ -313,7 +313,9 @@ function GameSession({ userId }: { userId: string }) {
 
       <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
-          <div className="map-grid" style={{ gridTemplateColumns: `repeat(${VW}, 1fr)` }}>{cells}</div>
+          <div className={`map-grid ${inV ? "" : "map-dungeon"}`} style={{ gridTemplateColumns: `repeat(${VW}, 1fr)` }}>{cells}
+            {!inV && <div aria-hidden className={`torchlight amb-${ambience(themeIndex(s.dungeon!.floor)) ?? "none"}`} style={{ background: `radial-gradient(circle at ${((s.pos.x - cx + 0.5) / VW) * 100}% ${((s.pos.y - cy + 0.5) / VH) * 100}%, transparent 18%, rgba(8,6,12,.22) 42%, rgba(8,6,12,.55) 85%)` }} />}
+          </div>
           {stick && <div className="joy-base" style={{ left: stick.ox - 50, top: stick.oy - 50 }}><div className="joy-knob" style={{ transform: `translate(${stick.dx}px, ${stick.dy}px)` }} /></div>}
           {!stick && <div className="joy-hint">Drag to walk · tap to interact</div>}
         </div>
@@ -432,7 +434,8 @@ function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
 const DECO_SPOTS: [number, number][] = [];
 VILLAGE.forEach((r, y) => [...r].forEach((c, x) => { if (c === "o") DECO_SPOTS.push([x, y]); }));
 
-import { icon, decoArt, dungeonArt } from "./art";
+import { icon, decoArt } from "./art";
+import { dungeonTileStyle, ambience } from "./dungeonStyle";
 import { themeFor, themeIndex } from "./themes";
 const OBJ_ART = import.meta.glob("../assets/art/o_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const obj = (id: string) => OBJ_ART[`../assets/art/o_${id}.webp`];
@@ -472,7 +475,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     const d = s.dungeon!;
     const t = d.tiles[y]?.[x] ?? "#";
     cls = t === "#" ? "tile-wall" : (x + y) % 2 ? "tile-floor" : "tile-floor-2";
-    const ti = themeIndex(d.floor); tileBg = { backgroundImage: `url(${dungeonArt(ti, t === "#")})` };
+    tileBg = dungeonTileStyle(themeIndex(d.floor), x, y, (wx, wy) => (d.tiles[wy]?.[wx] ?? "#") === "#");
     if (t === "V") { glyph = "💎"; art = icon("gem"); }
     if (t === "$") { glyph = "🧰"; art = icon("chest"); }
     if (t === ">") { glyph = d.bossAlive ? "🔒" : "🪜"; art = icon(d.bossAlive ? "locked" : "stairs"); }
