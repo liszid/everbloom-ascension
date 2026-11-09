@@ -115,8 +115,8 @@ export function CrafteryPanel({ s, onClose, onCraft, onRanged }: { s: GameState;
   const [tab, setTab] = useState<ToolKind>("throw");
   return (
     <Sheet title="🪤 Craftery" onClose={onClose}>
-      <div className="mb-2 flex gap-1">
-        {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Ranged"], ["torch", "🔥 Torch"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
+      <div className="mb-2 grid grid-cols-5 gap-1">
+        {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Ranged"], ["torch", "🔥 Torch"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn min-w-0 px-0.5 py-2 text-[0.65rem] ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
       <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : tab === "torch" ? `Torches go in your off-hand instead of a shield or ranged weapon. They light up more of the dungeon and burn foes whenever you attack or defend. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.` : `Off-hand ranged weapons replace your shield or torch; two-handed ones also stow your one-handed weapon. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
       {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const held = t.kind === "ranged" || t.kind === "torch"; const owned = held && have > 0; return (

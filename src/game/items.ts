@@ -80,7 +80,7 @@ export const TOOL: Record<string, ToolDef> = Object.fromEntries(TOOLS.map((t) =>
 export const ammoFor = (r: RangedId) => TOOL[r]?.uses ?? "arrow";
 export const TRAP_RANGE = 3;
 /** Dungeon sight radius in tiles without a torch. */
-export const BASE_SIGHT = 3.5;
+export const BASE_SIGHT = 4;
 
 // ---- village building levels ----
 export type BldgId = "house" | "craftery" | "church" | "guild" | "market";
