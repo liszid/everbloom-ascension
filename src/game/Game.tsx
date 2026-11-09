@@ -432,6 +432,7 @@ function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
 const DECO_SPOTS: [number, number][] = [];
 VILLAGE.forEach((r, y) => [...r].forEach((c, x) => { if (c === "o") DECO_SPOTS.push([x, y]); }));
 
+import { icon, decoArt } from "./art";
 const OBJ_ART = import.meta.glob("../assets/art/o_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const obj = (id: string) => OBJ_ART[`../assets/art/o_${id}.webp`];
 
@@ -445,12 +446,12 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     cls = (x + y) % 2 ? "tile-grass" : "tile-grass-2";
     if (t === "#") { cls = "tile-fence"; art = obj("fence"); }
     else if (t === ",") cls = "tile-path";
-    else if (t === "o") { const i = DECO_SPOTS.findIndex(([a, b]) => a === x && b === y); glyph = s.decos[i] ?? ""; if (glyph) cls += " tile-deco"; }
+    else if (t === "o") { const i = DECO_SPOTS.findIndex(([a, b]) => a === x && b === y); glyph = s.decos[i] ?? ""; if (glyph) { cls += " tile-deco"; art = decoArt(glyph); } }
     else if (TREES[t]) { glyph = TREES[t]!.icon; art = obj(t); dim = depleted; cls += " tap"; }
     else if (t === "R") { glyph = "🪨"; art = obj("R"); dim = depleted; cls += " tap"; }
     else if (t === "F") { glyph = "🌼"; art = obj("F"); dim = depleted; cls += " tap"; }
-    else if (t === "W") { cls = "tile-water tap"; glyph = depleted ? "" : (x * 7 + y * 3) % 5 === 0 ? "🐟" : ""; }
-    else if (t === "G") { cls = "tile-soil tap"; const p = s.village.plots[k]; glyph = p ? (p.readyAt <= s.step ? getMat(p.crop).icon : "🌱") : ""; }
+    else if (t === "W") { cls = "tile-water tap"; glyph = depleted ? "" : (x * 7 + y * 3) % 5 === 0 ? "🐟" : ""; if (glyph) art = icon("fish"); }
+    else if (t === "G") { cls = "tile-soil tap"; const p = s.village.plots[k]; glyph = p ? (p.readyAt <= s.step ? getMat(p.crop).icon : "🌱") : ""; if (p) art = p.readyAt <= s.step ? (icon(p.crop) ?? undefined) : icon("sprout"); }
     else if (ANIMALS[t]) { glyph = ANIMALS[t]!.icon; art = obj(t); dim = (s.village.animals[k] ?? 0) > s.step; cls += " tap"; }
     else if (BUILDINGS[t]) {
       cls = "tile-station-part tap";
@@ -470,10 +471,10 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     const d = s.dungeon!;
     const t = d.tiles[y]?.[x] ?? "#";
     cls = t === "#" ? "tile-wall" : (x + y) % 2 ? "tile-floor" : "tile-floor-2";
-    if (t === "V") glyph = "💎";
-    if (t === "$") glyph = "🧰";
-    if (t === ">") glyph = d.bossAlive ? "🔒" : "🪜";
-    const tr = d.traps?.find((q) => q.x === x && q.y === y); if (tr) { glyph = TOOL[tr.id]?.icon ?? "🪤"; dim = true; }
+    if (t === "V") { glyph = "💎"; art = icon("gem"); }
+    if (t === "$") { glyph = "🧰"; art = icon("chest"); }
+    if (t === ">") { glyph = d.bossAlive ? "🔒" : "🪜"; art = icon(d.bossAlive ? "locked" : "stairs"); }
+    const tr = d.traps?.find((q) => q.x === x && q.y === y); if (tr) { glyph = TOOL[tr.id]?.icon ?? "🪤"; art = icon(tr.id) ?? icon("bear_trap"); dim = true; }
     const m = d.monsters.find((mm) => mm.x === x && mm.y === y);
     if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; mon = m; }
   }
@@ -482,7 +483,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
       {bldg}
       {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
         : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />
-        : art ? <img src={art} alt={glyph || "fence"} draggable={false} loading="lazy" width={256} height={256} className={`tile-obj ${dim ? "tile-dim" : ""}`} />
+        : art ? <img src={art} alt={glyph || "fence"} draggable={false} loading="lazy" width={256} height={256} className={`tile-obj ${dim ? (mon ? "" : "tile-dim") : ""} ${cls.includes("tile-water") ? "tile-fish" : ""}`} />
         : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
     </div>
