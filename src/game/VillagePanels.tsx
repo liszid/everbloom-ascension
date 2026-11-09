@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
-import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId } from "./magic";
+import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId, type Spell } from "./magic";
 import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
 import { MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
@@ -147,6 +147,18 @@ export function BuildingTabs({ tabs, cur, go }: { tabs: [string, string][]; cur:
       {tabs.map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${cur === t ? "pixel-btn-active" : ""}`} onClick={() => go(t)}>{l}</button>)}
     </div>
   );
+}
+
+function spellText(sp: Spell, lv: number) {
+  const lm = 1 + (lv - 1) * SPELL_LV_BONUS;
+  switch (sp.kind) {
+    case "heal": return `Heals ${Math.round(sp.mult * lm * 100)}% HP`;
+    case "guard": return "Guard: big damage cut for 2 turns";
+    case "lock": return `HP lock for ${sp.mult} turns`;
+    case "drain": return `Drain ×${(sp.mult * lm).toFixed(1)}, heals 40%`;
+    case "phys": return `Strike ×${(sp.mult * lm).toFixed(1)}`;
+    default: return `Spell damage ×${(sp.mult * lm).toFixed(1)}`;
+  }
 }
 
 export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, onLevel }: { s: GameState; onClose: () => void; onToggle: (id: string) => void; onLevel: (id: string) => void; onLearn: (id: SchoolId) => void; onStudy: (id: SchoolId) => void; onAscend: (race: string) => void }) {
