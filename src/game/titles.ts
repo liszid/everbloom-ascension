@@ -84,7 +84,7 @@ export const TITLE_DEFS: Record<string, [string, number]> = {
 };
 export const MAX_STARS = 5;
 // Equipped hours needed for each star gained above the base: 2h, 6h, 18h, 54h (cumulative).
-const STAR_HOURS = [2, 8, 26, 80];
+export const STAR_HOURS = [2, 8, 26, 80];
 
 export function titleDef(t: string): [string, number] { return TITLE_DEFS[t] ?? ["slayer", 1]; }
 export function titleStars(t: string, secs: number) {
