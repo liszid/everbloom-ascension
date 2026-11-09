@@ -38,8 +38,8 @@ export function AuthScreen() {
           <p className="mt-2 text-base text-muted-foreground">Gather. Craft gear no one has ever made. Climb to floor 1000.</p>
         </div>
         <form onSubmit={submit} className="pixel-panel grid gap-2 p-3">
-          <input className="border-2 border-input bg-ink px-2 py-1 text-lg" type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="border-2 border-input bg-ink px-2 py-1 text-lg" type="password" required minLength={6} placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
+          <input className="rounded-xl border-2 border-input bg-ink px-3 py-1.5 text-lg" type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="rounded-xl border-2 border-input bg-ink px-3 py-1.5 text-lg" type="password" required minLength={6} placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
           <button className="pixel-btn pixel-btn-primary py-2 text-base" disabled={busy}>{mode === "in" ? "Sign in" : "Create account"}</button>
           <button type="button" className="pixel-btn py-2" onClick={google}>Continue with Google</button>
           <button type="button" className="text-sm text-muted-foreground underline" onClick={() => setMode(mode === "in" ? "up" : "in")}>

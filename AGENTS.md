@@ -16,3 +16,4 @@
 - Church services and Craftery item definitions live as pure data in src/game/items.ts; engine.ts applies them so UI and rules stay separate.
 - Magic schools, spells and ascended races are pure data in src/game/magic.ts; progress counters live in GameState.stats.
 - Guild companions, trainers and pricing are pure data in src/game/guild.ts; companion stats derive from shared player gear/titles via engine.compStats.
+- Map item cartoon icons are looked up by id/emoji in src/game/art.ts; gameplay data keeps emoji ids so art stays presentation-only.

@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Pixelify Sans", ui-monospace, monospace;
-  --font-body: "VT323", ui-monospace, monospace;
+  --font-display: "Fredoka", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: var(--radius);
@@ -37,7 +37,7 @@
 }
 
 :root {
-  --radius: 0px;
+  --radius: 0.75rem;
   --background: oklch(0.17 0.03 270);
   --foreground: oklch(0.93 0.03 85);
   --card: oklch(0.23 0.035 268);
@@ -79,7 +79,7 @@
   --grade-epic: oklch(0.7 0.2 320);
   --grade-legend: oklch(0.82 0.16 75);
 
-  --shadow-pixel: 3px 3px 0 0 var(--ink);
+  --shadow-pixel: 0 4px 0 0 var(--ink), 0 8px 18px -6px color-mix(in oklab, var(--ink) 70%, transparent);
   --sprite-ink: #171820;
   --sprite-stone: #67777e;
   --sprite-silver: #b4c4cc;
@@ -100,7 +100,7 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html, body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-body); font-size: 19px; }
+  html, body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-body); font-size: 16px; }
   h1, h2, h3, button { font-family: var(--font-display); }
   body { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
 }
@@ -108,33 +108,38 @@
 @layer components {
   .pixel-panel {
     background: var(--card);
-    border: 3px solid var(--border);
-    box-shadow: var(--shadow-pixel);
+    border: 2.5px solid var(--ink);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-pixel), inset 0 2px 0 0 color-mix(in oklab, var(--foreground) 10%, transparent);
+    background-image: linear-gradient(180deg, color-mix(in oklab, var(--foreground) 5%, transparent), transparent 40%);
   }
   .pixel-btn {
     font-family: var(--font-display);
     background: var(--secondary);
     color: var(--secondary-foreground);
-    border: 2px solid var(--border);
-    box-shadow: 2px 2px 0 0 var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 0.7rem;
+    font-weight: 600;
+    box-shadow: 0 3px 0 0 var(--ink), inset 0 2px 0 0 color-mix(in oklab, white 22%, transparent);
+    background-image: linear-gradient(180deg, color-mix(in oklab, white 12%, transparent), transparent 55%);
     padding: 0.35rem 0.7rem;
     font-size: 0.8rem;
     line-height: 1.1;
     transition: transform 60ms;
     user-select: none;
   }
-  .pixel-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: none; }
+  .pixel-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 0 var(--ink); }
   .pixel-btn:disabled { opacity: 0.4; }
   .pixel-btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--gold); }
   .pixel-btn-danger { background: var(--destructive); color: var(--destructive-foreground); }
   .pixel-btn-active { background: var(--accent); color: var(--accent-foreground); }
 
-  .bar { height: 10px; background: var(--ink); border: 2px solid var(--border); }
+  .bar { height: 11px; background: var(--ink); border: 2px solid var(--ink); border-radius: 9999px; overflow: hidden; }
   .bar > div { height: 100%; transition: width 200ms; }
   .bar-hp > div { background: var(--hp); }
   .bar-xp > div { background: var(--xp); }
 
-  .map-grid { display: grid; gap: 0; image-rendering: pixelated; border: 3px solid var(--border); box-shadow: var(--shadow-pixel); }
+  .map-grid { display: grid; gap: 0; border: 3px solid var(--ink); border-radius: 1rem; overflow: hidden; box-shadow: var(--shadow-pixel); }
   .tile { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 5vw, 26px); line-height: 1; position: relative; }
   .tile-grass { background: var(--tile-grass); }
   .tile-grass-2 { background: var(--tile-grass-2); }
@@ -147,7 +152,7 @@
   .tile-floor-2 { background: var(--tile-floor-2); }
   .tile-station { background: var(--tile-station); box-shadow: inset 0 0 0 2px var(--gold); }
   .tile-dim { opacity: 0.35; filter: grayscale(1); }
-  .tile-player { animation: bob 0.8s steps(2) infinite; filter: drop-shadow(0 2px 0 var(--ink)); }
+  .tile-player { animation: bob 1.2s ease-in-out infinite; filter: drop-shadow(0 2px 0 var(--ink)); }
   .tile-boss { animation: pulse-boss 1s steps(2) infinite; }
 
 
@@ -224,10 +229,10 @@
 @keyframes creature-step { 0% { transform: translateY(0); } 100% { transform: translateY(-2px); } }
 
 /* ---- building interior ---- */
-.interior { position: relative; height: 96px; flex-shrink: 0; overflow: hidden; border-bottom: 2px solid var(--border); image-rendering: pixelated; }
+.interior { position: relative; height: 96px; flex-shrink: 0; overflow: hidden; border-bottom: 2px solid var(--border); }
 .interior-wall { position: absolute; inset: 0 0 55% 0; background: repeating-linear-gradient(90deg, var(--tile-fence) 0 22px, color-mix(in oklab, var(--tile-fence) 80%, var(--ink)) 22px 24px); }
 .interior-floor { position: absolute; inset: 45% 0 0 0; background: repeating-conic-gradient(var(--tile-floor) 0 25%, var(--tile-floor-2) 0 50%) 0 0 / 24px 24px; }
-.interior-npc { position: absolute; left: 22%; top: 7px; width: 40px; height: 40px; transform: translateX(-50%); animation: bob 1s steps(2) infinite; }
+.interior-npc { position: absolute; left: 22%; top: 7px; width: 40px; height: 40px; transform: translateX(-50%); animation: bob 1.4s ease-in-out infinite; }
 .interior-counter { position: absolute; left: 12%; width: 22%; top: 42px; height: 18px; background: var(--tile-station); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); display: flex; align-items: center; justify-content: center; font-size: 14px; }
 .interior-bed { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); font-size: 40px; }
 .interior-hero { position: absolute; left: 8%; bottom: 4px; width: 32px; height: 32px; margin-left: -16px; animation: walk-in 700ms steps(6) both; }
@@ -247,7 +252,7 @@
 }
 
 /* gathering window scene */
-.gather-scene { position: relative; height: 120px; margin-bottom: 8px; border: 2px solid var(--border); overflow: hidden; image-rendering: pixelated;
+.gather-scene { position: relative; height: 120px; margin-bottom: 8px; border: 2px solid var(--border); overflow: hidden;
   background: linear-gradient(var(--sprite-ice) 0 38%, var(--sprite-moss) 38% 100%); }
 .gather-forest { background: linear-gradient(var(--sprite-mint) 0 35%, var(--sprite-leaf) 35% 100%); }
 .gather-mine { background: radial-gradient(ellipse at 50% 0%, var(--sprite-stone) 0 55%, var(--sprite-ink) 56%), var(--sprite-ink); }
@@ -290,3 +295,9 @@
 .avatar-cartoon { position: relative; display: block; }
 .avatar-cartoon img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.12s; filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--ink) 50%, transparent)); }
 .avatar-badge { position: absolute; right: 2%; bottom: 4%; width: 26%; height: 26%; border-radius: 9999px; border: 2px solid; font-size: 0.5em; line-height: 1; display: flex; align-items: center; justify-content: center; color: var(--gold); }
+
+.bar > div { border-radius: 9999px; background-image: linear-gradient(180deg, color-mix(in oklab, white 30%, transparent), transparent 60%); }
+.tile-fish { animation: fish-jump 2.4s ease-in-out infinite; }
+@keyframes fish-jump { 0%,70%,100% { transform: translateY(10%) scale(0.85); opacity: 0.7; } 80% { transform: translateY(-18%) rotate(-12deg); opacity: 1; } }
+.tile-deco .tile-obj { animation: breathe 3s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.04); } }
