@@ -8,8 +8,8 @@ import {
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
   setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
-  type CombatAct, type GameState, type Mon,
-, sightRadius } from "./engine";
+  type CombatAct, type GameState, type Mon, sightRadius,
+} from "./engine";
 import {
   BagPanel, CasinoPanel, ForgePanel, HousePanel, KitchenPanel, MarketPanel, PlotPanel, RefinePanel, SettingsPanel, ShopPanel,
   TavernPanel, TowerPanel, WarehousePanel, fmt, SceneCtx,

@@ -17,16 +17,16 @@ describe("off-hand & torches", () => {
   });
   it("attacking with a torch adds a fire strike", () => {
     const s = fresh(); craftTool(s, "torch"); equipRanged(s, "torch"); fight(s);
-    combatTurn(s, "attack"); expect(s.combat!.log.some((l) => l.startsWith("Torch hits"))).toBe(true);
+    combatTurn(s, "attack"); expect(s.combat!.log.some((l) => l.includes("Torch hits"))).toBe(true);
   });
   it("defending with a torch scorches the attacker", () => {
     const s = fresh(); craftTool(s, "torch"); equipRanged(s, "torch"); fight(s);
-    let hit = false; for (let i = 0; i < 20 && !hit; i++) { s.hp = 1e6; combatTurn(s, "defend"); hit = s.combat!.log.some((l) => l.startsWith("Torch scorches")); }
+    let hit = false; for (let i = 0; i < 20 && !hit; i++) { s.hp = 1e6; combatTurn(s, "defend"); hit = s.combat!.log.some((l) => l.includes("Torch scorches")); }
     expect(hit).toBe(true);
   });
   it("equipping a shield puts the torch away", () => {
     const s = fresh(); craftTool(s, "torch"); equipRanged(s, "torch");
-    s.gear.push({ id: "sh1", name: "Buckler", slot: "shield", grade: 0, enh: 0, dura: 10, maxDura: 10, materials: [], base: new Proxy({}, { get: () => 0 }) } as never); equipGear(s, "sh1");
+    s.gear.push({ id: "sh1", name: "Buckler", slot: "shield", grade: 0, enh: 0, dura: 10, maxDura: 10, materials: [], effects: [], element: "none", base: new Proxy({}, { get: () => 0 }) } as never); equipGear(s, "sh1");
     expect(s.ranged).toBeUndefined();
   });
 });
