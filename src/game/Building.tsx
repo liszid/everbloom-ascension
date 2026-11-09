@@ -1,14 +1,52 @@
 import type { ReactNode } from "react";
 
 // All facades share a 32-pixel footprint but have their own architecture and signs.
-export function Building({ kind, name }: { kind: string; name: string }) {
+export function Building({ kind, name, stage = 0 }: { kind: string; name: string; stage?: number }) {
   const shapes: ReactNode[] = [];
   const r = (x: number, y: number, w: number, h: number, c: string) => shapes.push(<rect key={shapes.length} x={x} y={y} width={w} height={h} fill={`var(--sprite-${c})`} />);
   const roof = (points: string, c: string) => shapes.push(<polygon key={shapes.length} points={points} fill={`var(--sprite-${c})`} />);
   const window = (x: number, y: number) => { r(x, y, 5, 5, "ink"); r(x + 1, y + 1, 3, 3, "gold"); r(x + 2, y, 1, 5, "wood"); };
   const door = (x = 14, w = 5) => { r(x, 22, w, 8, "ink"); r(x + 1, 23, w - 2, 7, "wood"); r(x + w - 2, 26, 1, 1, "gold"); };
-  r(2, 29, 28, 2, "stone");
+  const tree = (x: number, y: number, c = "leaf") => { r(x + 2, y + 6, 2, 4, "wood"); r(x, y + 2, 6, 5, c); r(x + 1, y, 4, 2, c); r(x + 1, y + 2, 1, 1, "mint"); };
+  const spot = kind === "L" || kind === "O" || kind === "P" || kind === "Y";
+  if (!spot) r(2, 29, 28, 2, "stone");
   switch (kind) {
+    case "J": // church: white nave, tall belfry with bell, rose window, cross
+      r(4, 14, 24, 16, "bone"); roof("2,15 10,7 22,7 30,15", "teal"); r(13, 2, 6, 14, "bone"); roof("12,3 16,-1 20,3", "teal");
+      r(15, -3, 2, 4, "gold"); r(14, -2, 4, 1, "gold"); r(15, 5, 2, 3, "gold"); r(13, 17, 6, 6, "ink"); r(14, 18, 4, 4, "violet"); r(15, 19, 2, 2, "rose");
+      door(13, 6); r(6, 18, 3, 6, "ink"); r(7, 19, 1, 4, "ice"); r(23, 18, 3, 6, "ink"); r(24, 19, 1, 4, "ice"); break;
+    case "Z": // magic tower: slim violet spire, glowing orb, star windows
+      r(9, 8, 14, 22, "violet"); r(8, 26, 16, 4, "stone"); roof("7,9 16,-3 25,9", "ink"); r(15, -5, 2, 2, "ice"); r(14, -4, 4, 1, "ice");
+      r(12, 11, 3, 4, "ink"); r(13, 12, 1, 2, "ice"); r(18, 15, 3, 4, "ink"); r(19, 16, 1, 2, "ice"); r(10, 9, 12, 1, "gold");
+      r(13, 22, 6, 8, "ink"); r(14, 23, 4, 7, "teal"); r(16, 25, 1, 1, "gold"); r(4, 20, 3, 3, "ice"); r(26, 14, 2, 2, "rose"); break;
+    case "V": // craftery: workshop with hanging trap, crossed darts, crates of arrows
+      r(4, 14, 24, 16, "wood"); roof("2,15 6,8 26,8 30,15", "brick"); r(4, 16, 24, 1, "ink"); door(6);
+      r(13, 18, 8, 6, "ink"); r(14, 19, 6, 4, "stone"); for (let x = 14; x < 20; x += 2) r(x, 22, 1, 1, "silver"); r(16, 17, 2, 2, "silver");
+      r(23, 23, 6, 6, "wood"); r(24, 20, 1, 4, "bone"); r(26, 20, 1, 4, "bone"); r(28, 20, 1, 4, "bone"); r(24, 19, 1, 1, "flame"); r(26, 19, 1, 1, "flame"); r(28, 19, 1, 1, "flame"); break;
+    case "L": // forest: more and older trees as the spot levels up
+      r(0, 0, 32, 32, "moss"); tree(2, 14); tree(18, 16); tree(10, 4);
+      if (stage >= 1) { tree(22, 2, "teal"); r(12, 24, 6, 3, "wood"); r(13, 24, 4, 1, "bone"); }
+      if (stage >= 2) { tree(2, 0); r(26, 26, 3, 3, "rose"); }
+      if (stage >= 3) { tree(13, 18, "violet"); r(16, 17, 1, 1, "gold"); r(6, 12, 1, 1, "gold"); } break;
+    case "O": // mine: rock face with timbered entrance, richer veins at higher levels
+      r(0, 4, 32, 28, "stone"); roof("0,8 8,0 20,2 32,6 32,10 0,10", "stone"); r(10, 14, 12, 16, "ink"); r(9, 12, 14, 3, "wood"); r(9, 14, 2, 16, "wood"); r(21, 14, 2, 16, "wood");
+      r(3, 18, 2, 2, "brick"); r(26, 12, 2, 2, "brick");
+      if (stage >= 1) { r(4, 24, 2, 2, "silver"); r(25, 20, 2, 2, "silver"); r(12, 27, 8, 2, "wood"); }
+      if (stage >= 2) { r(6, 10, 2, 2, "gold"); r(27, 26, 2, 2, "gold"); r(14, 22, 4, 3, "stone"); }
+      if (stage >= 3) { r(2, 12, 2, 2, "ice"); r(28, 16, 2, 2, "ice"); r(15, 16, 2, 2, "flame"); } break;
+    case "P": // pond: water with reeds, dock and lily pads that grow with level
+      r(0, 0, 32, 32, "moss"); r(3, 5, 26, 22, "teal"); r(5, 3, 22, 26, "teal"); r(7, 8, 6, 1, "ice"); r(17, 18, 8, 1, "ice");
+      r(1, 10, 1, 4, "leaf"); r(29, 18, 1, 5, "leaf");
+      if (stage >= 1) { r(20, 6, 3, 2, "mint"); r(9, 20, 3, 2, "mint"); }
+      if (stage >= 2) { r(0, 24, 12, 3, "wood"); r(2, 27, 1, 4, "wood"); r(9, 27, 1, 4, "wood"); }
+      if (stage >= 3) { r(21, 6, 1, 1, "rose"); r(10, 20, 1, 1, "rose"); r(24, 12, 2, 1, "gold"); } break;
+    case "Y": // animal farm: barn, fence and animals multiply with level
+      r(0, 0, 32, 32, "moss"); r(2, 8, 14, 14, "brick"); roof("1,9 9,2 17,9", "wood"); r(6, 14, 6, 8, "wood"); r(6, 14, 6, 1, "bone"); r(6, 14, 1, 8, "bone"); r(11, 14, 1, 8, "bone");
+      r(0, 27, 32, 1, "wood"); for (let x = 1; x < 32; x += 5) r(x, 25, 1, 5, "wood");
+      r(20, 14, 4, 3, "bone"); r(23, 13, 2, 2, "bone"); r(20, 17, 1, 1, "ink"); r(23, 17, 1, 1, "ink");
+      if (stage >= 1) { r(26, 20, 3, 3, "bone"); r(28, 19, 2, 2, "ink"); }
+      if (stage >= 2) { r(19, 4, 5, 4, "bone"); r(20, 5, 2, 2, "ink"); r(23, 3, 2, 2, "bone"); }
+      if (stage >= 3) { r(3, 2, 2, 7, "stone"); r(2, 1, 4, 2, "gold"); } break;
     case "H":
       r(4, 14, 24, 16, "wood"); r(23, 3, 4, 13, "stone"); roof("2,15 16,3 30,15", "teal"); r(5, 16, 22, 1, "bone"); window(6, 20); window(22, 20); door(); r(5, 25, 7, 2, "moss"); r(6, 24, 2, 1, "rose"); r(9, 24, 2, 1, "gold"); break;
     case "A":
