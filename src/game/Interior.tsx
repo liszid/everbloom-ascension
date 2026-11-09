@@ -1,6 +1,7 @@
 // Building interior scene shown at the top of a building's window: the hero walks in
 // through the door and the building's keeper greets them from behind the counter.
 import { Avatar } from "./Avatar";
+import { icon, sceneArt } from "./art";
 
 type Npc = { name: string; race: string; gender: string; classId: string; lines: string[]; prop: string };
 const NPCS: Record<string, Npc | null> = {
@@ -27,15 +28,13 @@ export function Interior({ panel, hero }: { panel: string; hero: { race: string;
   const npc = NPCS[ALIAS[panel] ?? panel];
   const line = npc ? npc.lines[Math.floor(Date.now() / 60000) % npc.lines.length] : "Home sweet home. Rest, save, or plan your next climb.";
   return (
-    <div className="interior">
-      <div className="interior-wall" />
-      <div className="interior-floor" />
+    <div className="interior" style={{ backgroundImage: `url(${sceneArt("interior")})` }}>
       {npc ? (
         <>
           <div className="interior-npc"><Avatar race={npc.race} gender={npc.gender} classId={npc.classId} /></div>
-          <div className="interior-counter"><span>{npc.prop}</span></div>
+          <div className="interior-counter"><img src={icon("counter")} alt="" draggable={false} /><span>{npc.prop}</span></div>
         </>
-      ) : <div className="interior-bed">🛏️</div>}
+      ) : <div className="interior-bed"><img src={icon("bed")} alt="Bed" draggable={false} /></div>}
       <div className="interior-hero"><Avatar race={hero.race} gender={hero.gender} classId={hero.classId} dir="u" /></div>
       <div className="interior-door" />
       <div className="interior-bubble">
