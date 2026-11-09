@@ -1,4 +1,5 @@
 import { titleKit } from "./titles";
+import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SCHOOLS, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { AILMENTS, AMMO_FOR, BLESSINGS, BLESS_BATTLES, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
 import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import {
@@ -31,7 +32,7 @@ export interface Dungeon { floor: number; w: number; h: number; tiles: string[];
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
-  lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number;
+  lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
@@ -43,7 +44,7 @@ export interface ClassInfo { id: string; name: string; tier: number; primary?: s
 export interface Evo { from: string; to: string; tier: number; bonuses: string[]; skills: string[]; delta: { k: StatKey; d: number }[]; major: boolean }
 export interface GameState {
   v: 2;
-  char: { name: string; gender: string; race: string; bg: string };
+  char: { name: string; gender: string; race: string; bg: string; origin?: string | undefined };
   step: number; gold: number; tokens: number;
   inv: Record<string, number>; wh: Record<string, number>; whGear: Gear[]; foods: Food[]; gear: Gear[];
   equip: Partial<Record<Slot, string | undefined>>;
@@ -60,6 +61,7 @@ export interface GameState {
   relentlessUsed: boolean; playTime: number; createdAt: number; won?: boolean | undefined;
   spots?: Record<string, number> | undefined;
   ailments?: Partial<Record<AilmentId, number>> | undefined; blessing?: { id: BlessingId; left: number } | undefined;
+  magic?: Partial<Record<SchoolId, number>> | undefined; spells?: string[] | undefined;
   tools?: Record<string, number> | undefined; ranged?: RangedId | undefined; prayed?: boolean | undefined; faith?: number | undefined;
 }
 
@@ -101,7 +103,7 @@ for (let l = 1; l < 300; l++) CHAR_CUM.push(CHAR_CUM[l]! + 30 * Math.pow(l, 1.75
 export function charLevel(xp: number) { let l = 1; while (l < 299 && CHAR_CUM[l + 1]! <= xp) l++; return l; }
 export const charXpFor = (l: number) => CHAR_CUM[l] ?? Infinity;
 export const affLevel = (pts: number) => Math.floor(Math.sqrt((pts ?? 0) / 8));
-export const race = (s: GameState) => RACES.find((r) => r.id === s.char.race) ?? RACES[0]!;
+export const race = (s: GameState) => RACES.find((r) => r.id === s.char.race) ?? ASC_RACES.find((r) => r.id === s.char.race) ?? RACES[0]!;
 
 function growth(s: GameState, aff: string) {
   const g = race(s).growth;
@@ -163,10 +165,14 @@ export type ActiveSkill = ReturnType<typeof classActives>[number];
 /** Skills usable in combat: class skills followed by equipped-title skills. */
 export function combatActives(s: GameState): ActiveSkill[] {
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
-  return [...classActives(computeClass(s)), ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el }))];
+  const spells = (s.spells ?? []).map((id) => SPELL[id]).filter((x) => !!x).map((sp) => {
+    const L = schoolLevel(s.magic?.[sp!.school] ?? 0);
+    return { aff: "none", name: sp!.name, kind: sp!.kind as string, mult: sp!.kind === "heal" || sp!.kind === "guard" || sp!.kind === "lock" ? sp!.mult : sp!.mult * (1 + (L - 1) * 0.04), cost: sp!.cost, res: "mp" as const, el: sp!.el, school: sp!.school };
+  });
+  return [...classActives(computeClass(s)), ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el, school: undefined as SchoolId | undefined })), ...spells];
 }
 export function classActives(c: ClassInfo) {
-  const out = [] as { aff: string; name: string; kind: string; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined }[];
+  const out = [] as { aff: string; name: string; kind: string; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined; school?: SchoolId | undefined }[];
   for (const a of [c.primary, c.secondary]) {
     if (!a) continue;
     const d = AFF_BY_ID[a]!; const scale = 1 + Math.max(0, c.tier) * 0.15;
@@ -258,6 +264,7 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   applyMods(classPassives(classOverride ?? computeClass(s)));
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
   applyMods(kit.mods);
+  const asc = ASC_RACES.find((r) => r.id === s.char.race); if (asc) for (const [e, v] of Object.entries(asc.fx)) effects[e as EffectId] += v;
   for (const [e, v] of Object.entries(kit.effects)) effects[e as EffectId] += v;
   if (s.blessing && s.blessing.left > 0) { const b = BLESSINGS[s.blessing.id]; const { luck, ...rest } = b.mods; applyMods(rest); if (luck) st.luck += 25; }
   const ail = s.ailments ?? {};
@@ -592,6 +599,52 @@ export function enchantMatFor(s: GameState, g: Gear, el: Element) {
   return (s.inv[ENCHANT_MAT[el]!] ?? 0) >= c.qty ? { mat: ENCHANT_MAT[el]!, qty: c.qty, gold: c.gold } : { mat: ENCHANT_ALT[el]!, qty: c.qty * 3, gold: c.gold };
 }
 
+// ---- magic tower ----
+export const knowsSchool = (s: GameState, id: SchoolId) => s.magic?.[id] !== undefined;
+export function schoolLock(s: GameState, id: SchoolId): string | null {
+  const sc = SCHOOL[id];
+  if (sc.combo) { const [a, b] = sc.combo; if (schoolLevel(s.magic?.[a] ?? -1) < COMBO_LEVEL || !knowsSchool(s, a) || schoolLevel(s.magic?.[b] ?? -1) < COMBO_LEVEL || !knowsSchool(s, b)) return `Undiscovered — reach Lv ${COMBO_LEVEL} in ${SCHOOL[a].name} and ${SCHOOL[b].name}`; }
+  if (playerStats(s).matk < sc.matk) return `Needs ${sc.matk} M.Atk`;
+  return null;
+}
+export function learnSchool(s: GameState, id: SchoolId): boolean {
+  if (knowsSchool(s, id) || schoolLock(s, id)) return false;
+  if (!spend(s, SCHOOL[id].gold)) { log(s, "❌ Not enough gold for tuition."); return false; }
+  s.magic = { ...s.magic, [id]: 0 }; log(s, `🔮 You ${SCHOOL[id].combo ? "discovered" : "began studying"} ${SCHOOL[id].name}!`); learnSpells(s); return true;
+}
+export function studySchool(s: GameState, id: SchoolId): boolean {
+  if (!knowsSchool(s, id)) return false;
+  const L = schoolLevel(s.magic![id]!); if (!spend(s, studyCost(L))) { log(s, "❌ Not enough gold to study."); return false; }
+  s.magic = { ...s.magic, [id]: s.magic![id]! + STUDY_XP }; addXp(s, "spellcasting", 6); addAff(s, "arcane", 1);
+  const nl = schoolLevel(s.magic[id]!); if (nl > L) log(s, `📘 ${SCHOOL[id].name} reached Lv ${nl}.`);
+  learnSpells(s); return true;
+}
+export function spellLock(s: GameState, id: string): string | null {
+  const sp = SPELL[id]!; if (!knowsSchool(s, sp.school)) return "School not learned";
+  if (schoolLevel(s.magic![sp.school]!) < sp.lvl) return `${SCHOOL[sp.school].name} Lv ${sp.lvl}`;
+  if (playerStats(s).matk < sp.matk) return `${sp.matk} M.Atk`;
+  return null;
+}
+/** Auto-learns every spell whose school level and M.Atk requirements are met. */
+export function learnSpells(s: GameState) {
+  const have = new Set(s.spells ?? []);
+  for (const sp of SPELLS) if (!have.has(sp.id) && !spellLock(s, sp.id)) { have.add(sp.id); log(s, `✨ New spell: ${sp.name}!`); }
+  s.spells = [...have];
+}
+export function ascensionProgress(s: GameState) {
+  return ASCENSIONS.map((a) => {
+    const reqs = a.reqs.map((r) => { const cur = r.stat === "maxFloor" ? s.maxFloor : s.stats[r.stat] ?? 0; return { ...r, cur, ok: r.exact ? cur === r.need : cur >= r.need, failed: !!r.exact && cur > r.need }; });
+    const learned = knowsSchool(s, a.school);
+    return { ...a, learned, reqs, ready: learned && reqs.every((r) => r.ok) && s.char.race !== a.race, failed: reqs.some((r) => r.failed) };
+  });
+}
+export function ascend(s: GameState, raceId: string): boolean {
+  const a = ascensionProgress(s).find((x) => x.race === raceId); if (!a?.ready) return false;
+  s.char = { ...s.char, origin: s.char.origin ?? s.char.race, race: raceId };
+  if (s.ailments?.poisoned && ASC_RACES.find((r) => r.id === raceId)?.poisonImmune) { const x = { ...s.ailments }; delete x.poisoned; s.ailments = x; }
+  clampVitals(s); note(s, `🌑 You have become a ${ASC_RACES.find((r) => r.id === raceId)!.name}!`); log(s, `🌑 Ascended into a ${raceId}.`); return true;
+}
+
 // ---- craftery ----
 export function craftTool(s: GameState, id: string, times = 1): boolean {
   const t = TOOL[id]; if (!t) return false;
@@ -812,7 +865,7 @@ function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { mag
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg; c.dealt += dmg; bump(s, "dmgDealt", dmg);
   if (dmg > (s.stats["highestHit"] ?? 0)) s.stats["highestHit"] = dmg;
-  if (p.effects.lifesteal) { const h = Math.round(dmg * p.effects.lifesteal / 100); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; }
+  if (p.effects.lifesteal) { const h = Math.round(dmg * p.effects.lifesteal / 100); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); }
   if (p.effects.burn) c.monBurn = Math.max(c.monBurn, Math.round(dmg * p.effects.burn / 100));
   if (p.effects.bleed) c.monBleed = Math.max(c.monBleed, Math.round(dmg * p.effects.bleed / 100));
   clog(c, `${crit ? "💥 CRIT! " : ""}${opts.label} hits for ${dmg}${el !== "none" && el === m.weak ? " (weak!)" : ""}`);
@@ -852,6 +905,12 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       case "roar": c.roar = 3; clog(c, "🗯️ Savage Roar! The foe falters."); break;
       case "hellfire": playerHit(s, c, p, 2.3, { el: "fire", magic: true, label: "Hellish Rebuke" }); c.monBurn = Math.max(c.monBurn, Math.round(p.matk * 0.15)); break;
       case "breath": playerHit(s, c, p, 2.6, { el: p.element === "none" ? "fire" : p.element, magic: true, label: "Dragon Breath" }); break;
+      case "bloodfeast": { const d = playerHit(s, c, p, 2.4, { el: "dark", magic: true, sure: true, label: "Blood Feast" }); const h = Math.round(d * 0.6); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); break; }
+      case "phase": c.stoneskin = 3; c.guardT = 3; clog(c, "👻 You phase out of the material world."); break;
+      case "howl": playerHit(s, c, p, 2.8, { magic: false, label: "Moon Howl" }); c.roar = 3; break;
+      case "deathbolt": playerHit(s, c, p, 3.2, { el: "dark", magic: true, label: "Death Bolt" }); break;
+      case "rot": c.lockT = 3; c.lockHp = Math.max(1, s.hp); clog(c, "🧟 Undying Rot! You will not fall for 3 turns."); break;
+      case "devour": { const d = playerHit(s, c, p, 2.2, { magic: false, label: "Devour" }); const h = Math.round(d * 0.4); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; break; }
       case "radiance": { const h = Math.round(p.hp * 0.25); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; clog(c, `😇 Radiance heals ${h}.`); break; }
     }
   } else if (a === "shoot") {
@@ -877,6 +936,8 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (sk.res === "mp") s.mp -= sk.cost; else s.sta -= sk.cost;
     use(s.usage.skill, sk.name);
     if (sk.aff !== "none") addAff(s, sk.aff, 1.5);
+    if (sk.school) { c.school = sk.school; s.magic = { ...s.magic, [sk.school]: (s.magic?.[sk.school] ?? 0) + 3 }; addXp(s, "spellcasting", 2); }
+    if (sk.kind === "drain") { const d = playerHit(s, c, p, sk.mult, { magic: true, el: sk.el, label: sk.name }); const h = Math.round(d * 0.4); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); addXp(s, "spellcasting", 5); } else
     if (sk.kind === "phys") { playerHit(s, c, p, sk.mult, { magic: false, label: sk.name }); addXp(s, wskill, 4); }
     else if (sk.kind === "mag") { playerHit(s, c, p, sk.mult, { magic: true, el: sk.el, label: sk.name }); addXp(s, "spellcasting", 5); }
     else if (sk.kind === "heal") { const h = Math.round(p.hp * sk.mult); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "healing", h); clog(c, `💚 ${sk.name} restores ${h} HP.`); addXp(s, "spellcasting", 3); }
@@ -918,7 +979,8 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
         addXp(s, "endurance", 2); if (defending) { addXp(s, "defense", 2); addAff(s, "shield", 0.8); }
         clog(c, `${mult > 2 ? "💢 DEVASTATING! " : ""}${m.name} hits you for ${dmg}`);
         if (m.ability === "drain") { const h = Math.round(dmg * 0.3); m.hp = Math.min(m.maxHp, m.hp + h); }
-        if (m.ability === "poison" && Math.random() < 0.35) { c.pPoison = 3; clog(c, "🤢 You are poisoned!"); if (Math.random() < 0.4 && addAilment(s, "poisoned")) clog(c, "🤢 The venom lingers — visit the Church."); }
+        if (m.def === "wolf" && s.spells?.some((x) => x.startsWith("transformation_"))) bump(s, "wolfBites");
+        if (m.ability === "poison" && !ASC_RACES.find((r) => r.id === s.char.race)?.poisonImmune && Math.random() < 0.35) { c.pPoison = 3; clog(c, "🤢 You are poisoned!"); if (Math.random() < 0.4 && addAilment(s, "poisoned")) clog(c, "🤢 The venom lingers — visit the Church."); }
         if (m.ability === "drain" && Math.random() < 0.12 && addAilment(s, "weakened")) clog(c, "🥀 You feel weakened.");
         if (m.ability === "frenzy" && Math.random() < 0.12 && addAilment(s, "bleeding")) clog(c, "🩸 A deep wound keeps bleeding.");
         if (m.element === "dark" && m.boss > 0 && Math.random() < 0.15 && addAilment(s, "cursed")) clog(c, "🌑 A curse takes hold of you.");
@@ -948,6 +1010,9 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   if (outcome === "win") {
     d.monsters = d.monsters.filter((x) => x.uid !== m.uid);
     if (m.boss) { d.bossAlive = false; bump(s, "bosses"); }
+    if (c.school === "blood") bump(s, "bloodKills");
+    if (c.school === "plague") bump(s, "plagueKills");
+    if (UNDEAD.has(m.def) && s.spells?.some((x) => x.startsWith("necromancy_"))) bump(s, "undeadKills");
     bump(s, "kills"); bump(s, "streak"); s.stats["bestStreak"] = Math.max(s.stats["bestStreak"] ?? 0, s.stats["streak"] ?? 0);
     use(s.usage.monster, m.name.replace(/^(Guardian|Arch-Warden) /, "").replace(new RegExp(`^(${ELITE_AFFIX.join("|")}) `), ""));
     xp = m.xp; addCharXp(s, xp); addXp(s, "hunting", 3 + m.tier + (m.boss ? 10 : 0)); addAff(s, "hunting", 1 + (m.boss ? 5 : 0));
@@ -970,7 +1035,10 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
     }
     clog(c, `🏆 ${m.name} defeated!`);
   } else if (outcome === "lose") {
-    bump(s, "deaths"); s.stats["streak"] = 0; addAilment(s, "cursed");
+    bump(s, "deaths"); s.stats["streak"] = 0;
+    if (s.spells?.some((x) => x.startsWith("soul_"))) bump(s, "soulDeaths");
+    if (s.ailments?.poisoned && s.spells?.some((x) => x.startsWith("plague_"))) bump(s, "poisonDeaths");
+    addAilment(s, "cursed");
   }
   const gains = Object.keys(s.skills).map((k) => ({ k, xp: (s.skills[k] ?? 0) - (c.xp0[k] ?? 0), from: levelOf(c.xp0[k] ?? 0), to: levelOf(s.skills[k] ?? 0) }))
     .filter((g) => g.xp > 0.01).sort((a, b) => b.xp - a.xp);
