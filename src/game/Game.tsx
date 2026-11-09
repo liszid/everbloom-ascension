@@ -432,23 +432,26 @@ function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
 const DECO_SPOTS: [number, number][] = [];
 VILLAGE.forEach((r, y) => [...r].forEach((c, x) => { if (c === "o") DECO_SPOTS.push([x, y]); }));
 
+const OBJ_ART = import.meta.glob("../assets/art/o_*.webp", { eager: true, import: "default" }) as Record<string, string>;
+const obj = (id: string) => OBJ_ART[`../assets/art/o_${id}.webp`];
+
 function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode, cx: number, cy: number, walking: boolean) {
   const k = `${x},${y}`;
   const isP = s.pos.x === x && s.pos.y === y;
-  let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "", bldg: React.ReactNode = null, mon: Mon | undefined;
+  let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "", bldg: React.ReactNode = null, mon: Mon | undefined, art: string | undefined;
   if (s.loc === "village") {
     const t = VILLAGE[y]?.[x] ?? "#";
     const depleted = (s.village.nodes[k] ?? 0) > s.step;
     cls = (x + y) % 2 ? "tile-grass" : "tile-grass-2";
-    if (t === "#") cls = "tile-fence";
+    if (t === "#") { cls = "tile-fence"; art = obj("fence"); }
     else if (t === ",") cls = "tile-path";
-    else if (t === "o") { const i = DECO_SPOTS.findIndex(([a, b]) => a === x && b === y); glyph = s.decos[i] ?? ""; }
-    else if (TREES[t]) { glyph = TREES[t]!.icon; dim = depleted; cls += " tap"; }
-    else if (t === "R") { glyph = "🪨"; dim = depleted; cls += " tap"; }
-    else if (t === "F") { glyph = "🌼"; dim = depleted; cls += " tap"; }
+    else if (t === "o") { const i = DECO_SPOTS.findIndex(([a, b]) => a === x && b === y); glyph = s.decos[i] ?? ""; if (glyph) cls += " tile-deco"; }
+    else if (TREES[t]) { glyph = TREES[t]!.icon; art = obj(t); dim = depleted; cls += " tap"; }
+    else if (t === "R") { glyph = "🪨"; art = obj("R"); dim = depleted; cls += " tap"; }
+    else if (t === "F") { glyph = "🌼"; art = obj("F"); dim = depleted; cls += " tap"; }
     else if (t === "W") { cls = "tile-water tap"; glyph = depleted ? "" : (x * 7 + y * 3) % 5 === 0 ? "🐟" : ""; }
     else if (t === "G") { cls = "tile-soil tap"; const p = s.village.plots[k]; glyph = p ? (p.readyAt <= s.step ? getMat(p.crop).icon : "🌱") : ""; }
-    else if (ANIMALS[t]) { glyph = ANIMALS[t]!.icon; dim = (s.village.animals[k] ?? 0) > s.step; cls += " tap"; }
+    else if (ANIMALS[t]) { glyph = ANIMALS[t]!.icon; art = obj(t); dim = (s.village.animals[k] ?? 0) > s.step; cls += " tap"; }
     else if (BUILDINGS[t]) {
       cls = "tile-station-part tap";
       // 2x2 building: draw it once, anchored on its first visible tile
@@ -479,6 +482,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
       {bldg}
       {isP ? <span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span>
         : mon ? <MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} />
+        : art ? <img src={art} alt={glyph || "fence"} draggable={false} loading="lazy" width={256} height={256} className={`tile-obj ${dim ? "tile-dim" : ""}`} />
         : glyph && <span className={`${dim ? "tile-dim" : ""} ${boss ? "tile-boss" : ""}`}>{glyph}</span>}
       {label && <span className="tile-label">{label}</span>}
     </div>
