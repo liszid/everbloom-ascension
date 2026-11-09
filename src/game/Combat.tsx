@@ -48,7 +48,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
         </div>
         <div className="mt-2 h-24 overflow-hidden text-sm leading-tight">{logLines.map((l, i) => <div key={i} className={i ? "text-muted-foreground" : ""}>{l}</div>)}</div>
         {menu === "main" && <div className="mt-2 grid grid-cols-3 gap-2">
-          <button className="pixel-btn pixel-btn-primary py-4" onClick={() => onAct("attack")}>⚔️ Hit<span className="block text-[10px] opacity-80">{weaponName}</span></button>
+          <button className="pixel-btn pixel-btn-primary py-4" onClick={() => onAct("attack")}>⚔️ Hit<span className="block truncate text-[10px] opacity-80">{weaponName}</span></button>
           {main ? <button className="pixel-btn py-4" disabled={s.mp < main.skill.cost} onClick={() => onAct({ skill: main.index })}>{main.skill.el ? ELEMENT_ICON[main.skill.el] : "🔮"} <span className="text-xs">{main.skill.name}</span><span className="block text-[10px] opacity-80">{main.skill.cost} MP</span></button>
             : <button className="pixel-btn py-4" disabled title="Learn a spell at the Magic Tower">🔮 Magic<span className="block text-[10px] opacity-80">none learned</span></button>}
           <button className="pixel-btn py-4" onClick={() => onAct("defend")}>{dm === "shield" ? "🛡️" : dm === "torch" ? "🔥" : "🙅"} Defend<span className="block text-[10px] opacity-80">{dm === "shield" ? "shield block" : dm === "torch" ? "torch ward" : "brace"}</span></button>
