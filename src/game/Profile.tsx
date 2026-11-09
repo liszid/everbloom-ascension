@@ -2,7 +2,7 @@ import { Avatar } from "./Avatar";
 import { useState } from "react";
 import { ACHIEVEMENTS, AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, STAT_LABEL, RACES, BACKGROUNDS, type StatKey } from "./data";
 import {
-  affLevel, charLevel, charXpFor, classActives, classInputs, computeClass, describePassives, favorite, levelOf, playerStats, raceClassProgress, statValue, xpForLevel,
+  affLevel, charLevel, charXpFor, classActives, classInputs, computeClass, describePassives, favorite, levelOf, playerStats, race as raceOf, raceClassProgress, statValue, xpForLevel,
   type GameState,
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
@@ -14,7 +14,7 @@ const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 
 export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; onClose: () => void; onTitle: (t: string | undefined) => void; onEquip: (id: string) => void }) {
   const [tab, setTab] = useState<"info" | "stats" | "equip" | "aff" | "skills" | "class" | "journal">("info");
   const p = playerStats(s); const L = charLevel(s.xp); const c = computeClass(s);
-  const race = RACES.find((r) => r.id === s.char.race)!; const bg = BACKGROUNDS.find((b) => b.id === s.char.bg);
+  const race = raceOf(s); const bg = BACKGROUNDS.find((b) => b.id === s.char.bg);
   const [sel, setSel] = useState<string | null>(null);
   const Row = ({ k, v }: { k: string; v: string | number }) => <div className="flex justify-between border-b border-border/30 py-0.5"><span className="text-muted-foreground">{k}</span><span>{v}</span></div>;
   return (
