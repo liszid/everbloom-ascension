@@ -5,10 +5,12 @@ type Px = [number, number, number, number, string];
 const SKIN: Record<string, string> = {
   human: "#e8b48a", elf: "#f4d6b4", dwarf: "#d99c74", halfling: "#e9b48c", gnome: "#f2c49e",
   orc: "#6f9a4a", halforc: "#93ad6c", tiefling: "#c4473c", dragonborn: "#3f8f7a", aasimar: "#f8e6cc",
+  vampire: "#ece4ea", ghost: "#cfe6ff", werewolf: "#8a6a4a", lich: "#d8d2b8", zombie: "#8fae7a", ghoul: "#9a9a8a",
 };
 const HAIR: Record<string, string> = {
   human: "#6b4226", elf: "#f0dc8a", dwarf: "#a8461f", halfling: "#8a5a2b", gnome: "#e070b0",
   orc: "#1e1e1e", halforc: "#3a2a1a", tiefling: "#2a1630", dragonborn: "#2b6b5a", aasimar: "#f4f4f4",
+  vampire: "#140a14", ghost: "#e8f4ff", werewolf: "#5a3e26", lich: "#3a2a4a", zombie: "#3a3a28", ghoul: "#2a2a2a",
 };
 const OUTFIT: Record<string, [string, string]> = {
   fire: ["#b8321e", "#f2a03a"], water: ["#2563a8", "#8fd3f0"], wind: ["#4fa38a", "#d6f5e8"], earth: ["#7a5a32", "#c9a46a"],
@@ -56,7 +58,7 @@ export function Avatar({ race, gender, classId, size = "100%", dir = "d", frame 
   // head
   px(5, 2, 6, 6, skin);
   // eyes
-  const eye = race === "tiefling" ? "#ffd23a" : race === "aasimar" ? "#7ad8ff" : race === "dragonborn" ? "#ffcc33" : "#1a1a1a";
+  const eye = race === "vampire" ? "#e01a2a" : race === "lich" || race === "ghost" ? "#5af0ff" : race === "werewolf" ? "#ffb020" : race === "zombie" || race === "ghoul" ? "#d0e040" : race === "tiefling" ? "#ffd23a" : race === "aasimar" ? "#7ad8ff" : race === "dragonborn" ? "#ffcc33" : "#1a1a1a";
   if (!back) { if (side) px(6, 4, 1, 1, eye); else { px(6, 4, 1, 1, eye); px(9, 4, 1, 1, eye); } }
   if (fem && !back && !side) { px(6, 6, 1, 1, "#e08a8a"); px(9, 6, 1, 1, "#e08a8a"); }
   // race features
@@ -65,6 +67,11 @@ export function Avatar({ race, gender, classId, size = "100%", dir = "d", frame 
   if (race === "gnome") { px(7, 5, 2, 1, "#e0907a"); px(4, 4, 1, 1, skin); px(11, 4, 1, 1, skin); }
   if (race === "orc" || race === "halforc") { px(6, 7, 1, 1, "#f4f0dc"); px(9, 7, 1, 1, "#f4f0dc"); if (race === "orc") { px(5, 6, 1, 1, "#f4f0dc"); px(10, 6, 1, 1, "#f4f0dc"); } }
   if (race === "dragonborn") { px(5, 6, 6, 2, "#2f7a66"); px(7, 7, 2, 1, "#e8d080"); px(4, 1, 1, 3, "#e8d080"); px(11, 1, 1, 3, "#e8d080"); px(5, 1, 6, 1, "#2b6b5a"); }
+  if (race === "vampire") { px(6, 7, 1, 1, "#ffffff"); px(9, 7, 1, 1, "#ffffff"); }
+  if (race === "werewolf") { px(4, 1, 1, 3, hair); px(11, 1, 1, 3, hair); px(6, 6, 4, 2, "#6a4a30"); px(7, 6, 2, 1, "#1a1a1a"); }
+  if (race === "lich") { px(5, 0, 6, 1, "#c9a43a"); px(5, 0, 1, 1, "#7ad8ff"); px(10, 0, 1, 1, "#7ad8ff"); px(6, 7, 4, 1, "#9a9480"); }
+  if (race === "zombie") { px(5, 4, 2, 1, "#5a7a4a"); px(9, 6, 2, 1, "#7a2a2a"); }
+  if (race === "ghoul") { px(6, 7, 4, 1, "#5a1a1a"); px(5, 4, 1, 1, "#6a6a5a"); }
   if (race === "aasimar") { px(5, 0, 6, 1, "#ffe680"); px(4, 1, 1, 1, "#ffe680"); px(11, 1, 1, 1, "#ffe680"); }
   // hair top / fringe
   if (race !== "dragonborn") {
