@@ -56,6 +56,8 @@ function GameSession({ userId }: { userId: string }) {
   const [panel, setPanel] = useState<PanelS | null>(null);
   const [saving, setSaving] = useState("");
   const [toasts, setToasts] = useState<{ id: number; t: string }[]>([]);
+  const [trapAt, setTrapAt] = useState<{ x: number; y: number } | null>(null);
+  const pushToast = (t: string) => { const it = { id: Math.random(), t }; setToasts((x) => [...x, it].slice(-4)); setTimeout(() => setToasts((x) => x.filter((y) => y !== it)), 1800); };
   const st = useSettings();
   const [face, setFace] = useState<Facing>("d");
   const [walkF, setWalkF] = useState<0 | 1 | undefined>(undefined);
