@@ -1,4 +1,5 @@
 import { titleKit } from "./titles";
+import { RACE_CLASS, raceMastery } from "./raceClasses";
 import { CAPTURE_HP, HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, compLevel, rentPrice, techGold, techId, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { BLDG_MAX, bldgCost, blessBattles, churchDisc, guildMult, restPct, storageCap, ammoFor, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, BASE_SIGHT, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
@@ -41,7 +42,7 @@ export interface BattleResult {
   gains: { k: string; xp: number; from: number; to: number }[]; hp: number; maxHp: number; sold: number; collected: boolean;
 }
 export interface Quest { id: string; kind: "kill" | "gather" | "floor" | "craft"; target: string; need: number; base: number; gold: number; tokens: number; text: string }
-export interface ClassInfo { id: string; name: string; tier: number; primary?: string | undefined; secondary?: string | undefined }
+export interface ClassInfo { id: string; name: string; tier: number; primary?: string | undefined; secondary?: string | undefined; race?: string | undefined }
 export interface Evo { from: string; to: string; tier: number; bonuses: string[]; skills: string[]; delta: { k: StatKey; d: number }[]; major: boolean }
 export interface GameState {
   v: 2;
@@ -150,7 +151,21 @@ export function classInputs(s: GameState) {
   const affs = AFFINITIES.map((a) => ({ id: a.id, l: affLevel(s.aff[a.id] ?? 0) })).filter((a) => a.l > 0).sort((a, b) => b.l - a.l).slice(0, 2);
   return { skills, affs, title: s.title, titleAff: titleAffinity(s.title) };
 }
+/** Race mastery for an ascended hero (undefined for mortal races). */
+export function raceClassProgress(s: GameState) {
+  const line = RACE_CLASS[s.char.race]; if (!line) return undefined;
+  const m = raceMastery(line, {
+    school: (id) => knowsSchool(s, id) ? schoolLevel(s.magic![id]!) : 0,
+    skill: (id) => s.skills[id] !== undefined ? lvl(s, id) : 0,
+    aff: (id) => affLevel(s.aff[id] ?? 0),
+    stat: (id) => s.stats[id] ?? 0,
+  });
+  return { line, ...m };
+}
 export function computeClass(s: GameState): ClassInfo {
+  const rc = raceClassProgress(s);
+  // Ascended races are lore-locked: the class follows the race ladder, ranking up with race mastery only.
+  if (rc) { const [p, q] = rc.line.affs; return { id: `${p}+${q}:${rc.rank}:${rc.line.race}`, name: rc.line.ranks[rc.rank]!, tier: rc.rank, primary: p, secondary: q, race: rc.line.race }; }
   const inp = classInputs(s);
   const score: Record<string, number> = {};
   for (const sk of inp.skills) { const a = SKILLS[sk.k]?.aff; if (a) score[a] = (score[a] ?? 0) + sk.l; }
