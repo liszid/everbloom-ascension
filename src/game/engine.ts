@@ -34,7 +34,7 @@ export interface Dungeon { floor: number; w: number; h: number; tiles: string[];
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
-  blind?: number; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
+  blind?: number; block?: boolean; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
@@ -179,18 +179,31 @@ export function computeClass(s: GameState): ClassInfo {
   if (q && q[1] >= 8 && q[1] >= pS * 0.5) return { id: `${pId}+${q[0]}:${tier}`, name: `${HYBRID_PREFIX[q[0]]} ${base}`, tier, primary: pId, secondary: q[0] };
   return { id: `${pId}:${tier}`, name: base, tier, primary: pId };
 }
-export type ActiveSkill = ReturnType<typeof classActives>[number];
+type ActiveRow = ReturnType<typeof classActives>[number] & { spellId?: string; spellLv?: number };
+export type ActiveSkill = ActiveRow;
+/** Battle quick-cast: the highest-level equipped Magic Tower spell; ties go to the first equipped one. Returns its combatActives index. */
+export function mainSpell(s: GameState): { index: number; skill: ActiveSkill } | null {
+  const acts = combatActives(s); let best = -1;
+  acts.forEach((a, i) => { if (a.spellId && (best < 0 || (a.spellLv ?? 1) > (acts[best]!.spellLv ?? 1))) best = i; });
+  return best < 0 ? null : { index: best, skill: acts[best]! };
+}
+/** What Defend does with the off-hand: a shield blocks harder, a torch counter-burns, anything else is a plain brace. */
+export function defendMode(s: GameState): "shield" | "torch" | "brace" {
+  if (s.equip.shield) return "shield";
+  return heldTorch(s) ? "torch" : "brace";
+}
+export const DEFEND_TAKEN = { brace: 0.5, shield: 0.3 } as const;
 /** Skills usable in combat: class skills followed by equipped-title skills. */
 export function combatActives(s: GameState): ActiveSkill[] {
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
   const spells = equippedSpells(s).map((id) => SPELL[id]).filter((x) => !!x).map((sp) => {
     const L = schoolLevel(s.magic?.[sp!.school] ?? 0);
     const sl = s.spellLv?.[sp!.id] ?? 1; const lm = 1 + (sl - 1) * SPELL_LV_BONUS;
-    return { aff: "none", name: sl > 1 ? `${sp!.name} +${sl - 1}` : sp!.name, kind: sp!.kind as string, mult: sp!.kind === "heal" ? sp!.mult * lm : sp!.kind === "guard" || sp!.kind === "lock" ? sp!.mult : sp!.mult * (1 + (L - 1) * 0.04) * lm, cost: Math.round(sp!.cost * (1 + (sl - 1) * 0.05)), res: "mp" as const, el: sp!.el, school: sp!.school };
+    return { aff: "none", name: sl > 1 ? `${sp!.name} +${sl - 1}` : sp!.name, kind: sp!.kind as string, mult: sp!.kind === "heal" ? sp!.mult * lm : sp!.kind === "guard" || sp!.kind === "lock" ? sp!.mult : sp!.mult * (1 + (L - 1) * 0.04) * lm, cost: Math.round(sp!.cost * (1 + (sl - 1) * 0.05)), res: "mp" as const, el: sp!.el, school: sp!.school, spellId: sp!.id, spellLv: sl };
   });
   const techs = (s.techs ?? []).filter((t) => t.endsWith(":active")).map((t) => { const a = t.split(":")[0]!; const d = AFF_BY_ID[a]!;
     return { aff: a, name: `${d.titles[1]} Art`, kind: d.active.kind as string, mult: d.active.kind === "heal" || d.active.kind === "guard" || d.active.kind === "buff" ? d.active.mult * 1.3 : d.active.mult * 1.6, cost: Math.round(d.active.cost * 1.3), res: d.active.res, el: d.active.el, school: undefined as SchoolId | undefined }; });
-  return [...classActives(computeClass(s)), ...techs, ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el, school: undefined as SchoolId | undefined })), ...spells];
+  return [...classActives(computeClass(s)) as ActiveRow[], ...techs, ...kit.actives.map((a) => ({ aff: "none", name: a.name, kind: a.kind as string, mult: a.mult, cost: a.cost, res: a.res, el: a.el, school: undefined as SchoolId | undefined })), ...spells];
 }
 export function classActives(c: ClassInfo) {
   const out = [] as { aff: string; name: string; kind: string; mult: number; cost: number; res: "mp" | "sta"; el?: Element | undefined; school?: SchoolId | undefined }[];
@@ -1051,7 +1064,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
   const c = s.combat; if (!c) return null;
   const m = c.mon; const p = playerStats(s);
   c.turn++;
-  let defending = false;
+  let defending = false; c.block = false;
   const wskill = p.weaponSkill;
   if (a === "attack") {
     playerHit(s, c, p, 1, { label: "You" });
@@ -1062,7 +1075,9 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     const tt = heldTorch(s); if (tt) torchStrike(s, c, p, tt.name);
   } else if (a === "defend") {
     defending = true; s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * 0.12)); s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * 0.06));
-    addXp(s, "defense", 3); if (s.equip.shield) addAff(s, "shield", 1.5); clog(c, "🛡️ You brace yourself.");
+    const dm = defendMode(s); c.block = dm === "shield";
+    addXp(s, "defense", dm === "shield" ? 4 : 3); if (dm === "shield") addAff(s, "shield", 1.5);
+    clog(c, dm === "shield" ? "🛡️ You raise your shield." : dm === "torch" ? `🔥 You ward with your ${heldTorch(s)!.name}.` : "🙅 You brace yourself.");
   } else if (a === "flee") {
     const boss = m.boss > 0;
     const chance = boss ? 0 : 0.35 + (p.spd - 100) / 400 + lvl(s, "mobility") * 0.004;
@@ -1160,7 +1175,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
         let atk = m.atk * mult * (c.roar > 0 ? 0.75 : 1);
         const def = m.magical ? p.mdef : p.pdef;
         let dmg = dmgFormula(atk, def) * rand(0.9, 1.1);
-        if (defending) dmg *= mult > 2 ? 0.25 : 0.5;
+        if (defending) { const k = c.block ? DEFEND_TAKEN.shield : DEFEND_TAKEN.brace; dmg *= mult > 2 ? k / 2 : k; }
         if (c.guardT > 0) dmg *= 0.5;
         if (c.stoneskin > 0) dmg *= 0.5;
         dmg *= 1 - p.effects.guard / 100;

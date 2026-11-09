@@ -112,7 +112,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
       <S id="offhand" icon="🛡️" title="Off-hand rules">
         <P>The off-hand holds <B>one</B> of: a shield, a ranged weapon, or a torch. Equipping one removes the others.</P>
         <L items={[
-          <>Ranged weapons need ammunition (arrows, bolts, bullets or energy cells) and add a <B>Shoot</B> action in battle.</>,
+          <>Ranged weapons need ammunition (arrows, bolts, bullets or energy cells) and add a <B>Shoot</B> action to the battle Items menu.</>,
           <>Large ranged weapons are <B>two-handed</B>: {ranged.filter((r) => r.two).map((r) => r.name).join(", ")}. They remove your one-handed weapon.</>,
           <>Torches widen your sight in the dark dungeon (base sight {BASE_SIGHT} tiles) and add fire damage when you attack or defend. Special torches add sleep, life steal, blind, venom, chill, mana or burn effects.</>,
         ]} />
@@ -193,7 +193,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
         <L items={[
           <>Monsters get stronger every floor. Elite monsters with special traits appear more often higher up.</>,
           <>Every 10th floor has a <B>Guardian</B>, every 100th an <B>Arch-Warden</B>, and floor 1000 the <B>Eternal Warden</B>. Bosses must be defeated to use the stairs, you cannot flee from them, and they drop the relics needed for forge upgrades.</>,
-          <>In battle you can attack, defend, use skills and spells, eat food, throw items, shoot, flee or try to capture.</>,
+          <>Battle buttons: <B>Hit</B> attacks with your weapon; the <B>spell button</B> casts your highest-level equipped Magic Tower spell (the first equipped one on a tie); <B>Defend</B> uses your off-hand — a shield takes only 30% damage instead of 50%, a torch burns back; <B>Items</B> lets you eat (2 per fight), throw tools or shoot; <B>Skills</B> lists every active skill, your race skill and Capture; <B>Flee</B> escapes (not from bosses).</>,
           <>A result screen shows damage, loot and skill gains after every fight.</>,
           <>Taking the stairs clears the floor, gives a gold bonus (triple the first time) and sends you home with your loot.</>,
           <>If you fall, you lose the loot gathered on that floor and 10% of your gold, return home with 30% HP, and become Cursed.</>,
