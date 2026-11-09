@@ -439,6 +439,7 @@ export function equipGear(s: GameState, id: string) {
   s.equip[g.slot] = id;
   if (g.slot === "two_hand") { s.equip.one_hand = undefined; s.equip.shield = undefined; }
   if (g.slot === "one_hand" || g.slot === "shield") s.equip.two_hand = undefined;
+  if (g.slot === "shield" || g.slot === "two_hand") s.ranged = undefined;
   clampVitals(s);
 }
 export function gearValue(g: Gear) { return Math.round(g.materials.reduce((a, m) => a + getMat(m.id).value * m.qty, 0) * 0.4 * (1 + g.grade * 0.5) * (1 + g.enh * 0.15)); }
