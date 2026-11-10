@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "sdk_version": "3.4.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://kcuvsotilplwssagbabl.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "everbloom-ascend-craft",
+      "version": "0.1.0",
+      "title": "Everbloom Ascend Craft"
+    },
+    "tools": [
+      {
+        "name": "list_characters",
+        "title": "List characters",
+        "description": "List the signed-in player's Thornvale characters with level, class, race and highest tower floor.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_character",
+        "title": "Get character",
+        "description": "Show a character's level, class, health, gold, location, combat stats, top skills and affinities.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "character": {
+              "description": "Character slot number from list_characters (1-5). Omit to use the character currently being played.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_equipment",
+        "title": "Get equipment",
+        "description": "Show a character's equipped gear in every slot (grade, element, enhancement, durability and stats), plus ranged or torch off-hand.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "character": {
+              "description": "Character slot number from list_characters (1-5). Omit to use the character currently being played.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_inventory",
+        "title": "Get inventory",
+        "description": "List a character's materials, home storage, food, Craftery items and unequipped gear.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "character": {
+              "description": "Character slot number from list_characters (1-5). Omit to use the character currently being played.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_progress",
+        "title": "Get progress",
+        "description": "Show a character's tower progress, magic schools and spells, village building and gathering spot levels, companions, titles and achievements.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "character": {
+              "description": "Character slot number from list_characters (1-5). Omit to use the character currently being played.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
