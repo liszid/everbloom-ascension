@@ -2,8 +2,12 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import hero from "@/assets/tower-hero.jpg";
+import { oauthReturnPath } from "@/lib/oauth-return-path";
 
-export function AuthScreen() {
+/** `next` is a same-origin path to return to after signing in (e.g. an assistant connection request). */
+export function AuthScreen({ next }: { next?: string } = {}) {
+  const back = oauthReturnPath(next);
+  const backUrl = () => new URL(back, window.location.origin).href;
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -16,14 +20,14 @@ export function AuthScreen() {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
       if (error) setMsg(error.message);
     } else {
-      const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin } });
+      const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: backUrl() } });
       if (error) setMsg(error.message);
       else if (!data.session) setMsg("Check your email to confirm your account, then sign in.");
     }
     setBusy(false);
   };
   const google = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: backUrl() });
     if (r.error) setMsg(r.error.message ?? "Google sign-in failed");
   };
 
