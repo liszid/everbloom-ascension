@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type Context, type ReactNode } from "react";
 import {
   ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat,
   type Slot, type Stats,
@@ -26,7 +26,7 @@ export const fmt = (n: number) => {
 // Building windows show an interior scene (keeper NPC) above their content.
 // Kept on globalThis so live code reloads never split the provider (Game) from the reader (Sheet):
 // a split silently hid the interior, the building tab strip and the upgrade bar.
-const g = globalThis as { __everbloomSceneCtx?: React.Context<ReactNode> };
+const g = globalThis as { __everbloomSceneCtx?: Context<ReactNode> };
 export const SceneCtx = (g.__everbloomSceneCtx ??= createContext<ReactNode>(null));
 export function Sheet({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const scene = useContext(SceneCtx);

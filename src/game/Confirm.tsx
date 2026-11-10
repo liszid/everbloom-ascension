@@ -1,9 +1,12 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type Context as Ctx, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/button";
 
 type Request = { title: string; text: string; action: () => void; label?: string; danger?: boolean };
-const Context = createContext<{ ask: (r: Request) => void; pending: boolean }>({ ask: () => {}, pending: false });
+type ConfirmApi = { ask: (r: Request) => void; pending: boolean };
+// Kept on globalThis so live code reloads can't split the provider from its readers.
+const g = globalThis as { __everbloomConfirmCtx?: Ctx<ConfirmApi> };
+const Context = (g.__everbloomConfirmCtx ??= createContext<ConfirmApi>({ ask: () => {}, pending: false }));
 export const useGameConfirm = () => useContext(Context);
 
 export function ConfirmationProvider({ children }: { children: ReactNode }) {
