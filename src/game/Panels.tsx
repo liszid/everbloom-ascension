@@ -24,7 +24,10 @@ export const fmt = (n: number) => {
 };
 
 // Building windows show an interior scene (keeper NPC) above their content.
-export const SceneCtx = createContext<ReactNode>(null);
+// Kept on globalThis so live code reloads never split the provider (Game) from the reader (Sheet):
+// a split silently hid the interior, the building tab strip and the upgrade bar.
+const g = globalThis as { __everbloomSceneCtx?: React.Context<ReactNode> };
+export const SceneCtx = (g.__everbloomSceneCtx ??= createContext<ReactNode>(null));
 export function Sheet({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const scene = useContext(SceneCtx);
   return (
