@@ -1,5 +1,6 @@
 // Layered pixel-art avatar: race (skin, ears, horns, tusks...), gender (hair/beard/silhouette)
 // and emergent class (outfit colour, held item, tier flourishes) combine into a unique sprite.
+import { HeldGear, type Held } from "./HeldGear";
 type Px = [number, number, number, number, string];
 
 const SKIN: Record<string, string> = {
@@ -31,8 +32,8 @@ export type Facing = "d" | "u" | "l" | "r";
 const ART = import.meta.glob("../assets/art/a_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const artFor = (race: string, gender: string) => ART[`../assets/art/a_${race}_${gender === "Female" ? "f" : "m"}.webp`];
 
-export function Avatar(props: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined }) {
-  const { race, gender, classId, size = "100%", dir = "d", frame } = props;
+export function Avatar(props: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined; held?: Held | undefined }) {
+  const { race, gender, classId, size = "100%", dir = "d", frame, held } = props;
   const src = artFor(race, gender);
   if (!src) return <PixelAvatar {...props} />;
   const { p, tier } = parseClass(classId);
@@ -42,6 +43,7 @@ export function Avatar(props: { race: string; gender: string; classId: string; s
     <span className="avatar-cartoon" style={{ width: size, height: size, opacity: race === "ghost" ? 0.8 : 1 }} aria-label={`${gender} ${race}`}>
       <img src={src} alt={`${gender} ${race}`} draggable={false} loading="lazy" width={256} height={256}
         style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)`, filter: dir === "u" ? "brightness(0.8)" : undefined }} />
+      {held && <span className="held-wrap" style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)` }}><HeldGear held={held} dir={dir} /></span>}
       {p !== "none" && <span className="avatar-badge" style={{ background: main, borderColor: trim }}>{tier >= 3 ? "★" : ""}</span>}
     </span>
   );

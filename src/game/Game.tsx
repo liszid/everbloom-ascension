@@ -27,6 +27,7 @@ import { Building } from "./Building";
 import { MonsterSprite } from "./MonsterSprite";
 import { ConfirmationProvider, useGameConfirm } from "./Confirm";
 import { Avatar, type Facing } from "./Avatar";
+import { heldGearOf } from "./HeldGear";
 import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
 
@@ -318,7 +319,7 @@ function GameSession({ userId }: { userId: string }) {
   const p = playerStats(s);
   const inV = s.loc === "village";
   const { cx, cy } = camera(s);
-  const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir={face} frame={walkF} />;
+  const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir={face} frame={walkF} held={heldGearOf(s)} />;
   const cells = [];
   // one extra ring of tiles around the view so the camera can slide smoothly
   for (let y = cy - 1; y < cy + VH + 1; y++) for (let x = cx - 1; x < cx + VW + 1; x++) cells.push(renderTile(s, x, y, avatar, cx - 1, cy - 1, walkF !== undefined));
@@ -329,7 +330,7 @@ function GameSession({ userId }: { userId: string }) {
       <header className="pixel-panel p-1.5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <button className="flex min-w-0 items-center gap-1 text-left" onClick={() => setPanel({ t: "profile" })}>
-            <span className="h-9 w-9 shrink-0"><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} /></span>
+            <span className="h-9 w-9 shrink-0"><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} held={heldGearOf(s)} /></span>
             <span className="min-w-0"><span className="block truncate text-sm text-primary">{s.char.name} · Lv {p.level}</span><span className="block truncate text-xs text-muted-foreground">{s.className}</span></span>
           </button>
           <div className="text-right text-xs"><div className="text-gold">💰 {fmt(s.gold)}</div><div className="text-muted-foreground">{inV ? "Thornvale" : `Floor ${s.dungeon!.floor} · ${themeFor(s.dungeon!.floor).icon} ${themeFor(s.dungeon!.floor).name}`} · best {s.maxFloor}</div></div>

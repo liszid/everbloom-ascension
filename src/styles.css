@@ -363,3 +363,12 @@
 .tile-cvx.under-path { background: url("./assets/art/g_path.webp") 0 0 / 300% 300%; }
 .tile-cvx.under-water { background: url("./assets/art/g_water.webp") 0 0 / 300% 300%; animation: water-drift 6s linear infinite; }
 .tile-cvx.under-soil { background: url("./assets/art/g_soil.webp") 0 0 / 200% 200%; }
+
+/* Equipped weapon / off-hand drawn over the hero */
+.held-wrap { position: absolute; inset: 0; pointer-events: none; transition: transform 0.18s ease-out; }
+.held-gear { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1px 0 color-mix(in oklab, var(--ink) 45%, transparent)); }
+.held-back { z-index: -1; opacity: 0.85; }
+.held-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: held-flicker 0.5s ease-in-out infinite alternate; }
+.held-glow { animation: held-pulse 1.6s ease-in-out infinite alternate; }
+@keyframes held-flicker { from { transform: scale(1, 1); } to { transform: scale(0.9, 1.12); } }
+@keyframes held-pulse { from { opacity: 0.15; } to { opacity: 0.38; } }
