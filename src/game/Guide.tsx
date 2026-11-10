@@ -184,7 +184,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
           <><B>Merchant:</B> buys monster parts at about {GUILD_BUY_MULT}× the shop price (more with Guild level).</>,
           <><B>Training:</B> pay gold for a chance to raise a skill. Higher skills cost more and succeed less often.</>,
           <><B>Specialists:</B> only teach your top two affinities — a passive at affinity Lv {TECH_REQ.passive} ({techGold("passive")}g) and an active at Lv {TECH_REQ.active} ({techGold("active")}g).</>,
-          <><B>Companions:</B> up to {MAX_COMPANIONS}. Rent one for {RENT_FLOORS} expeditions, or buy one to keep forever. Owned companions get their own Stats, Equipment and Title tabs and use your spare gear.</>,
+          <><B>Companions:</B> up to {MAX_COMPANIONS}. Rent one for {RENT_FLOORS} floors, or buy one to keep forever. Owned companions get their own Stats, Equipment and Title tabs and use your spare gear.</>,
           <><B>Capture:</B> a normal monster below {Math.round(CAPTURE_HP * 100)}% HP can be captured in battle and joins as a companion. Guardians cannot be captured.</>,
         ]} />
       </S>
@@ -195,8 +195,9 @@ export function Guide({ onBack }: { onBack: () => void }) {
           <>Every 10th floor has a <B>Guardian</B>, every 100th an <B>Arch-Warden</B>, and floor 1000 the <B>Eternal Warden</B>. Bosses must be defeated to use the stairs, you cannot flee from them, and they drop the relics needed for forge upgrades.</>,
           <>Battle buttons: <B>Hit</B> attacks with your weapon; the <B>spell button</B> casts your highest-level equipped Magic Tower spell (the first equipped one on a tie); <B>Defend</B> uses your off-hand — a shield takes only 30% damage instead of 50%, a torch burns back; <B>Items</B> lets you eat (2 per fight), throw tools or shoot; <B>Skills</B> lists every active skill, your race skill and Capture; <B>Flee</B> escapes (not from bosses).</>,
           <>A result screen shows damage, loot and skill gains after every fight.</>,
-          <>Taking the stairs clears the floor, gives a gold bonus (triple the first time) and sends you home with your loot.</>,
-          <>If you fall, you lose the loot gathered on that floor and 10% of your gold, return home with 30% HP, and become Cursed.</>,
+          <>Once inside, you move between floors by stairs and never get sent home on your own. The <B>stairs up</B> clear the floor, give a gold bonus (triple the first time) and take you to the next floor. The <B>stairs down</B> (from floor 2) take you one floor lower, next to its stairs up; climbing back up from there gives no bonus.</>,
+          <>Press <B>Retreat</B> to go back to the village with everything in your bag. Floor 1000's stairs up also lead home.</>,
+          <>If you fall, you lose all the loot in your bag from this climb and 10% of your gold, return home with 30% HP, and become Cursed.</>,
           <>Mine veins, open chests and pick up gems inside the dungeon.</>,
         ]} />
         <H>Floor themes</H>
@@ -207,7 +208,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
       <S id="items" icon="🎒" title="Materials, food & selling">
         <L items={[
           <>Every material has a tier (0–10). Higher tiers come from deeper floors, upgraded gathering spots and refining.</>,
-          <>Materials you collect in the dungeon go into your expedition bag. You keep them when you take the stairs or retreat, but lose them if you fall.</>,
+          <>Materials you collect in the dungeon go into your expedition bag. The bag stays with you from floor to floor; you keep everything when you retreat, but lose it all if you fall.</>,
           <>Cook any edible materials together at the Kitchen. More and better ingredients make stronger meals that heal more.</>,
           <>Selling shows each item's tier and lists the highest tiers first. The Trading skill improves prices.</>,
           <>Storage at Home grows by 10 slots per Home level.</>,

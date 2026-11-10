@@ -30,7 +30,7 @@ export interface Mon {
   atk: number; defn: number; weak: Element; element: Element; tier: number; boss: 0 | 1 | 2 | 3; magical: boolean;
   ability?: MonsterDef["ability"] | undefined; affix?: string | undefined; xp: number; drops: string[]; dodge: number;
 }
-export interface Dungeon { floor: number; w: number; h: number; tiles: string[]; monsters: Mon[]; stairs: { x: number; y: number }; bossAlive: boolean; traps?: { x: number; y: number; id: string }[] | undefined }
+export interface Dungeon { floor: number; w: number; h: number; tiles: string[]; monsters: Mon[]; stairs: { x: number; y: number }; down?: { x: number; y: number } | undefined; fromAbove?: boolean | undefined; bossAlive: boolean; traps?: { x: number; y: number; id: string }[] | undefined }
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
@@ -706,7 +706,7 @@ export function hireCompanion(s: GameState, role: CompRole, buy: boolean): boole
   const n = (s.companions ?? []).filter((c) => c.name.startsWith(h.name)).length;
   s.companions = [...(s.companions ?? []), { id: uid(), name: n ? `${h.name} ${n + 1}` : h.name, kind: "human", role, race: h.race, gender: h.gender, xp: 15 * (L - 1) ** 2,
     base: { hp: h.hp, atk: h.atk, def: h.def, magic: h.magic }, equip: {}, rentLeft: buy ? undefined : RENT_FLOORS }];
-  log(s, `🤝 ${h.name} ${buy ? "joins you for good" : `is hired for ${RENT_FLOORS} expeditions`}.`); return true;
+  log(s, `🤝 ${h.name} ${buy ? "joins you for good" : `is hired for ${RENT_FLOORS} floors`}.`); return true;
 }
 export function dismissCompanion(s: GameState, id: string) { s.companions = (s.companions ?? []).filter((c) => c.id !== id); }
 export function freeGear(s: GameState) {
@@ -954,13 +954,61 @@ export function genDungeon(f: number): { d: Dungeon; start: { x: number; y: numb
   for (let i = 0; i < 2 && spots.length; i++) { const p = spots.pop()!; g[p.y]![p.x] = "V"; }
   if (Math.random() < 0.6 && spots.length) { const p = spots.pop()!; g[p.y]![p.x] = "$"; }
   g[far.y]![far.x] = ">";
-  return { d: { floor: f, w: DW, h: DH, tiles: g.map((r) => r.join("")), monsters, stairs: far, bossAlive: !!bossKind }, start };
+  // stairs down sit where you arrive; you step off them onto a free neighbour (floor 1 has none — retreat leads home)
+  let spawn = start, down: { x: number; y: number } | undefined;
+  if (f > 1) {
+    const nb = [[0, -1], [1, 0], [-1, 0], [0, 1]].map(([dx, dy]) => ({ x: start.x + dx!, y: start.y + dy! })).find((q) => g[q.y]?.[q.x] === ".");
+    if (nb) { down = start; g[start.y]![start.x] = "<"; spawn = nb; }
+  }
+  return { d: { floor: f, w: DW, h: DH, tiles: g.map((r) => r.join("")), monsters, stairs: far, down, bossAlive: !!bossKind }, start: spawn };
 }
+/** Free floor tile next to (x, y), used to place the hero beside a staircase. */
+function besideTile(d: Dungeon, x: number, y: number) {
+  return [[0, 1], [1, 0], [-1, 0], [0, -1]].map(([dx, dy]) => ({ x: x + dx!, y: y + dy! }))
+    .find((q) => d.tiles[q.y]?.[q.x] === "." && !d.monsters.some((m) => m.x === q.x && m.y === q.y));
+}
+const bossNote = (f: number) => f === 1000 ? "the Eternal Warden waits!" : f % 100 === 0 ? "an Arch-Warden guards this floor!" : f % 10 === 0 ? "a Guardian awaits!" : "";
 export function enterDungeon(s: GameState, f: number) {
   const { d, start } = genDungeon(f);
   s.dungeon = d; s.loc = "dungeon"; s.pos = start; s.bag = {}; s.relentlessUsed = false;
-  const bk = f === 1000 ? "the Eternal Warden waits!" : f % 100 === 0 ? "an Arch-Warden guards this floor!" : f % 10 === 0 ? "a Guardian awaits!" : "";
+  const bk = bossNote(f);
   log(s, `🗼 Entered Floor ${f}${bk ? " — " + bk : ""}`);
+}
+/** Move to another floor without leaving the Tower; the expedition bag stays with you. */
+function changeFloor(s: GameState, f: number, fromAbove: boolean) {
+  tickRentals(s);
+  const { d, start } = genDungeon(f);
+  s.dungeon = d; s.combat = undefined; s.relentlessUsed = false; s.step += 60; learnSpells(s);
+  if (fromAbove) {
+    // coming down: you arrive beside the up stairs; the floor's boss no longer bars the way back up
+    d.fromAbove = true; d.bossAlive = false;
+    s.pos = besideTile(d, d.stairs.x, d.stairs.y) ?? start;
+  } else s.pos = start;
+}
+/** Take the stairs up: clears the current floor (bonus unless you came down onto it) and climbs to the next one. */
+export function climbUp(s: GameState) {
+  const d = s.dungeon!; const f = d.floor;
+  if (d.bossAlive) return false;
+  const first = f > s.maxFloor;
+  if (first) { s.maxFloor = f; bump(s, "floorsCleared"); }
+  let msg = `🏁 Floor ${f} cleared${first ? " for the first time" : ""}!`;
+  if (!d.fromAbove) {
+    const bonus = Math.round(10 * Math.pow(1.1, f / 10) * (first ? 3 : 1)); earn(s, bonus); addCharXp(s, Math.round(10 * Math.pow(1.1, f / 10)));
+    msg += ` +${bonus}g.`;
+  }
+  if (first && f % 10 === 0) note(s, `🏁 Floor ${f} conquered!`);
+  if (f >= 1000) { leaveDungeon(s, true); log(s, `${msg} You stand atop the Tower and return to Thornvale.`); return true; }
+  changeFloor(s, f + 1, false);
+  const bk = bossNote(f + 1);
+  log(s, `${msg} ⬆️ Up to Floor ${f + 1}${bk ? " — " + bk : ""}`);
+  return true;
+}
+/** Take the stairs down to the floor below, arriving beside its up stairs. */
+export function climbDown(s: GameState) {
+  const f = s.dungeon!.floor; if (f <= 1) return false;
+  changeFloor(s, f - 1, true);
+  log(s, `⬇️ Down to Floor ${f - 1}.`);
+  return true;
 }
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
@@ -1276,16 +1324,6 @@ export function collectLoot(s: GameState) {
   for (const { id, qty } of r.loot) addMat(s, id, qty, true);
   r.collected = true;
 }
-export function clearFloor(s: GameState) {
-  const f = s.dungeon!.floor;
-  const first = f > s.maxFloor;
-  if (first) { s.maxFloor = f; bump(s, "floorsCleared"); }
-  const bonus = Math.round(10 * Math.pow(1.1, f / 10) * (first ? 3 : 1)); earn(s, bonus); addCharXp(s, Math.round(10 * Math.pow(1.1, f / 10)));
-  leaveDungeon(s, true);
-  log(s, `🏁 Floor ${f} cleared${first ? " for the first time" : ""}! +${bonus}g. Back to Thornvale.`);
-  if (first && f % 10 === 0) note(s, `🏁 Floor ${f} conquered!`);
-}
-
 // ======================= economy =======================
 export const sellPrice = (s: GameState, id: string) => Math.max(1, Math.round(getMat(id).value * 0.5 * (1 + lvl(s, "trading") * 0.005)));
 /** Sellable inventory, highest material tier first. */

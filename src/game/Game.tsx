@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Pointer
 import { supabase } from "@/integrations/supabase/client";
 import { ANIMALS, BUILDINGS, TREES, getMat } from "./data";
 import {
-  addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, clearFloor, collectLoot, combatTurn, cook,
+  addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, climbDown, climbUp, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
   setCombatPrefs, spend, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
@@ -160,16 +160,21 @@ function GameSession({ userId }: { userId: string }) {
       else if (t === ">") {
         if (d.bossAlive) { log(n, "🔒 The Guardian must fall before the stairs open!"); return null; }
         return { t: "tower", x: -1 };
+      } else if (t === "<") {
+        return { t: "tower", x: -2 };
       } else { n.pos = { x: tx, y: ty }; n.step++; addXp(n, "mobility", 0.5); stepAilments(n); }
       const attacker = moveMonsters(n);
       if (attacker) startCombat(n, attacker);
       return null;
     });
-    if (open?.x === -1) {
-      if (!getConfirm()) act(clearFloor);
-      else confirmation.ask({ title: "Clear this floor?", text: "Take the stairs and return to the village with your loot.", label: "Take stairs", action: () => act(clearFloor) });
+    if (open?.x === -1 || open?.x === -2) {
+      const up = open.x === -1; const f = ref.current!.dungeon!.floor;
+      const go = () => { act((n) => (up ? climbUp(n) : climbDown(n))); setTimeout(() => void save(), 50); };
+      if (!getConfirm()) go();
+      else if (up) confirmation.ask({ title: `Climb to floor ${f + 1}?`, text: f >= 1000 ? "This is the top of the Tower. The stairs lead back to the village." : "Take the stairs up. Your loot stays in your bag until you retreat to the village.", label: "⬆️ Go up", action: go });
+      else confirmation.ask({ title: `Go down to floor ${f - 1}?`, text: "Take the stairs down. You arrive next to that floor's stairs up.", label: "⬇️ Go down", action: go });
     } else if (open) setPanel(open);
-  }, [act, panel, confirmation.pending]);
+  }, [act, save, panel, confirmation.pending]);
   const confirmRef = useRef(st.confirmNextFloor); confirmRef.current = st.confirmNextFloor;
   const getConfirm = () => confirmRef.current;
 
@@ -197,7 +202,7 @@ function GameSession({ userId }: { userId: string }) {
     }
     if (near === 1) { move(x - c.pos.x, y - c.pos.y); return; }
     const d = c.dungeon!; const t = d.tiles[y]?.[x];
-    const target = d.monsters.some((m) => m.x === x && m.y === y) || t === "V" || t === ">";
+    const target = d.monsters.some((m) => m.x === x && m.y === y) || t === "V" || t === ">" || t === "<";
     if (target) walkTo(x, y, () => { const n = ref.current!; if (Math.abs(n.pos.x - x) + Math.abs(n.pos.y - y) === 1) move(x - n.pos.x, y - n.pos.y); }, true);
     else walkTo(x, y, null);
   };
@@ -363,7 +368,7 @@ function GameSession({ userId }: { userId: string }) {
         <NavBtn icon="👤" label="Profile" onClick={() => setPanel({ t: "profile" })} />
         {inV ? <NavBtn icon="⚒️" label="Forge" onClick={() => setPanel({ t: "forge" })} /> : <NavBtn icon="🍖" label="Eat" onClick={() => setPanel({ t: "bag" })} />}
         {inV ? <NavBtn icon="🗼" label="Tower" onClick={() => setPanel({ t: "tower" })} />
-          : <NavBtn icon="🏃" label="Retreat" danger onClick={() => confirmation.ask({ title: "Retreat?", text: "You keep your loot, but this floor stays uncleared.", label: "Retreat", action: () => act((n) => { leaveDungeon(n, true); log(n, "🏃 You retreat with your loot."); }) })} />}
+          : <NavBtn icon="🏃" label="Retreat" danger onClick={() => confirmation.ask({ title: "Retreat to the village?", text: "You go home with all the loot in your bag. This floor stays uncleared.", label: "Retreat", action: () => act((n) => { leaveDungeon(n, true); log(n, "🏃 You retreat with your loot."); }) })} />}
         <NavBtn icon="⚙️" label="Settings" onClick={() => setPanel({ t: "settings" })} />
       </nav>
 
@@ -534,13 +539,14 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     tileBg = dungeonTileStyle(themeIndex(d.floor), x, y, (wx, wy) => (d.tiles[wy]?.[wx] ?? "#") === "#");
     if (t === "V") { glyph = "💎"; art = icon("gem"); }
     if (t === "$") { glyph = "🧰"; art = icon("chest"); }
-    if (t === ">") { glyph = d.bossAlive ? "🔒" : "🪜"; art = icon(d.bossAlive ? "locked" : "stairs"); }
+    if (t === ">") { glyph = d.bossAlive ? "🔒" : "🪜"; art = icon(d.bossAlive ? "locked" : "stairs_up"); label = d.bossAlive ? "" : "Up"; }
+    if (t === "<") { glyph = "🕳️"; art = icon("stairs"); label = "Down"; }
     const tr = d.traps?.find((q) => q.x === x && q.y === y); if (tr) { glyph = TOOL[tr.id]?.icon ?? "🪤"; art = icon(tr.id) ?? icon("bear_trap"); dim = true; }
     const m = d.monsters.find((mm) => mm.x === x && mm.y === y);
     if (m) { glyph = m.icon; boss = m.boss > 0 || !!m.affix; mon = m; }
     // vision: beyond sight only walls/floor (and the stairs beacon) show; torches widen it
     const dist = Math.hypot(x - s.pos.x, y - s.pos.y), sight = sightRadius(s);
-    if (dist > sight) { cls += " tile-fog"; if (t !== ">") { glyph = ""; art = undefined; mon = undefined; boss = false; } }
+    if (dist > sight) { cls += " tile-fog"; if (t !== ">" && t !== "<") { glyph = ""; art = undefined; mon = undefined; boss = false; } }
     else if (dist > sight - 1) cls += " tile-dusk";
   }
   return (

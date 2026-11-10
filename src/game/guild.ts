@@ -16,7 +16,7 @@ export const HIRELINGS: { role: CompRole; name: string; icon: string; race: stri
   { role: "cleric", name: "Osric", icon: "✨", race: "aasimar", gender: "Male", desc: "Heals you every other turn.", hp: 1, atk: 0.6, def: 1, magic: true },
   { role: "mage", name: "Vesna", icon: "🔮", race: "tiefling", gender: "Female", desc: "Fierce magic damage.", hp: 0.8, atk: 1.5, def: 0.7, magic: true },
 ];
-/** Rental is per RENT_FLOORS expeditions; buying costs far more but lasts forever. */
+/** Rental lasts RENT_FLOORS floors (each floor left counts); buying costs far more but lasts forever. */
 export const rentPrice = (maxFloor: number) => Math.round(80 * (1 + maxFloor / 8));
 export const buyPrice = (maxFloor: number) => Math.round(1500 * (1 + maxFloor / 6));
 export const compLevel = (xp: number) => Math.min(300, 1 + Math.floor(Math.sqrt(xp / 15)));

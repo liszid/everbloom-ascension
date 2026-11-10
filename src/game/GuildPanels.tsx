@@ -62,7 +62,7 @@ export function HirePanel({ s, onClose, onHire, onParty }: { s: GameState; onClo
   const n = s.companions?.length ?? 0; const rp = rentPrice(s.maxFloor), bp = buyPrice(s.maxFloor);
   return (
     <Sheet title="🤝 Companions" onClose={onClose}>
-      <p className="mb-2 text-xs text-muted-foreground">Party {n}/{MAX_COMPANIONS}. Rent for {RENT_FLOORS} expeditions or recruit for good. Weakened monsters (below 30% HP) can be captured in battle.</p>
+      <p className="mb-2 text-xs text-muted-foreground">Party {n}/{MAX_COMPANIONS}. Rent for {RENT_FLOORS} floors or recruit for good. Weakened monsters (below 30% HP) can be captured in battle.</p>
       {n > 0 && <button className="pixel-btn mb-2 w-full py-2" onClick={onParty}>👥 Manage party</button>}
       {HIRELINGS.map((h) => <div key={h.role} className="mb-1 border-2 border-border p-2">
         <div className="flex items-center gap-2"><div className="h-10 w-10"><Avatar race={h.race} gender={h.gender} classId="might:1" /></div>
@@ -91,7 +91,7 @@ export function PartyPanel({ s, onClose, start, onEquip, onTitle, onDismiss }: {
       <div className="mb-2 flex gap-1">{comps.map((x) => <button key={x.id} className={`pixel-btn flex flex-1 flex-col items-center p-1 text-[0.65rem] ${x.id === c.id ? "pixel-btn-active" : ""}`} onClick={() => { setCur(x.id); setSlot(null); }}><div className="h-8 w-8"><CompAvatar c={x} /></div>{x.name}</button>)}</div>
       <div className="mb-2 flex gap-1">{([["stats", "📊 Stats"], ["equip", "🛡️ Equipment"], ["title", "🏅 Title"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn flex-1 py-2 text-xs ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}</div>
       {tab === "stats" && <div className="space-y-1 text-sm">
-        <div className="flex items-center gap-2"><div className="h-14 w-14"><CompAvatar c={c} /></div><div><div className="text-accent">{c.name}</div><div className="text-xs capitalize text-muted-foreground">{c.kind === "monster" ? "Captured monster" : c.role} · Lv {st.level} · {c.rentLeft !== undefined ? `rented, ${c.rentLeft} expeditions left` : "permanent"}</div></div></div>
+        <div className="flex items-center gap-2"><div className="h-14 w-14"><CompAvatar c={c} /></div><div><div className="text-accent">{c.name}</div><div className="text-xs capitalize text-muted-foreground">{c.kind === "monster" ? "Captured monster" : c.role} · Lv {st.level} · {c.rentLeft !== undefined ? `rented, ${c.rentLeft} floors left` : "permanent"}</div></div></div>
         <div>❤️ HP {fmt(st.hp)} · ⚔️ {c.base.magic ? "M.Atk" : "Atk"} {fmt(st.atk)} · 🛡️ Def {fmt(st.def)}</div>
         <p className="text-xs text-muted-foreground">Companions fight after you each turn, grow with every victory and draw strength from gear and titles.</p>
         <button className="pixel-btn w-full py-2 text-xs" onClick={() => onDismiss(c.id)}>{c.rentLeft !== undefined ? "End contract" : c.kind === "monster" ? "Release" : "Dismiss"}</button>
