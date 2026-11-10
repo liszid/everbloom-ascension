@@ -21,3 +21,4 @@
 - Dungeon theme names/rotation are pure data in src/game/themes.ts; their floor/wall look (procedural textures spanning several tiles, wall trims, ambience) lives in src/game/dungeonStyle.ts so art never touches gameplay.
 - The off-hand holds one of: a shield (gear slot id stays "shield" for save compatibility, shown as Off-hand) or a Craftery ranged weapon/torch in GameState.ranged; equipping one clears the others.
 - Ascended-race class ladders (rank names, lore affinities, mastery sources and rank thresholds) are pure data in src/game/raceClasses.ts; engine.computeClass returns the race ladder instead of the skill/affinity/title class whenever the hero's race has a ladder.
+- Shared game React contexts (SceneCtx, confirmations) are cached on globalThis so live code reloads never split a provider from its readers.
