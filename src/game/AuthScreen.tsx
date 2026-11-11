@@ -7,7 +7,8 @@ import { oauthReturnPath } from "@/lib/oauth-return-path";
 /** `next` is a same-origin path to return to after signing in (e.g. an assistant connection request). */
 export function AuthScreen({ next }: { next?: string } = {}) {
   const back = oauthReturnPath(next);
-  const backUrl = () => new URL(back, window.location.origin).href;
+  // Social and email links land on the public sign-in page, which forwards to `next` once the session is ready.
+  const backUrl = () => back === "/" ? window.location.origin : new URL(`/login?next=${encodeURIComponent(back)}`, window.location.origin).href;
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");

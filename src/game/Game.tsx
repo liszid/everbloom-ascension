@@ -28,6 +28,7 @@ import { MonsterSprite } from "./MonsterSprite";
 import { ConfirmationProvider, useGameConfirm } from "./Confirm";
 import { Avatar, type Facing } from "./Avatar";
 import { heldGearOf } from "./HeldGear";
+import { GameAgentTools } from "./AgentTools";
 import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
 
@@ -327,6 +328,7 @@ function GameSession({ userId }: { userId: string }) {
 
   return (
     <div className="game-shell mx-auto flex h-dvh w-full min-w-0 max-w-lg flex-col gap-1.5 p-1.5" onPointerDown={unlockAudio}>
+      <GameAgentTools s={s} />
       <header className="pixel-panel p-1.5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <button className="flex min-w-0 items-center gap-1 text-left" onClick={() => setPanel({ t: "profile" })}>

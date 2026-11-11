@@ -22,3 +22,6 @@
 - The off-hand holds one of: a shield (gear slot id stays "shield" for save compatibility, shown as Off-hand) or a Craftery ranged weapon/torch in GameState.ranged; equipping one clears the others.
 - Ascended-race class ladders (rank names, lore affinities, mastery sources and rank thresholds) are pure data in src/game/raceClasses.ts; engine.computeClass returns the race ladder instead of the skill/affinity/title class whenever the hero's race has a ladder.
 - Shared game React contexts (SceneCtx, confirmations) are cached on globalThis so live code reloads never split a provider from its readers.
+- The app's MCP server lives in src/lib/mcp (one tool per file, registered in index.ts) and verifies managed-auth OAuth tokens; tools read game_saves only through the caller-scoped client so RLS keeps each player to their own save, and stay read-only because the browser autosave would overwrite server-side edits.
+- Browser-agent (WebMCP) tools for the on-screen hero are registered in src/game/AgentTools.tsx, separate from the MCP server.
+- Sign-in return targets go through oauthReturnPath; social/email sign-in lands on the public /login page, which forwards to `next` once the session exists.
