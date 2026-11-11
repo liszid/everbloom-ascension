@@ -372,3 +372,11 @@
 .held-glow { animation: held-pulse 1.6s ease-in-out infinite alternate; }
 @keyframes held-flicker { from { transform: scale(1, 1); } to { transform: scale(0.9, 1.12); } }
 @keyframes held-pulse { from { opacity: 0.15; } to { opacity: 0.38; } }
+
+/* Hold-to-repeat buttons: no text selection, callout menu or scroll while held */
+.hold-btn {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}

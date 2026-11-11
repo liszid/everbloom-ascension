@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
 import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId, type Spell } from "./magic";
 import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
@@ -14,6 +14,10 @@ const fmt = (n: number) => n.toLocaleString();
 const DECOR: Record<SpotId, string[]> = { forest: ["🌲", "🌳", "🌲", "🌳", "🌲"], mine: ["🪨", "⛏️", "🪨", "💎", "🪨"], pond: ["🌾", "🪷", "🌾"], ranch: ["🐄", "🐔", "🐑", "🌾"], field: ["🌼", "🌷", "🌻", "🌸", "🌼"] };
 const ACT_ICON: Record<SpotId, string> = { forest: "🪓", mine: "⛏️", pond: "🎣", ranch: "🧺", field: "🌼" };
 
+/** Holding the gather button: first repeat after this delay, then one action per interval. */
+export const HOLD_DELAY_MS = 350;
+export const HOLD_EVERY_MS = 250;
+
 export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: {
   s: GameState; spot: SpotId; onClose: () => void; onGather: (mat: string) => void; onUpgrade: () => void; onPlots?: (() => void) | undefined;
 }) {
@@ -21,6 +25,26 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
   const [mat, setMat] = useState(mats[mats.length - 1]!);
   const [swing, setSwing] = useState(0);
   const nx = nextUnlock(spot, L); const cost = spotUpgradeCost(spot, L); const max = playerStats(s).sta;
+  // Hold-to-repeat: holding the action button keeps gathering until stamina runs out or the finger lifts.
+  const latest = useRef({ s, mat, onGather }); latest.current = { s, mat, onGather };
+  const hold = useRef<{ delay?: ReturnType<typeof setTimeout>; tick?: ReturnType<typeof setInterval> }>({});
+  const [holding, setHolding] = useState(false);
+  const gatherOnce = () => {
+    const { s: cur, mat: m, onGather: g } = latest.current;
+    if (cur.sta < 2) return false;
+    g(m); setSwing((n) => n + 1); return true;
+  };
+  const stopHold = () => { clearTimeout(hold.current.delay); clearInterval(hold.current.tick); hold.current = {}; setHolding(false); };
+  const startHold = () => {
+    stopHold();
+    if (!gatherOnce()) return;
+    setHolding(true);
+    hold.current.delay = setTimeout(() => {
+      hold.current.tick = setInterval(() => { if (!gatherOnce()) stopHold(); }, HOLD_EVERY_MS);
+    }, HOLD_DELAY_MS);
+  };
+  useEffect(() => stopHold, []);
+  useEffect(() => { if (s.sta < 2 && holding) stopHold(); }, [s.sta, holding]);
   return (
     <Sheet title={`${def.icon} ${def.name} · Lv ${L}`} onClose={onClose}>
       <div className={`gather-scene gather-${spot}`} style={{ backgroundImage: `url(${sceneArt(spot)})` }}>
@@ -41,9 +65,14 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
             <span className="text-[0.6rem] text-muted-foreground">{ok ? `T${getMat(m).tier} · ×${s.inv[m] ?? 0}` : `Lv ${lv}`}</span>
           </button>); })}
       </div>
-      <button className="pixel-btn pixel-btn-primary mb-3 w-full py-4 text-lg" disabled={s.sta < 2} onClick={() => { onGather(mat); setSwing((n) => n + 1); }}>
+      <button className={`pixel-btn pixel-btn-primary hold-btn mb-1 w-full py-4 text-lg ${holding ? "pixel-btn-active" : ""}`} disabled={s.sta < 2}
+        onPointerDown={(e) => { if (e.button > 0) return; e.currentTarget.setPointerCapture?.(e.pointerId); startHold(); }}
+        onPointerUp={stopHold} onPointerCancel={stopHold} onLostPointerCapture={stopHold}
+        onContextMenu={(e) => e.preventDefault()}
+        onClick={(e) => { if (e.detail === 0) gatherOnce(); /* keyboard activation; pointer presses are handled above */ }}>
         {s.sta < 2 ? "Too tired — rest or eat" : `${ACT_ICON[spot]} ${def.verb} ${getMat(mat).name}`}
       </button>
+      <p className="mb-3 text-center text-xs text-muted-foreground">{holding ? "Keep holding to keep going…" : "Tip: hold the button to keep going"}</p>
       {onPlots && <button className="pixel-btn mb-3 w-full py-3" onClick={onPlots}>🌱 Open crop plots</button>}
       <div className="border-t-2 border-border pt-2">
         <h3 className="text-accent">Upgrade {def.name}</h3>
