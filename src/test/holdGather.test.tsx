@@ -14,6 +14,10 @@ const mineButton = () => screen.getAllByRole("button").find((b) => /Mine|Too tir
 describe("hold to keep gathering", () => {
   afterEach(() => vi.useRealTimers());
 
+  it("repeats 12 times per second while held", () => {
+    expect(Math.round(1000 / HOLD_EVERY_MS)).toBe(12);
+  });
+
   it("keeps mining while held and stops when released", () => {
     vi.useFakeTimers();
     const onAction = vi.fn();

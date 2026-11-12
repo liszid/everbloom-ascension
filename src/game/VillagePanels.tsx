@@ -16,7 +16,8 @@ const ACT_ICON: Record<SpotId, string> = { forest: "🪓", mine: "⛏️", pond:
 
 /** Holding the gather button: first repeat after this delay, then one action per interval. */
 export const HOLD_DELAY_MS = 350;
-export const HOLD_EVERY_MS = 250;
+/** 12 actions per second — the fastest a player can tap. */
+export const HOLD_EVERY_MS = Math.round(1000 / 12);
 
 export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: {
   s: GameState; spot: SpotId; onClose: () => void; onGather: (mat: string) => void; onUpgrade: () => void; onPlots?: (() => void) | undefined;
