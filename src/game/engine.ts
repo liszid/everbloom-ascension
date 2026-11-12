@@ -888,7 +888,7 @@ export function restAtHome(s: GameState) {
 export const DW = 21, DH = 15;
 export const floorTier = (f: number) => Math.min(10, Math.floor(11 * Math.pow(f / 1000, 0.6)));
 // Enemy curve: every floor is MON_GROWTH× stronger than the floor below (HP, ATK and DEF); floor 1 is the baseline.
-export const MON_GROWTH = 1.15;
+export const MON_GROWTH = 1.05;
 export const monScale = (f: number) => { const m = Math.pow(MON_GROWTH, Math.max(0, f - 1)); return { hp: m, atk: m, def: m }; };
 const MAGICAL = new Set(["bat", "wraith", "imp", "frost", "lich", "seraph", "phoenix", "starspawn", "horror", "naga"]);
 
