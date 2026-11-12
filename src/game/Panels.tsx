@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, type Context, type ReactNode } from "react";
 import {
   ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat,
-  type Slot, type Stats,
+  type RefineStation, type Slot, type Stats,
 } from "./data";
 import {
   EFFECT_INFO, GEAR_CAP, computeClass, VILLAGE, key, SHOP_ITEMS, TOKEN_SHOP, cookPreview, craftPreview, enhanceChance, enhanceCost, floorTier,
@@ -218,12 +218,18 @@ export function KitchenPanel({ s, onClose, onCook }: { s: GameState; onClose: ()
     </Sheet>
   );
 }
-export function RefinePanel({ s, station, onClose, onRefine }: { s: GameState; station: "carve" | "smelt"; onClose: () => void; onRefine: (id: string, n: number) => void }) {
+const STATION_INFO: Record<RefineStation, { title: string; verb: string; hint: string }> = {
+  carve: { title: "🪚 Carpentry", verb: "carve", hint: "Logs from the Forest." },
+  smelt: { title: "🔥 Smelter", verb: "smelt", hint: "Ores from the Mine." },
+  tan: { title: "🧵 Tannery & Loom", verb: "tan or weave", hint: "Hides, wool, fleece, silk and feathers from the Animal Farm become leather and cloth for gear. Eggs, milk and honey go to the Kitchen." },
+};
+export function RefinePanel({ s, station, onClose, onRefine }: { s: GameState; station: RefineStation; onClose: () => void; onRefine: (id: string, n: number) => void }) {
   const ids = Object.keys(s.inv).filter((id) => getMat(id).refine?.station === station);
+  const info = STATION_INFO[station];
   return (
-    <Sheet title={station === "carve" ? "🪚 Carpentry" : "🔥 Smelter"} onClose={onClose}>
-      <p className="mb-2 text-sm text-muted-foreground">2 raw → 1 refined material (+1 tier).</p>
-      {!ids.length && <p className="text-muted-foreground">Nothing to {station === "carve" ? "carve" : "smelt"}.</p>}
+    <Sheet title={info.title} onClose={onClose}>
+      <p className="mb-2 text-sm text-muted-foreground">2 raw → 1 refined material (+1 tier). {info.hint}</p>
+      {!ids.length && <p className="text-muted-foreground">Nothing to {info.verb}.</p>}
       {ids.map((id) => { const m = getMat(id); const to = getMat(m.refine!.to); const n = Math.floor((s.inv[id] ?? 0) / 2); return (
         <div key={id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
           <span className="min-w-0 truncate">{m.icon} {m.name} ×{s.inv[id]} → {to.icon} {to.name}</span>

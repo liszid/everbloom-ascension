@@ -27,7 +27,7 @@ const Grid = ({ head, rows }: { head: string[]; rows: ReactNode[][] }) => (
 const BLDG_ROWS: { icon: string; name: string; id?: BldgId; text: ReactNode }[] = [
   { icon: "🏠", name: "Home", id: "house", text: <>Three tabs: <B>Rest</B> heals HP, mana and stamina; <B>Storage</B> keeps gear and materials safe; <B>Kitchen</B> cooks food you eat in battle or on the map.</> },
   { icon: "⚖️", name: "Market", id: "market", text: <><B>Shop</B> sells basic seeds and supplies, and buys anything you carry, sorted by tier. <B>Market</B> has 4 changing offers and 3 materials in high demand (paid 1.5–2.3×). Offers change every time you come back from the Tower.</> },
-  { icon: "⚒️", name: "Forge", text: <><B>Smithy</B> crafts, enhances and repairs gear and upgrades the forge. <B>Sawmill</B> carves logs into planks. <B>Smelter</B> turns ores into ingots. Refined materials have a higher tier.</> },
+  { icon: "⚒️", name: "Forge", text: <><B>Smithy</B> crafts, enhances and repairs gear and upgrades the forge. <B>Sawmill</B> carves logs into planks. <B>Smelter</B> turns ores into ingots. <B>Tannery</B> turns Animal Farm hides, wool, fleece, silk and feathers into leather and cloth. Refined materials have a higher tier.</> },
   { icon: "⛪", name: "Church", id: "church", text: <>Cures ailments, sells blessings that last a number of battles, lets you pray once per return for a free blessing, and enchants weapons and off-hands with an element.</> },
   { icon: "🔮", name: "Magic Tower", text: <>Learn magic schools, study them to raise their level, unlock spells, equip up to {MAX_SPELL_SLOTS} of them, level spells up, and perform race-changing rituals.</> },
   { icon: "🪤", name: "Craftery", id: "craftery", text: <>Makes single-use throwing items and traps, ammunition, ranged off-hand weapons and torches. Higher Craftery levels unlock stronger recipes.</> },
@@ -85,7 +85,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
       </S>
 
       <S id="gather" icon="🌲" title="Gathering spots">
-        <P>The Forest, Mine, Pond, Animal Farm and flower Field open a window. Choose a material and press the button repeatedly to collect it. Each spot can be upgraded up to Lv {SPOT_MAX} with gold and its best material; higher levels unlock better materials and make the spot look richer.</P>
+        <P>The Forest, Mine, Pond, Animal Farm and flower Field open a window. Choose a material and press the button repeatedly to collect it. Each spot can be upgraded up to Lv {SPOT_MAX} with gold and its best material; higher levels unlock better materials, up to tier 9 at Lv {SPOT_MAX}, and make the spot look richer. Everything from the Pond can be cooked. Animal Farm eggs, milk and honey are cooked; its hides, wool, fleece, silk and feathers go to the Forge's Tannery to become leather and cloth for gear.</P>
         <Grid head={["Spot", "Materials (unlock level)"]} rows={(Object.keys(SPOTS) as SpotId[]).map((id) => [
           `${SPOTS[id].icon} ${SPOTS[id].name}`, SPOTS[id].mats.map(([m, l]) => `${getMat(m).name} (${l})`).join(", "),
         ])} />

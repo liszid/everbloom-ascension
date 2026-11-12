@@ -32,14 +32,14 @@ import { GameAgentTools } from "./AgentTools";
 import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
 
-type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party";
+type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "tan" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party";
 const STATIONS: Record<string, PanelT> = { H: "house", M: "shop", A: "forge", J: "church", Z: "magic", V: "craftery", N: "tavern", X: "casino", D: "tower" };
 // Merged buildings: each panel in a group shows the same tab strip.
 const GROUPS: [string, string][][] = [
   [["house", "🛏️ Rest"], ["warehouse", "📦 Storage"], ["kitchen", "🍳 Kitchen"]],
   [["shop", "🏪 Shop"], ["market", "⚖️ Market"]],
   [["tavern", "📜 Missions"], ["guildshop", "🦴 Merchant"], ["training", "🏋️ Train"], ["companions", "🤝 Hire"]],
-  [["forge", "⚒️ Smithy"], ["carve", "🪚 Sawmill"], ["smelt", "🔥 Smelter"]],
+  [["forge", "⚒️ Smithy"], ["carve", "🪚 Sawmill"], ["smelt", "🔥 Smelter"], ["tan", "🧵 Tannery"]],
 ];
 const BLDG_OF: Partial<Record<string, BldgId>> = { house: "house", warehouse: "house", kitchen: "house", craftery: "craftery", church: "church", tavern: "guild", guildshop: "guild", training: "guild", companions: "guild", shop: "market", market: "market" };
 type PanelS = { t: PanelT; x?: number; y?: number; spot?: SpotId; cid?: string };
@@ -411,7 +411,7 @@ function GameSession({ userId }: { userId: string }) {
         onDelete: (i) => { if (i === active.current || !slots.current[i]) return; slots.current.splice(i, 1); if (i < active.current) active.current--; bumpChars((n) => n + 1); void save(); },
       }} />}
       {panel?.t === "kitchen" && <KitchenPanel s={s} onClose={close} onCook={(m) => act((n) => cook(n, m))} />}
-      {(panel?.t === "carve" || panel?.t === "smelt") && <RefinePanel s={s} station={panel.t} onClose={close} onRefine={(id, k) => act((n) => refine(n, id, k, panel.t as "carve" | "smelt"))} />}
+      {(panel?.t === "carve" || panel?.t === "smelt" || panel?.t === "tan") && <RefinePanel s={s} station={panel.t} onClose={close} onRefine={(id, k) => act((n) => refine(n, id, k, panel.t as "carve" | "smelt" | "tan"))} />}
       {panel?.t === "plot" && <PlotPanel s={s} onClose={close} onPlant={(cells, seed) => act((n) => { for (const [x, y] of cells) { if (!n.inv[seed]) break; if (!n.village.plots[key(x, y)]) plant(n, x, y, seed); } })}
         onHarvest={(cells) => { act((n) => { for (const [x, y] of cells) { harvest(n, x, y); n.step++; } }); sfx("loot"); }} />}
       {panel?.t === "tower" && <TowerPanel s={s} onClose={close} onEnter={(f) => { act((n) => enterDungeon(n, f)); close(); }} />}

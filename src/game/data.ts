@@ -13,12 +13,15 @@ export const PROP_LABEL: Record<Prop, string> = {
 };
 export type MatSource = "monster" | "mining" | "tree" | "plant" | "farm" | "fishing" | "hunting" | "boss" | "refined" | "casino";
 
+/** Village workshops that turn 2 raw materials into 1 refined one (+1 tier). */
+export type RefineStation = "carve" | "smelt" | "tan";
+
 export interface Material {
   id: string; name: string; icon: string;
   tier: number;            // quality 0..10
   props: Record<Prop, number>; // 0..10
   element: Element; src: MatSource;
-  food?: number; refine?: { to: string; station: "carve" | "smelt" }; seedOf?: string;
+  food?: number; refine?: { to: string; station: RefineStation }; seedOf?: string;
   catalyst?: boolean;      // counts toward EX discoveries
   value: number;           // base gold value
 }
@@ -40,6 +43,19 @@ const LIST: Material[] = [
   m("carved_ironwood", "Carved Ironwood", "🛡️", 3, [7, 7, 2, 4, 1, 2, 8, 5], "earth", "refined"),
   m("elder_log", "Elder Log", "🪵", 4, [3, 3, 1, 5, 6, 8, 5, 3], "light", "tree", { refine: { to: "carved_elder", station: "carve" } }),
   m("carved_elder", "Carved Elder", "🪄", 5, [4, 3, 2, 6, 7, 9, 6, 2], "light", "refined"),
+  m("maple_log", "Maple Log", "🪵", 1, [3, 4, 2, 6, 1, 2, 4, 3], "nature", "tree", { refine: { to: "carved_maple", station: "carve" } }),
+  m("carved_maple", "Carved Maple", "🍁", 2, [4, 4, 3, 7, 1, 3, 5, 3], "nature", "refined"),
+  m("yew_log", "Yew Log", "🪵", 3, [4, 4, 2, 9, 2, 4, 5, 3], "dark", "tree", { refine: { to: "carved_yew", station: "carve" } }),
+  m("carved_yew", "Carved Yew", "🥢", 4, [5, 4, 3, 10, 2, 5, 6, 3], "dark", "refined"),
+  m("bloodwood_log", "Bloodwood Log", "🪵", 5, [6, 6, 3, 5, 4, 6, 6, 4], "fire", "tree", { refine: { to: "carved_bloodwood", station: "carve" } }),
+  m("carved_bloodwood", "Carved Bloodwood", "🎋", 6, [7, 6, 4, 6, 5, 7, 7, 4], "fire", "refined"),
+  m("ghostwood_log", "Ghostwood Log", "🪵", 6, [4, 2, 3, 7, 7, 9, 5, 1], "dark", "tree", { refine: { to: "carved_ghostwood", station: "carve" } }),
+  m("carved_ghostwood", "Carved Ghostwood", "🦯", 7, [5, 2, 4, 8, 8, 10, 6, 1], "dark", "refined"),
+  m("frostpine_log", "Frostpine Log", "🪵", 7, [7, 6, 3, 5, 5, 7, 8, 4], "water", "tree", { refine: { to: "carved_frostpine", station: "carve" } }),
+  m("carved_frostpine", "Carved Frostpine", "🧊", 8, [8, 6, 4, 6, 6, 8, 9, 4], "water", "refined"),
+  m("worldtree_log", "Worldtree Bough", "🪵", 8, [8, 7, 3, 7, 6, 9, 10, 4], "nature", "tree", { refine: { to: "carved_worldtree", station: "carve" } }),
+  m("carved_worldtree", "Carved Worldtree", "🌳", 9, [9, 7, 4, 8, 7, 10, 10, 4], "nature", "refined"),
+  m("aether_log", "Aetherwood Log", "🪵", 9, [8, 4, 4, 8, 9, 10, 9, 1], "void", "tree"),
   // ores
   m("stone", "Stone", "🪨", 0, [4, 6, 1, 0, 0, 0, 3, 7], "earth", "mining"),
   m("copper_ore", "Copper Ore", "🟠", 0, [3, 5, 2, 2, 7, 1, 3, 5], "none", "mining", { refine: { to: "copper_ingot", station: "smelt" } }),
@@ -54,12 +70,25 @@ const LIST: Material[] = [
   m("mithril_ingot", "Mithril Ingot", "🟦", 6, [8, 3, 8, 8, 8, 7, 8, 1], "wind", "refined"),
   m("adamant_ore", "Adamant Ore", "🟩", 7, [10, 9, 6, 1, 2, 2, 10, 9], "earth", "mining", { refine: { to: "adamant_ingot", station: "smelt" } }),
   m("adamant_ingot", "Adamant Ingot", "🟢", 8, [10, 9, 8, 2, 3, 3, 10, 8], "earth", "refined"),
+  m("cobalt_ore", "Cobalt Ore", "🔵", 4, [6, 6, 5, 3, 6, 5, 6, 5], "water", "mining", { refine: { to: "cobalt_ingot", station: "smelt" } }),
+  m("cobalt_ingot", "Cobalt Ingot", "💙", 5, [7, 6, 6, 4, 7, 6, 7, 5], "water", "refined"),
+  m("runite_ore", "Runite Ore", "🟣", 6, [8, 6, 7, 4, 6, 8, 8, 5], "dark", "mining", { refine: { to: "runite_ingot", station: "smelt" } }),
+  m("runite_ingot", "Runite Ingot", "🟪", 7, [9, 6, 8, 5, 7, 9, 9, 5], "dark", "refined"),
+  m("orichalcum_ore", "Orichalcum Ore", "🔶", 8, [9, 7, 8, 5, 9, 8, 9, 5], "fire", "mining", { refine: { to: "orichalcum_ingot", station: "smelt" } }),
+  m("orichalcum_ingot", "Orichalcum Ingot", "🏅", 9, [10, 7, 9, 6, 10, 9, 10, 5], "fire", "refined"),
+  m("aetherium_ore", "Aetherium Ore", "💎", 9, [8, 3, 9, 8, 10, 10, 9, 1], "wind", "mining"),
   // plants
   m("daisy", "Daisy", "🌼", 0, [0, 1, 0, 6, 2, 4, 1, 0], "nature", "plant"),
   m("rose", "Rose", "🌹", 0, [1, 1, 4, 4, 2, 3, 1, 0], "fire", "plant"),
   m("bluebell", "Bluebell", "🪻", 1, [0, 1, 0, 5, 4, 6, 1, 0], "water", "plant"),
   m("nightshade", "Nightshade", "🥀", 2, [1, 1, 5, 4, 4, 6, 2, 0], "dark", "plant"),
   m("moonpetal", "Moonpetal", "🌸", 3, [1, 2, 1, 6, 6, 9, 2, 0], "light", "plant"),
+  m("sunbloom", "Sunbloom", "🌻", 4, [1, 2, 2, 6, 5, 8, 2, 0], "fire", "plant"),
+  m("frostlily", "Frostlily", "💮", 5, [2, 2, 3, 6, 6, 8, 3, 0], "water", "plant"),
+  m("mandrake", "Mandrake Root", "🫚", 6, [3, 4, 1, 5, 5, 9, 4, 1], "earth", "plant"),
+  m("starblossom", "Starblossom", "🌺", 7, [1, 1, 3, 7, 8, 10, 3, 0], "light", "plant"),
+  m("dragon_orchid", "Dragon Orchid", "🌷", 8, [2, 2, 5, 7, 8, 10, 4, 0], "fire", "plant"),
+  m("void_lotus", "Void Lotus", "🪷", 9, [2, 2, 4, 8, 10, 10, 5, 0], "void", "plant"),
   // farm
   m("wheat_seed", "Wheat Seed", "🌾", 0, [0, 1, 0, 2, 0, 1, 0, 0], "nature", "farm", { seedOf: "wheat" }),
   m("carrot_seed", "Carrot Seed", "🥕", 0, [0, 1, 0, 2, 0, 1, 0, 0], "nature", "farm", { seedOf: "carrot" }),
@@ -70,17 +99,41 @@ const LIST: Material[] = [
   m("herb_leaf", "Herb Leaf", "🌿", 0, [0, 1, 0, 5, 2, 4, 1, 0], "nature", "farm", { food: 6 }),
   m("pumpkin", "Pumpkin", "🎃", 1, [2, 5, 0, 2, 0, 2, 3, 4], "nature", "farm", { food: 22 }),
   m("egg", "Egg", "🥚", 0, [2, 3, 0, 1, 1, 2, 1, 1], "none", "farm", { food: 8 }),
-  m("feather", "Feather", "🪶", 0, [0, 0, 2, 9, 1, 3, 1, 0], "wind", "farm"),
-  m("wool", "Wool", "🧶", 0, [0, 4, 0, 8, 0, 2, 4, 2], "none", "farm"),
+  m("feather", "Feather", "🪶", 0, [0, 0, 2, 9, 1, 3, 1, 0], "wind", "farm", { refine: { to: "fletching", station: "tan" } }),
+  m("fletching", "Fletching", "🎐", 1, [1, 0, 3, 9, 1, 4, 2, 0], "wind", "refined"),
+  m("wool", "Wool", "🧶", 0, [0, 4, 0, 8, 0, 2, 4, 2], "none", "farm", { refine: { to: "woven_cloth", station: "tan" } }),
+  m("woven_cloth", "Woven Cloth", "🧵", 1, [0, 4, 0, 9, 0, 3, 5, 1], "none", "refined"),
   m("milk", "Milk", "🥛", 0, [0, 2, 0, 1, 1, 2, 0, 2], "none", "farm", { food: 9 }),
+  m("honey", "Honey", "🍯", 1, [0, 4, 0, 3, 2, 5, 2, 2], "nature", "farm", { food: 16 }),
+  m("alpaca_fleece", "Alpaca Fleece", "🦙", 2, [0, 3, 0, 9, 1, 4, 5, 1], "wind", "farm", { refine: { to: "alpaca_cloth", station: "tan" } }),
+  m("alpaca_cloth", "Alpaca Cloth", "🧣", 3, [0, 3, 0, 10, 1, 5, 6, 1], "wind", "refined"),
+  m("silk_cocoon", "Silkworm Cocoon", "🐛", 3, [1, 2, 1, 10, 3, 6, 6, 0], "light", "farm", { refine: { to: "fine_silk", station: "tan" } }),
+  m("fine_silk", "Fine Silk", "🎀", 4, [1, 2, 2, 10, 4, 7, 7, 0], "light", "refined"),
+  m("griffin_egg", "Griffin Egg", "🪺", 4, [3, 4, 0, 2, 3, 5, 3, 2], "wind", "farm", { food: 22 }),
+  m("drake_hide", "Drake Hide", "🦖", 5, [6, 6, 1, 5, 3, 5, 8, 4], "fire", "farm", { refine: { to: "drake_leather", station: "tan" } }),
+  m("drake_leather", "Drake Leather", "🧥", 6, [7, 6, 2, 6, 3, 6, 9, 4], "fire", "refined"),
+  m("unicorn_milk", "Unicorn Milk", "🦄", 6, [0, 3, 0, 2, 6, 9, 2, 1], "light", "farm", { food: 26 }),
+  m("pegasus_down", "Pegasus Down", "🕊️", 7, [0, 0, 2, 10, 6, 9, 5, 0], "wind", "farm", { refine: { to: "pegasus_weave", station: "tan" } }),
+  m("pegasus_weave", "Pegasus Weave", "☁️", 8, [1, 1, 3, 10, 7, 10, 7, 0], "wind", "refined"),
+  m("golden_fleece", "Golden Fleece", "🐏", 8, [1, 4, 1, 9, 7, 10, 8, 1], "light", "farm", { refine: { to: "golden_cloth", station: "tan" } }),
+  m("golden_cloth", "Golden Cloth", "✨", 9, [2, 4, 2, 10, 8, 10, 9, 1], "light", "refined"),
+  m("roc_egg", "Roc Egg", "🐣", 9, [4, 6, 0, 2, 5, 8, 5, 3], "wind", "farm", { food: 30 }),
   // hunting
-  m("hide", "Hide", "🟫", 1, [3, 5, 0, 6, 0, 1, 6, 3], "earth", "hunting"),
+  m("hide", "Hide", "🟫", 1, [3, 5, 0, 6, 0, 1, 6, 3], "earth", "hunting", { refine: { to: "leather", station: "tan" } }),
+  m("leather", "Tanned Leather", "👝", 2, [4, 5, 0, 7, 0, 1, 8, 3], "earth", "refined"),
   m("antler", "Antler", "🦌", 1, [5, 4, 6, 3, 1, 3, 5, 3], "nature", "hunting"),
   // fishing
   m("fish", "Fish", "🐟", 0, [1, 2, 1, 4, 2, 2, 1, 1], "water", "fishing", { food: 15 }),
-  m("shell", "Shell", "🐚", 0, [6, 5, 3, 0, 1, 2, 4, 3], "water", "fishing"),
-  m("pearl", "Pearl", "🫧", 2, [5, 6, 0, 0, 6, 8, 5, 2], "water", "fishing"),
+  m("shell", "Clam", "🐚", 0, [6, 5, 3, 0, 1, 2, 4, 3], "water", "fishing", { food: 10 }),
+  m("crayfish", "Crayfish", "🦞", 1, [4, 3, 4, 2, 2, 2, 3, 2], "water", "fishing", { food: 14 }),
+  m("pearl", "Pearl Oyster", "🫧", 2, [5, 6, 0, 0, 6, 8, 5, 2], "water", "fishing", { food: 12 }),
   m("eel", "Storm Eel", "🐍", 3, [2, 3, 2, 8, 10, 6, 3, 2], "wind", "fishing", { food: 30 }),
+  m("golden_carp", "Golden Carp", "🐠", 4, [2, 3, 2, 6, 5, 7, 3, 2], "light", "fishing", { food: 24 }),
+  m("abyss_squid", "Abyssal Squid", "🦑", 5, [1, 3, 4, 9, 6, 8, 3, 2], "dark", "fishing", { food: 26 }),
+  m("moonfin", "Moonfin", "🐡", 6, [3, 5, 3, 6, 5, 8, 4, 3], "water", "fishing", { food: 30 }),
+  m("kraken_tentacle", "Kraken Tentacle", "🐙", 7, [3, 7, 3, 10, 6, 8, 7, 4], "water", "fishing", { food: 32 }),
+  m("dragon_koi", "Dragon Koi", "🎏", 8, [4, 4, 5, 7, 8, 10, 6, 2], "fire", "fishing", { food: 34 }),
+  m("leviathan_fillet", "Leviathan Fillet", "🐋", 9, [6, 9, 4, 6, 7, 10, 9, 5], "water", "fishing", { food: 36 }),
   // dungeon veins
   m("mana_crystal", "Mana Crystal", "🔮", 2, [5, 3, 3, 1, 9, 10, 3, 2], "void", "mining"),
   m("obsidian", "Obsidian", "🖤", 4, [8, 7, 10, 0, 2, 4, 3, 6], "fire", "mining"),
@@ -304,6 +357,7 @@ export const SKILLS: Record<string, { name: string; icon: string; desc: string; 
   cooking: { name: "Cooking", icon: "🍳", desc: "Cooking meals.", aff: "culinary" },
   carving: { name: "Carving", icon: "🪚", desc: "Carving wood.", aff: "crafting" },
   smelting: { name: "Smelting", icon: "🔥", desc: "Smelting ingots.", aff: "crafting" },
+  tailoring: { name: "Tailoring", icon: "🧵", desc: "Tanning hides and weaving cloth.", aff: "crafting" },
   smithing: { name: "Smithing", icon: "⚒️", desc: "Crafting gear. Gates grades.", aff: "crafting" },
   enhancing: { name: "Enhancing", icon: "✨", desc: "Upgrading gear.", aff: "crafting" },
   trading: { name: "Trading", icon: "💰", desc: "Buying & selling. Better prices.", aff: "crafting" },

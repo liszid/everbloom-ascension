@@ -8,7 +8,7 @@ import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
   MONSTERS, ORES, PCT_STATS, POND, PROPS, RACES, SKILLS, SLOTS, SLOT_INFO, STAT_KEYS, TREES, VEINS, VILLAGE_MAP, MATERIALS,
   getMat, tierMult, zeroStats,
-  type Element, type MonsterDef, type Prop, type Slot, type StatKey, type Stats,
+  type Element, type MonsterDef, type Prop, type RefineStation, type Slot, type StatKey, type Stats,
 } from "./data";
 
 // ======================= types =======================
@@ -523,12 +523,14 @@ export function eatFood(s: GameState, idx: number) {
   bump(s, "healing", heal);
   return heal;
 }
-export function refine(s: GameState, id: string, times: number, station: "carve" | "smelt") {
+const STATION_SKILL: Record<RefineStation, [string, string]> = { carve: ["carving", "🪚"], smelt: ["smelting", "🔥"], tan: ["tailoring", "🧵"] };
+export function refine(s: GameState, id: string, times: number, station: RefineStation) {
   const mt = getMat(id); if (!mt.refine || mt.refine.station !== station) return;
   const n = Math.min(times, Math.floor((s.inv[id] ?? 0) / 2)); if (n <= 0) return;
   takeMat(s, id, n * 2); addMat(s, mt.refine.to, n);
-  addXp(s, station === "carve" ? "carving" : "smelting", n * (3 + mt.tier * 2)); addAff(s, "crafting", n);
-  log(s, `${station === "carve" ? "🪚" : "🔥"} Made ${n}× ${getMat(mt.refine.to).name}.`);
+  const [skill, ico] = STATION_SKILL[station];
+  addXp(s, skill, n * (3 + mt.tier * 2)); addAff(s, "crafting", n);
+  log(s, `${ico} Made ${n}× ${getMat(mt.refine.to).name}.`);
 }
 
 // ======================= village gathering =======================
