@@ -1,5 +1,5 @@
-# Village rework (approved plan, 4 phases)
-- [x] Phase 1: new village map, merged Home/Market/Forge with tabs, Save in Settings, gathering windows (Forest, Mine, Pond, Animal Farm, Field) with spot levels and level-based map art, Church healing, keepers for new buildings.
-- [ ] Phase 2: Church prayers/blessings/ailments/elemental weapon blessing; Craftery single-use items, ammo for off-hand bows/crossbows/guns, long-press trap placement in dungeon.
-- [ ] Phase 3: Magic Tower schools, stat-gated spells, combined magics; mid-game race changes (Vampire, Ghost, Werewolf, Lich, Zombie, Ghoul).
-- [ ] Phase 4: Adventurers Guild buyer, skill training, specialization trainers, companions (rent/buy, up to 4, captured monsters) with companion tabs.
+# Progression, crafting agency & off-hand plan
+- [ ] Phase 1: gathering spots to Lv 100, one new tier every 10 levels, old unlocks kept, smoother upgrade cost, richer art stages at 25/50/75/100
+- [ ] Phase 2: tier-10 refining (Aetherwood Timber, Aetherium Ingot, Astral Silk, new Lv-100 materials); weapon archetypes from material mix (axe, scythe, sword, hammer, spear, staff, dagger) shown in Forge preview
+- [ ] Phase 3: off-hand torches/ranged upgradable Common→EX with full stats (fire ward, stronger effects, sight); Dragonbreath reaches EX
+- [ ] Phase 4: Kitchen recipe book with meal buffs lasting several floors; Guide: affinity training table, gathering, archetypes, off-hand upgrades, recipes

@@ -98,3 +98,31 @@ export const restPct = (l: number) => Math.min(100, 40 + (l - 1) * 10);
 export const blessBattles = (l: number) => 6 + (l - 1);
 export const churchDisc = (l: number) => 1 - (l - 1) * 0.03;
 export const guildMult = (l: number) => 1.6 + (l - 1) * 0.05;
+
+// ---- off-hand grades: torches and ranged weapons can be upgraded Common (0) → EX (7) at the Craftery ----
+export const OFFHAND_MAX = 7;
+export const isHeldTool = (t?: ToolDef) => !!t && (t.kind === "ranged" || t.kind === "torch");
+/** Refined materials needed to reach each grade (index = target grade − 1): [ingot, carved wood]. */
+const OFFHAND_UP_MATS: [string, string][] = [
+  ["copper_ingot", "carved_oak"], ["iron_ingot", "carved_maple"], ["silver_ingot", "carved_ironwood"], ["gold_ingot", "carved_elder"],
+  ["mithril_ingot", "carved_bloodwood"], ["adamant_ingot", "carved_ghostwood"], ["orichalcum_ingot", "carved_worldtree"],
+];
+/** Cost to raise an off-hand to grade `to`. Relic also takes Guardian Sigils, EX takes Warden Crests. */
+export function offhandUpCost(t: ToolDef, to: number): { gold: number; mats: [string, number][]; lvl: number } {
+  const [ing, wood] = OFFHAND_UP_MATS[Math.max(0, Math.min(6, to - 1))]!; const q = 2 + to * 2;
+  const mats: [string, number][] = [[ing, q], [wood, q]];
+  if (to === 6) mats.push(["guardian_sigil", 3]);
+  if (to === 7) mats.push(["warden_crest", 2]);
+  return { gold: Math.round(Math.max(200, t.gold) * 0.6 * Math.pow(to, 1.6)), mats, lvl: to + 1 };
+}
+/** How an off-hand's special numbers grow with its grade. */
+export function offhandFx(t: ToolDef, g: number) {
+  const base = t.chance ?? 100;
+  return {
+    chance: Math.min(100, Math.round(base + (100 - base) * (g / OFFHAND_MAX) * (t.fx === "burn" ? 1 : 0.5))),
+    fire: (t.fire ?? 0) * (1 + g * 0.15),
+    sight: (t.sight ?? 0) + g * 0.3,
+    mult: (t.mult ?? 1.4) * (1 + g * 0.12),
+    fireWard: t.kind === "torch" ? Math.round((30 * g) / OFFHAND_MAX) : 0,
+  };
+}

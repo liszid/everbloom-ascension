@@ -55,7 +55,11 @@ const LIST: Material[] = [
   m("carved_frostpine", "Carved Frostpine", "🧊", 8, [8, 6, 4, 6, 6, 8, 9, 4], "water", "refined"),
   m("worldtree_log", "Worldtree Bough", "🪵", 8, [8, 7, 3, 7, 6, 9, 10, 4], "nature", "tree", { refine: { to: "carved_worldtree", station: "carve" } }),
   m("carved_worldtree", "Carved Worldtree", "🌳", 9, [9, 7, 4, 8, 7, 10, 10, 4], "nature", "refined"),
-  m("aether_log", "Aetherwood Log", "🪵", 9, [8, 4, 4, 8, 9, 10, 9, 1], "void", "tree"),
+  m("aether_log", "Aetherwood Log", "🪵", 9, [8, 4, 4, 8, 9, 10, 9, 1], "void", "tree", { refine: { to: "aether_timber", station: "carve" } }),
+  m("aether_timber", "Aetherwood Timber", "🌌", 10, [9, 4, 5, 9, 10, 10, 10, 1], "void", "refined"),
+  // tier 10 is the top tier: refining a tier-10 raw keeps tier 10 but improves its properties
+  m("primordial_log", "Primordial Heartwood", "🪵", 10, [9, 8, 3, 7, 8, 10, 10, 4], "nature", "tree", { refine: { to: "primordial_timber", station: "carve" } }),
+  m("primordial_timber", "Primordial Timber", "🌲", 10, [10, 8, 4, 8, 9, 10, 10, 3], "nature", "refined"),
   // ores
   m("stone", "Stone", "🪨", 0, [4, 6, 1, 0, 0, 0, 3, 7], "earth", "mining"),
   m("copper_ore", "Copper Ore", "🟠", 0, [3, 5, 2, 2, 7, 1, 3, 5], "none", "mining", { refine: { to: "copper_ingot", station: "smelt" } }),
@@ -76,7 +80,10 @@ const LIST: Material[] = [
   m("runite_ingot", "Runite Ingot", "🟪", 7, [9, 6, 8, 5, 7, 9, 9, 5], "dark", "refined"),
   m("orichalcum_ore", "Orichalcum Ore", "🔶", 8, [9, 7, 8, 5, 9, 8, 9, 5], "fire", "mining", { refine: { to: "orichalcum_ingot", station: "smelt" } }),
   m("orichalcum_ingot", "Orichalcum Ingot", "🏅", 9, [10, 7, 9, 6, 10, 9, 10, 5], "fire", "refined"),
-  m("aetherium_ore", "Aetherium Ore", "💎", 9, [8, 3, 9, 8, 10, 10, 9, 1], "wind", "mining"),
+  m("aetherium_ore", "Aetherium Ore", "💎", 9, [8, 3, 9, 8, 10, 10, 9, 1], "wind", "mining", { refine: { to: "aetherium_ingot", station: "smelt" } }),
+  m("aetherium_ingot", "Aetherium Ingot", "💠", 10, [9, 3, 10, 9, 10, 10, 10, 1], "wind", "refined"),
+  m("voidite_ore", "Voidite Ore", "🌑", 10, [10, 8, 9, 5, 9, 10, 10, 6], "void", "mining", { refine: { to: "voidite_ingot", station: "smelt" } }),
+  m("voidite_ingot", "Voidite Ingot", "⬛", 10, [10, 8, 10, 6, 10, 10, 10, 5], "void", "refined"),
   // plants
   m("daisy", "Daisy", "🌼", 0, [0, 1, 0, 6, 2, 4, 1, 0], "nature", "plant"),
   m("rose", "Rose", "🌹", 0, [1, 1, 4, 4, 2, 3, 1, 0], "fire", "plant"),
@@ -89,6 +96,7 @@ const LIST: Material[] = [
   m("starblossom", "Starblossom", "🌺", 7, [1, 1, 3, 7, 8, 10, 3, 0], "light", "plant"),
   m("dragon_orchid", "Dragon Orchid", "🌷", 8, [2, 2, 5, 7, 8, 10, 4, 0], "fire", "plant"),
   m("void_lotus", "Void Lotus", "🪷", 9, [2, 2, 4, 8, 10, 10, 5, 0], "void", "plant"),
+  m("worldbloom", "Worldbloom", "💐", 10, [2, 2, 3, 8, 10, 10, 6, 0], "nature", "plant"),
   // farm
   m("wheat_seed", "Wheat Seed", "🌾", 0, [0, 1, 0, 2, 0, 1, 0, 0], "nature", "farm", { seedOf: "wheat" }),
   m("carrot_seed", "Carrot Seed", "🥕", 0, [0, 1, 0, 2, 0, 1, 0, 0], "nature", "farm", { seedOf: "carrot" }),
@@ -118,6 +126,8 @@ const LIST: Material[] = [
   m("golden_fleece", "Golden Fleece", "🐏", 8, [1, 4, 1, 9, 7, 10, 8, 1], "light", "farm", { refine: { to: "golden_cloth", station: "tan" } }),
   m("golden_cloth", "Golden Cloth", "✨", 9, [2, 4, 2, 10, 8, 10, 9, 1], "light", "refined"),
   m("roc_egg", "Roc Egg", "🐣", 9, [4, 6, 0, 2, 5, 8, 5, 3], "wind", "farm", { food: 30 }),
+  m("roc_feather", "Roc Feather", "🪶", 10, [1, 1, 4, 10, 7, 10, 7, 0], "wind", "farm", { refine: { to: "astral_silk", station: "tan" } }),
+  m("astral_silk", "Astral Silk", "🌟", 10, [2, 1, 4, 10, 9, 10, 9, 0], "light", "refined"),
   // hunting
   m("hide", "Hide", "🟫", 1, [3, 5, 0, 6, 0, 1, 6, 3], "earth", "hunting", { refine: { to: "leather", station: "tan" } }),
   m("leather", "Tanned Leather", "👝", 2, [4, 5, 0, 7, 0, 1, 8, 3], "earth", "refined"),
@@ -134,6 +144,7 @@ const LIST: Material[] = [
   m("kraken_tentacle", "Kraken Tentacle", "🐙", 7, [3, 7, 3, 10, 6, 8, 7, 4], "water", "fishing", { food: 32 }),
   m("dragon_koi", "Dragon Koi", "🎏", 8, [4, 4, 5, 7, 8, 10, 6, 2], "fire", "fishing", { food: 34 }),
   m("leviathan_fillet", "Leviathan Fillet", "🐋", 9, [6, 9, 4, 6, 7, 10, 9, 5], "water", "fishing", { food: 36 }),
+  m("leviathan_pearl", "Leviathan Pearl", "🦪", 10, [7, 8, 0, 1, 9, 10, 8, 3], "water", "fishing", { food: 40 }),
   // dungeon veins
   m("mana_crystal", "Mana Crystal", "🔮", 2, [5, 3, 3, 1, 9, 10, 3, 2], "void", "mining"),
   m("obsidian", "Obsidian", "🖤", 4, [8, 7, 10, 0, 2, 4, 3, 6], "fire", "mining"),
@@ -179,6 +190,25 @@ const LIST: Material[] = [
 export const MATERIALS: Record<string, Material> = Object.fromEntries(LIST.map((x) => [x.id, x]));
 export const getMat = (id: string): Material => MATERIALS[id] ?? LIST[0]!;
 export const tierMult = (t: number) => Math.pow(2.25, t);
+
+// ---------- weapon roles: what part a material plays in a weapon (drives the weapon archetype) ----------
+export type MatRole = "wood" | "metal" | "stone" | "bone" | "gem" | "hide" | "other";
+const ROLE_OVERRIDE: Record<string, MatRole> = {
+  stone: "stone", obsidian: "stone", golem_heart: "stone", mana_crystal: "gem", pearl: "gem", leviathan_pearl: "gem",
+  frost_shard: "gem", fire_core: "gem", star_shard: "gem", abyss_eye: "gem", eternity_core: "gem", wraith_essence: "gem",
+  lich_dust: "gem", phoenix_ash: "gem", guardian_sigil: "metal", warden_crest: "metal", shell: "stone", ancient_schematic: "other",
+};
+const RAW_OF: Record<string, string> = Object.fromEntries(LIST.filter((x) => x.refine).map((x) => [x.refine!.to, x.id]));
+export function matRole(id: string): MatRole {
+  const o = ROLE_OVERRIDE[id]; if (o) return o;
+  const mt = getMat(id); const src = mt.src === "refined" && RAW_OF[id] ? getMat(RAW_OF[id]!).src : mt.src;
+  if (src === "tree") return "wood";
+  if (src === "mining") return "metal";
+  if (/bone|fang|tooth|tusk|horn|antler/.test(id)) return "bone";
+  if (/scale|pelt|silk|wing|plume|feather|hide|leather|wool|fleece|cloth|weave|cocoon|fletching|down/.test(id)) return "hide";
+  return "other";
+}
+export const ROLE_LABEL: Record<MatRole | "dark", string> = { wood: "Wood", metal: "Metal", stone: "Stone", bone: "Bone/Fang", gem: "Gem/Crystal", hide: "Hide/Cloth", other: "Other", dark: "Dark element" };
 
 // ---------- village resources ----------
 export const TREES: Record<string, { mat: string; lvl: number; icon: string; name: string }> = {

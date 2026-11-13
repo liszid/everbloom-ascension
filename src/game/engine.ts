@@ -3,11 +3,14 @@ import { RACE_CLASS, raceMastery } from "./raceClasses";
 import { CAPTURE_HP, HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, compLevel, rentPrice, techGold, techId, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { BLDG_MAX, bldgCost, blessBattles, churchDisc, guildMult, restPct, storageCap, ammoFor, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, BASE_SIGHT, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
-import { SPOTS, SPOT_MAX, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
+import { SPOTS, SPOT_MAX, legacyKeep, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
+import { ARCH, rankArchetypes, type ArchDim, type ArchId } from "./archetypes";
+import { RECIPE } from "./recipes";
+import { OFFHAND_MAX, isHeldTool, offhandFx, offhandUpCost } from "./items";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
   MONSTERS, ORES, PCT_STATS, POND, PROPS, RACES, SKILLS, SLOTS, SLOT_INFO, STAT_KEYS, TREES, VEINS, VILLAGE_MAP, MATERIALS,
-  getMat, tierMult, zeroStats,
+  getMat, matRole, tierMult, zeroStats,
   type Element, type MonsterDef, type Prop, type RefineStation, type Slot, type StatKey, type Stats,
 } from "./data";
 
@@ -22,6 +25,7 @@ export interface Gear {
   id: string; name: string; slot: Slot; grade: number; base: Stats; element: Element;
   effects: { id: EffectId; v: number }[]; materials: { id: string; qty: number }[]; avgTier: number;
   dura: number; maxDura: number; enh: number; crafted: number; ench?: { el: Element; v: number } | undefined;
+  /** Weapon archetype picked from the material mix (weapons only). */ arch?: ArchId | undefined;
 }
 export interface Food { name: string; icon: string; heal: number; qty: number; tier: number }
 export interface Mon {
@@ -67,7 +71,25 @@ export interface GameState {
   companions?: Companion[] | undefined; techs?: string[] | undefined;
   magic?: Partial<Record<SchoolId, number>> | undefined; spells?: string[] | undefined;
   tools?: Record<string, number> | undefined; ranged?: RangedId | undefined; prayed?: boolean | undefined; faith?: number | undefined;
+  /** Gathering materials unlocked under the old (pre-Lv 100) spot levels, kept so saves never lose access. */
+  spotKeep?: Partial<Record<SpotId, string[]>> | undefined;
+  /** Grade (0 Common … 7 EX) of each Craftery torch / ranged weapon. */ toolGrades?: Record<string, number> | undefined;
+  /** Active Kitchen recipe buff and how many more floors it lasts. */ meal?: { id: string; floors: number } | undefined;
 }
+
+/** One-time save upgrades for older saves. Returns true when something changed. */
+export function migrateSave(s: GameState): boolean {
+  let changed = false;
+  if (!s.spotKeep) {
+    const keep: Partial<Record<SpotId, string[]>> = {};
+    for (const id of Object.keys(SPOTS) as SpotId[]) { const k = legacyKeep(id, spotLevel(s.spots, id)); if (k.length) keep[id] = k; }
+    s.spotKeep = keep; changed = true;
+  }
+  return changed;
+}
+/** Materials the player can gather at a spot right now. */
+export const spotMatsFor = (s: GameState, id: SpotId) => spotMats(id, spotLevel(s.spots, id), s.spotKeep?.[id]);
+export const toolGrade = (s: GameState, id: string) => Math.max(0, Math.min(OFFHAND_MAX, s.toolGrades?.[id] ?? 0));
 
 // ======================= utils =======================
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -239,7 +261,7 @@ export function newGame(char: GameState["char"]): GameState {
     log: [`Welcome to Thornvale, ${char.name}. The Tower looms to the south.`], notes: [],
     stats: {}, usage: { weapon: {}, skill: {}, mat: {}, monster: {} }, ach: {}, titles: [], decos: [],
     classId: "adventurer", className: "Adventurer", classHistory: [], classesSeen: ["Adventurer"],
-    quests: [], marketSeed: Date.now(), casinoPlays: 0, agiFix: true, relentlessUsed: false, playTime: 0, createdAt: Date.now(),
+    quests: [], marketSeed: Date.now(), casinoPlays: 0, agiFix: true, relentlessUsed: false, playTime: 0, createdAt: Date.now(), spotKeep: {},
   };
   const c = computeClass(s); s.classId = c.id; s.className = c.name; s.classesSeen = [c.name];
   const p = playerStats(s); s.hp = p.hp; s.mp = p.mp; s.sta = p.sta;
@@ -251,7 +273,7 @@ export function newGame(char: GameState["char"]): GameState {
 export interface PStats extends Stats {
   element: Element; effects: Record<EffectId, number>; weaponSkill: string; magicWeapon: boolean;
   craftEff: number; gatherEff: number; itemFind: number; rareDrop: number; level: number;
-  enchDmg: number; wardEl: Element; wardV: number;
+  enchDmg: number; wardEl: Element; wardV: number; wards: Partial<Record<Element, number>>;
 }
 export const gearStats = (g: Gear): Stats => {
   const m = (1 + g.enh * 0.08) * (g.dura <= 0 ? 0.5 : 1);
@@ -261,6 +283,19 @@ export const gearStats = (g: Gear): Stats => {
 };
 export const equipped = (s: GameState) => SLOTS.map((sl) => s.gear.find((g) => g.id === s.equip[sl])).filter((g): g is Gear => !!g);
 
+/**
+ * Stats a Craftery torch or ranged weapon adds at a grade. Modelled on a crafted item of matching tier and grade
+ * (about 75% of a shield's defense plus some attack), so holding one instead of a shield costs little.
+ */
+export function offhandStats(id: string, g: number): Stats {
+  const t = TOOL[id]; const out = zeroStats(); if (!t || !isHeldTool(t)) return out;
+  const gg = Math.max(0, Math.min(OFFHAND_MAX, g));
+  const tier = Math.min(10, Math.max(((t.lvl ?? 1) - 1) * 0.5, GRADE_GATES[gg]![0]) + 0.5);
+  const P = 23.4 * tierMult(tier) * GRADE_MULT[gg]!; const torch = t.kind === "torch";
+  out.pdef = 0.495 * P * 1.05; out.mdef = 0.36 * P * 0.68; out.hp = 5.06 * P * 0.45;
+  out.patk = 1.15 * P * (torch ? 0.25 : 0.4); out.matk = 1.05 * P * (torch ? 0.4 : 0.15);
+  return out;
+}
 export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   const L = charLevel(s.xp);
   const st: Stats = {
@@ -279,6 +314,12 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
       if (g.ench) { element = g.ench.el; enchDmg = g.ench.v; }
     }
     if (g.slot === "shield" && g.ench) { wardEl = g.ench.el; wardV = Math.min(50, g.ench.v * 2); st.pdef *= 1.05; st.mdef *= 1.05; }
+  }
+  const wards: Partial<Record<Element, number>> = {};
+  if (s.ranged && isHeldTool(TOOL[s.ranged])) {
+    const g = toolGrade(s, s.ranged); const os = offhandStats(s.ranged, g);
+    for (const k of STAT_KEYS) st[k] += os[k];
+    const fw = offhandFx(TOOL[s.ranged]!, g).fireWard; if (fw) wards.fire = (wards.fire ?? 0) + fw;
   }
   const sk = (k: string) => lvl(s, k) - 1;
   st.patk *= 1 + sk(weaponSkill) * 0.015;
@@ -302,6 +343,13 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   const asc = ASC_RACES.find((r) => r.id === s.char.race); if (asc) for (const [e, v] of Object.entries(asc.fx)) effects[e as EffectId] += v;
   for (const [e, v] of Object.entries(kit.effects)) effects[e as EffectId] += v;
   if (s.blessing && s.blessing.left > 0) { const b = BLESSINGS[s.blessing.id]; const { luck, ...rest } = b.mods; applyMods(rest); if (luck) st.luck += 25; }
+  const meal = s.meal ? RECIPE[s.meal.id] : undefined;
+  if (meal) {
+    applyMods(meal.mods);
+    if (meal.regen) effects.regen += meal.regen * 2; // effects.regen heals half its value per turn
+    if (meal.mana) effects.manaflow += meal.mana;
+    if (meal.ward) wards[meal.ward.el] = (wards[meal.ward.el] ?? 0) + meal.ward.pct;
+  }
   const ail = s.ailments ?? {};
   if (ail.weakened) { st.patk *= 0.85; st.matk *= 0.85; }
   if (ail.cursed) { st.pdef *= 0.9; st.mdef *= 0.9; st.luck -= 10; st.crit -= 5; }
@@ -311,7 +359,7 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   st.crit = Math.min(75, st.crit); st.dodge = Math.max(0, Math.min(60, st.dodge)); effects.guard = Math.min(50, effects.guard);
   for (const k of ["hp", "mp", "sta"] as StatKey[]) st[k] = Math.round(st[k]);
   return {
-    ...st, element, effects, weaponSkill, magicWeapon, level: L, enchDmg, wardEl, wardV,
+    ...st, element, effects, weaponSkill, magicWeapon, level: L, enchDmg, wardEl, wardV, wards,
     craftEff: 1 + sk("smithing") * 0.01 + affLevel(s.aff["crafting"] ?? 0) * 0.01,
     gatherEff: 1 + affLevel(s.aff["nature"] ?? 0) * 0.01 + (s.char.race === "dwarf" ? 0.1 : 0),
     itemFind: 1 + st.luck / 200 + (s.char.race === "elf" ? 0.2 : 0),
@@ -340,6 +388,17 @@ export function spend(s: GameState, n: number) { if (s.gold < n) return false; s
 const PROP_IDX = (np: Record<Prop, number>) => PROPS.slice().sort((a, b) => np[b] - np[a]);
 const EL_EFFECT: Partial<Record<Element, EffectId>> = { fire: "burn", dark: "lifesteal", nature: "regen", earth: "guard", void: "pierce", wind: "haste", light: "holy", water: "manaflow" };
 
+/** Material mix by weapon role (quantity of each role; dark-element materials also count as "dark"). */
+export function archMix(mats: { id: string; qty: number }[]): Partial<Record<ArchDim, number>> {
+  const mix: Partial<Record<ArchDim, number>> = {};
+  for (const { id, qty } of mats) {
+    if (qty <= 0) continue;
+    const r = matRole(id); if (r !== "hide" && r !== "other") mix[r] = (mix[r] ?? 0) + qty;
+    if (getMat(id).element === "dark") mix.dark = (mix.dark ?? 0) + qty;
+  }
+  return mix;
+}
+export const archRanking = (mats: { id: string; qty: number }[]) => rankArchetypes(archMix(mats));
 export function craftPreview(mats: { id: string; qty: number }[], slot: Slot, s: GameState) {
   const list = mats.filter((x) => x.qty > 0);
   const qty = list.reduce((a, b) => a + b.qty, 0);
@@ -403,10 +462,20 @@ export function craftPreview(mats: { id: string; qty: number }[], slot: Slot, s:
   if (grade >= 4 && np.cond >= 7) effects.push({ id: "manaflow", v: 1 + grade * 0.5 });
   const maxDura = Math.round((np.dura * 10 + np.hard * 4 + 20) * (1 + grade * 0.2));
   const top = list.slice().sort((a, b) => b.qty * tierMult(getMat(b.id).tier) - a.qty * tierMult(getMat(a.id).tier))[0];
+  const weapon = slot === "one_hand" || slot === "two_hand";
+  const ranks = weapon ? archRanking(list) : [];
+  const arch: ArchId | undefined = weapon ? ranks[0]?.a.id ?? (np.magic >= 5 ? "staff" : "sword") : undefined;
+  if (arch) {
+    const a = ARCH[arch];
+    for (const [k, v] of Object.entries(a.mods) as [StatKey, number][]) {
+      if (k === "patk" || k === "matk" || k === "mp" || k === "hp") base[k] *= 1 + v; else base[k] += v;
+    }
+    for (const e of a.effects ?? []) { const ex = effects.find((x) => x.id === e.id); if (ex) ex.v += e.v; else effects.push({ ...e }); }
+  }
   const nouns = SLOT_INFO[slot].nouns;
-  const noun = nouns[PROPS.indexOf(PROP_IDX(np)[0]!) % nouns.length]!;
+  const noun = arch ? (slot === "two_hand" ? ARCH[arch].two : ARCH[arch].one) : nouns[PROPS.indexOf(PROP_IDX(np)[0]!) % nouns.length]!;
   const name = top ? `${getMat(top.id).name.split(" ")[0]} ${noun}` : noun;
-  return { name, grade, scoreIdx, cap, reasons, needMore, base, element, effects, maxDura, avgTier, qty, kinds, hasSchematic };
+  return { name, grade, scoreIdx, cap, reasons, needMore, base, element, effects, maxDura, avgTier, qty, kinds, hasSchematic, arch, ranks };
 }
 
 export function craftGear(s: GameState, mats: { id: string; qty: number }[], slot: Slot) {
@@ -419,7 +488,7 @@ export function craftGear(s: GameState, mats: { id: string; qty: number }[], slo
   const base = zeroStats();
   for (const k of STAT_KEYS) base[k] = pv.base[k] * rand(0.9, 1.1);
   const g: Gear = { id: uid(), name: pv.name, slot, grade: pv.grade, base, element: pv.element, effects: pv.effects,
-    materials: list.map((x) => ({ ...x })), avgTier: pv.avgTier, dura: pv.maxDura, maxDura: pv.maxDura, enh: 0, crafted: Date.now() };
+    materials: list.map((x) => ({ ...x })), avgTier: pv.avgTier, dura: pv.maxDura, maxDura: pv.maxDura, enh: 0, crafted: Date.now(), arch: pv.arch };
   s.gear.push(g);
   bump(s, "crafted"); if (g.grade >= 4) bump(s, "craftedLegendary"); if (g.grade >= 6) bump(s, "craftedRelic"); if (g.grade >= 7) bump(s, "craftedEX");
   addXp(s, "smithing", (4 + pv.qty) * (1 + g.grade * 0.6) * (1 + pv.avgTier * 0.3));
@@ -514,6 +583,24 @@ export function cook(s: GameState, mats: { id: string; qty: number }[]) {
   bump(s, "foodCooked", pv.servings); addXp(s, "cooking", 4 + pv.qty * 2); addAff(s, "culinary", 2 + pv.kinds);
   log(s, `🍳 Cooked ${pv.servings}× ${pv.name} (+${pv.heal} HP).`);
 }
+/** Cook a Kitchen recipe and eat it straight away: its buff replaces any current meal and lasts its number of floors. */
+export function cookRecipe(s: GameState, id: string): boolean {
+  const r = RECIPE[id]; if (!r) return false;
+  if (lvl(s, "cooking") < r.cook) { log(s, `❌ Needs Cooking Lv ${r.cook}.`); return false; }
+  if (r.ing.some(([m, q]) => (s.inv[m] ?? 0) < q)) { log(s, `❌ Missing ingredients for ${r.name}.`); return false; }
+  for (const [m, q] of r.ing) takeMat(s, m, q);
+  s.meal = { id, floors: r.floors };
+  const p = playerStats(s); s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * 0.3)); s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * 0.3));
+  const n = r.ing.reduce((a, [, q]) => a + q, 0);
+  bump(s, "foodCooked"); addXp(s, "cooking", 6 + n * 2); addAff(s, "culinary", 3 + r.ing.length);
+  log(s, `${r.icon} You cook and eat ${r.name} — ${r.desc} for ${r.floors} floors.`); return true;
+}
+/** A floor of the Tower has passed: meal buffs count down. */
+function tickMeal(s: GameState) {
+  if (!s.meal) return;
+  s.meal = { ...s.meal, floors: s.meal.floors - 1 };
+  if (s.meal.floors <= 0) { log(s, `🍽️ ${RECIPE[s.meal.id]?.name ?? "Your meal"} wore off.`); s.meal = undefined; }
+}
 export function eatFood(s: GameState, idx: number) {
   const f = s.foods[idx]; if (!f) return 0;
   const p = playerStats(s);
@@ -580,7 +667,7 @@ export function gather(s: GameState, x: number, y: number): boolean {
 /** One repeatable gathering action at a village spot. Costs stamina, no cooldown. */
 export function gatherSpot(s: GameState, id: SpotId, mat: string): boolean {
   const L = spotLevel(s.spots, id);
-  if (!spotMats(id, L).includes(mat)) { log(s, `🔒 Upgrade the ${SPOTS[id].name} to gather that.`); return false; }
+  if (!spotMatsFor(s, id).includes(mat)) { log(s, `🔒 Upgrade the ${SPOTS[id].name} to gather that.`); return false; }
   if (s.sta < 2) { log(s, "😮‍💨 Too tired. Eat or rest at home."); return false; }
   s.sta -= 2; s.step++;
   const def = SPOTS[id]; const sk = lvl(s, def.skill); const tier = getMat(mat).tier;
@@ -593,6 +680,7 @@ export function gatherSpot(s: GameState, id: SpotId, mat: string): boolean {
 }
 export function upgradeSpot(s: GameState, id: SpotId): boolean {
   const L = spotLevel(s.spots, id); if (L >= SPOT_MAX) return false;
+  migrateSave(s);
   const c = spotUpgradeCost(id, L);
   if (s.gold < c.gold || (s.inv[c.mat] ?? 0) < c.qty) { log(s, `❌ Need ${c.gold.toLocaleString()}g and ${c.qty}× ${getMat(c.mat).name}.`); return false; }
   spend(s, c.gold); takeMat(s, c.mat, c.qty);
@@ -827,6 +915,19 @@ export function craftTool(s: GameState, id: string, times = 1): boolean {
   if (!made) { log(s, `❌ Missing materials or gold for ${t.name}.`); return false; }
   log(s, `🪤 Crafted ${t.makes * made}× ${t.name}.`); return true;
 }
+/** Raise a crafted torch or ranged weapon one grade (Common → EX). */
+export function upgradeOffhand(s: GameState, id: string): boolean {
+  const t = TOOL[id]; if (!t || !isHeldTool(t) || !(s.tools?.[id] ?? 0)) return false;
+  const g = toolGrade(s, id); if (g >= OFFHAND_MAX) return false;
+  const c = offhandUpCost(t, g + 1);
+  if (bldgLvl(s, "craftery") < c.lvl) { log(s, `❌ Needs Craftery Lv ${c.lvl}.`); return false; }
+  if (s.gold < c.gold || c.mats.some(([m, q]) => (s.inv[m] ?? 0) < q)) { log(s, `❌ Missing gold or materials to upgrade ${t.name}.`); return false; }
+  spend(s, c.gold); for (const [m, q] of c.mats) takeMat(s, m, q);
+  s.toolGrades = { ...s.toolGrades, [id]: g + 1 };
+  addXp(s, "smithing", 10 * (g + 1)); addAff(s, "crafting", 2 + g);
+  log(s, `⬆️ ${t.name} is now ${GRADES[g + 1]}!`); if (g + 1 >= 4) note(s, `🌟 ${t.name} reached ${GRADES[g + 1]}!`);
+  return true;
+}
 export function equipRanged(s: GameState, id: RangedId | undefined) {
   if (id && !(s.tools?.[id] ?? 0)) return false;
   if (id && s.equip.two_hand) { log(s, "❌ Two-handed weapons leave no hand free."); return false; }
@@ -836,7 +937,7 @@ export function equipRanged(s: GameState, id: RangedId | undefined) {
 }
 /** Torch held in the off-hand, if any (torches share the off-hand with shields and ranged weapons). */
 export const heldTorch = (s: GameState) => (s.ranged && TOOL[s.ranged]?.kind === "torch" ? TOOL[s.ranged] : undefined);
-export const sightRadius = (s: GameState) => BASE_SIGHT + (heldTorch(s)?.sight ?? 0);
+export const sightRadius = (s: GameState) => { const t = heldTorch(s); return BASE_SIGHT + (t ? offhandFx(t, toolGrade(s, t.id)).sight : 0); };
 export function placeTrap(s: GameState, id: string, x: number, y: number): boolean {
   const d = s.dungeon; const t = TOOL[id];
   if (!d || !t || t.kind !== "trap" || !(s.tools?.[id] ?? 0)) return false;
@@ -979,7 +1080,7 @@ export function enterDungeon(s: GameState, f: number) {
 }
 /** Move to another floor without leaving the Tower; the expedition bag stays with you. */
 function changeFloor(s: GameState, f: number, fromAbove: boolean) {
-  tickRentals(s);
+  tickRentals(s); tickMeal(s);
   const { d, start } = genDungeon(f);
   s.dungeon = d; s.combat = undefined; s.relentlessUsed = false; s.step += 60; learnSpells(s);
   if (fromAbove) {
@@ -1014,6 +1115,7 @@ export function climbDown(s: GameState) {
   return true;
 }
 export function leaveDungeon(s: GameState, keepLoot: boolean) {
+  if (s.dungeon) tickMeal(s);
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
   s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
   s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; learnSpells(s); tickRentals(s); rerollQuestsIfDone(s);
@@ -1097,9 +1199,10 @@ function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { mag
 /** Torch fire strike (on attack and when defending) plus its special effect. */
 function torchStrike(s: GameState, c: Combat, p: PStats, label: string) {
   const t = heldTorch(s); const m = c.mon; if (!t || m.hp <= 0) return;
-  const d = playerHit(s, c, p, t.fire ?? 0.3, { magic: p.matk >= p.patk, el: "fire", sure: true, label });
+  const fx = offhandFx(t, toolGrade(s, t.id));
+  const d = playerHit(s, c, p, fx.fire || 0.3, { magic: p.matk >= p.patk, el: "fire", sure: true, label });
   if (AFF_BY_ID["fire"]) addAff(s, "fire", 0.3);
-  if (!d || m.hp <= 0 || !t.fx || Math.random() * 100 >= (t.chance ?? 100)) return;
+  if (!d || m.hp <= 0 || !t.fx || Math.random() * 100 >= fx.chance) return;
   switch (t.fx) {
     case "sleep": c.stun = Math.max(c.stun, m.boss ? 1 : 2); clog(c, `💤 ${m.name} is lulled to sleep!`); break;
     case "siphon": { const h = Math.round(d * 0.6); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); clog(c, `🩸 The torch siphons ${h} HP.`); break; }
@@ -1174,7 +1277,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (!r || !def || !(s.tools?.[ammo] ?? 0)) { clog(c, "No ammunition!"); c.turn--; return null; }
     s.tools = { ...s.tools, [ammo]: s.tools![ammo]! - 1 };
     const pp = def.pierce ? { ...p, effects: { ...p.effects, pierce: p.effects.pierce + def.pierce } } : p;
-    playerHit(s, c, pp, def.mult ?? 1.4, { magic: false, el: r === "laser" ? "light" : undefined, label: def.name });
+    playerHit(s, c, pp, offhandFx(def, toolGrade(s, r)).mult, { magic: false, el: r === "laser" ? "light" : undefined, label: def.name });
     addXp(s, "hunting", 4); addAff(s, "hunting", 1);
   } else if ("tool" in a) {
     const t = TOOL[a.tool]; if (!t || t.kind !== "throw" || !(s.tools?.[t.id] ?? 0)) { c.turn--; return null; }
@@ -1231,6 +1334,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
         if (c.stoneskin > 0) dmg *= 0.5;
         dmg *= 1 - p.effects.guard / 100;
         if (p.wardEl !== "none" && m.element === p.wardEl) dmg *= 1 - p.wardV / 100;
+        if (p.wards[m.element]) dmg *= 1 - Math.min(60, p.wards[m.element]!) / 100;
         if (s.char.race === "tiefling" && m.element === "fire") dmg *= 0.7;
         if (s.char.race === "aasimar" && m.element === "dark") dmg *= 0.7;
         dmg = Math.max(1, Math.round(dmg));
