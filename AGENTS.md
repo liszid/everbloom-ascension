@@ -13,7 +13,7 @@
 - Building and monster artwork uses browser-safe procedural SVG modules with palette tokens in src/styles.css so gameplay and presentation remain separate.
 - Mobile map width follows available horizontal space; short screens scroll vertically instead of compressing the map.
 - The map renders one extra ring of tiles inside a sliding inner grid so camera and sprite moves animate between tiles (Web Animations in Game.tsx); gameplay stays tile-based.
-- Village gathering spots are data-driven in src/game/gathering.ts (spot level gates materials; unlock levels may only move earlier so saves never lose access); refine stations (carve/smelt/tan) are a Material.refine field so new workshops need no engine changes; merged buildings reuse existing panels via a shared tab strip in Game.tsx GROUPS.
+- Village gathering spots are data-driven in src/game/gathering.ts (unlock level derives from material tier; when unlock levels move later, migrateSave records grandfathered materials in GameState.spotKeep so saves never lose access); refine stations (carve/smelt/tan) are a Material.refine field so new workshops need no engine changes; merged buildings reuse existing panels via a shared tab strip in Game.tsx GROUPS.
 - Church services and Craftery item definitions live as pure data in src/game/items.ts; engine.ts applies them so UI and rules stay separate.
 - Magic schools, spells and ascended races are pure data in src/game/magic.ts; progress counters live in GameState.stats.
 - Guild companions, trainers and pricing are pure data in src/game/guild.ts; companion stats derive from shared player gear/titles via engine.compStats.
@@ -25,3 +25,5 @@
 - The app's MCP server lives in src/lib/mcp (one tool per file, registered in index.ts) and verifies managed-auth OAuth tokens; tools read game_saves only through the caller-scoped client so RLS keeps each player to their own save, and stay read-only because the browser autosave would overwrite server-side edits.
 - Browser-agent (WebMCP) tools for the on-screen hero are registered in src/game/AgentTools.tsx, separate from the MCP server.
 - Sign-in return targets go through oauthReturnPath; social/email sign-in lands on the public /login page, which forwards to `next` once the session exists.
+- Weapon archetypes (ideal material-role mixes, traits) are pure data in src/game/archetypes.ts and Kitchen recipes/meal buffs in src/game/recipes.ts; material roles derive from Material.src via data.matRole so new materials need no tagging.
+- Craftery torches/ranged weapons stay stackable tool counts; their grade lives in GameState.toolGrades and engine.offhandStats derives stats from it, so no Gear objects or bag slots are needed.

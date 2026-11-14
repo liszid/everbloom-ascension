@@ -2,7 +2,7 @@
 import type { GameState } from "./engine";
 import { TOOL } from "./items";
 
-export type WeaponShape = "sword" | "dagger" | "mace" | "wand" | "great" | "hammer" | "halberd" | "staff";
+export type WeaponShape = "sword" | "dagger" | "mace" | "wand" | "great" | "hammer" | "halberd" | "staff" | "axe" | "scythe" | "spear";
 export interface Held {
   main?: { shape: WeaponShape; two: boolean; el: string; grade: number } | undefined;
   off?: { kind: "shield"; grade: number; el: string } | { kind: "torch"; id: string } | { kind: "ranged"; id: string } | undefined;
@@ -12,8 +12,14 @@ const EL: Record<string, string> = { fire: "#ff7a2a", water: "#4ac0ff", wind: "#
 const GRADE_METAL = ["#b8bec8", "#cfd8e2", "#9fd0ff", "#c99cff", "#ffd36a", "#ff8a6a", "#7affd8", "#ffffff"];
 const FLAME: Record<string, string> = { torch: "#ff9a2a", alluring_torch: "#ff7ac8", siphon_torch: "#e0203a", blinding_torch: "#fff07a", witch_torch: "#7ae05a", frost_torch: "#7ae0ff", soul_torch: "#b0a0ff", dragon_torch: "#ff4a1a" };
 
-function shapeOf(name: string, two: boolean): WeaponShape {
+const ARCH_SHAPE: Record<string, [WeaponShape, WeaponShape]> = {
+  sword: ["sword", "great"], axe: ["axe", "axe"], scythe: ["scythe", "scythe"], hammer: ["mace", "hammer"], spear: ["spear", "halberd"], staff: ["wand", "staff"], dagger: ["dagger", "dagger"],
+};
+function shapeOf(name: string, two: boolean, arch?: string): WeaponShape {
+  const a = arch ? ARCH_SHAPE[arch] : undefined; if (a) return two ? a[1] : a[0];
   const n = name.toLowerCase();
+  if (/axe/.test(n)) return "axe";
+  if (/scythe|sickle/.test(n)) return "scythe";
   if (two) return /hammer/.test(n) ? "hammer" : /halberd|spear|pike/.test(n) ? "halberd" : /staff/.test(n) ? "staff" : "great";
   return /mace|club/.test(n) ? "mace" : /wand|rod/.test(n) ? "wand" : /dagger|knife/.test(n) ? "dagger" : "sword";
 }
@@ -25,7 +31,7 @@ export function heldGearOf(s: GameState): Held {
   const w = two ?? one;
   const el = (x?: { ench?: { el: string } | undefined; element: string }) => x?.ench?.el ?? x?.element ?? "none";
   const held: Held = {};
-  if (w) held.main = { shape: shapeOf(w.name, !!two), two: !!two, el: el(w), grade: w.grade };
+  if (w) held.main = { shape: shapeOf(w.name, !!two, w.arch), two: !!two, el: el(w), grade: w.grade };
   if (sh) held.off = { kind: "shield", grade: sh.grade, el: el(sh) };
   else if (s.ranged && TOOL[s.ranged]) held.off = TOOL[s.ranged]!.kind === "torch" ? { kind: "torch", id: s.ranged } : { kind: "ranged", id: s.ranged };
   return held;
@@ -43,6 +49,9 @@ function Weapon({ m }: { m: NonNullable<Held["main"]> }) {
     case "staff": body = <><rect x={-1.8} y={-38} width={3.6} height={50} rx={1.5} fill={wood} {...st} /><circle cx={0} cy={-40} r={5.5} fill={glow ?? "#9ad0ff"} {...st} /></>; break;
     case "hammer": body = <><rect x={-1.8} y={-30} width={3.6} height={42} fill={wood} {...st} /><rect x={-10} y={-40} width={20} height={11} rx={2} fill={metal} {...st} /></>; break;
     case "halberd": body = <><rect x={-1.6} y={-38} width={3.2} height={50} fill={wood} {...st} /><path d="M0 -48 L3 -38 L-3 -38 Z" fill={metal} {...st} /><path d="M1.6 -36 Q12 -32 10 -22 L1.6 -26 Z" fill={metal} {...st} /></>; break;
+    case "axe": body = <g transform={m.two ? "scale(1.25)" : undefined}><rect x={-1.8} y={-28} width={3.6} height={38} rx={1} fill={wood} {...st} /><path d="M1.8 -28 Q15 -27 14 -13 Q8 -16 1.8 -16 Z" fill={metal} {...st} /></g>; break;
+    case "scythe": body = <><rect x={-1.6} y={m.two ? -40 : -24} width={3.2} height={m.two ? 52 : 34} rx={1} fill={wood} {...st} /><path d={m.two ? "M0 -40 Q-22 -44 -27 -26 Q-16 -36 0 -34 Z" : "M0 -24 Q-14 -28 -17 -14 Q-10 -21 0 -19 Z"} fill={metal} {...st} /></>; break;
+    case "spear": body = <><rect x={-1.4} y={-32} width={2.8} height={42} fill={wood} {...st} /><path d="M0 -42 L3.4 -32 L-3.4 -32 Z" fill={metal} {...st} /></>; break;
     case "great": body = <><path d="M-3.4 -40 L0 -46 L3.4 -40 L3.4 -2 L-3.4 -2 Z" fill={metal} {...st} /><rect x={-9} y={-3} width={18} height={4} rx={1.5} fill={gold} {...st} /><rect x={-1.8} y={1} width={3.6} height={10} fill={wood} {...st} /></>; break;
     default: body = <><path d="M-2.6 -28 L0 -33 L2.6 -28 L2.6 -3 L-2.6 -3 Z" fill={metal} {...st} /><rect x={-7.5} y={-4} width={15} height={3.5} rx={1.4} fill={gold} {...st} /><rect x={-1.6} y={-0.5} width={3.2} height={8} fill={wood} {...st} /></>;
   }

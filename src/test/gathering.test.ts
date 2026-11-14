@@ -1,35 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { SPOTS, SPOT_MAX, spotMats, type SpotId } from "@/game/gathering";
+import { SPOTS, SPOT_MAX, legacyKeep, spotMats, spotUpgradeCost, type SpotId } from "@/game/gathering";
 import { MATERIALS, getMat } from "@/game/data";
+import { gatherSpot, migrateSave, newGame, spotMatsFor } from "@/game/engine";
 
 const ids = Object.keys(SPOTS) as SpotId[];
 
 describe("gathering spot levels", () => {
-  it("mine gives stone at L1, copper at L3, iron at L5, silver at L10", () => {
-    expect(spotMats("mine", 1)).toEqual(["stone"]);
-    expect(spotMats("mine", 2)).not.toContain("copper_ore");
-    expect(spotMats("mine", 3)).toContain("copper_ore");
-    expect(spotMats("mine", 4)).not.toContain("iron_ore");
-    expect(spotMats("mine", 5)).toContain("iron_ore");
-    expect(spotMats("mine", 9)).not.toContain("silver_ore");
-    expect(spotMats("mine", 10)).toContain("silver_ore");
+  it("spots go up to level 100", () => { expect(SPOT_MAX).toBe(100); });
+
+  it("a new tier opens every 10 levels: tier T unlocks at level T×10", () => {
+    for (const id of ids) for (const [m, l] of SPOTS[id].mats) expect(l, m).toBe(Math.max(1, getMat(m).tier * 10));
+    expect(spotMats("mine", 9)).not.toContain("iron_ore");
+    expect(spotMats("mine", 10)).toContain("iron_ore");
+    expect(spotMats("mine", 19)).not.toContain("silver_ore");
+    expect(spotMats("mine", 20)).toContain("silver_ore");
   });
 
-  it("every spot offers every tier from 0 to 9 by max level, unlocking in tier order", () => {
+  it("every spot offers every tier from 0 to 9 by Lv 90 and the forest and mine reach tier 10 at Lv 100", () => {
     for (const id of ids) {
-      const mats = SPOTS[id].mats;
-      for (const [m] of mats) expect(MATERIALS[m], `${id}: ${m}`).toBeDefined();
-      const tiers = new Set(spotMats(id, SPOT_MAX).map((m) => getMat(m).tier));
+      for (const [m] of SPOTS[id].mats) expect(MATERIALS[m], `${id}: ${m}`).toBeDefined();
+      const tiers = new Set(spotMats(id, 90).map((m) => getMat(m).tier));
       for (let t = 0; t <= 9; t++) expect(tiers.has(t), `${id} tier ${t}`).toBe(true);
-      const byLevel = [...mats].sort((a, b) => a[1] - b[1]).map(([m]) => getMat(m).tier);
-      expect(byLevel, id).toEqual([...byLevel].sort((a, b) => a - b));
-      expect(Math.max(...mats.map(([, l]) => l)), id).toBeLessThanOrEqual(SPOT_MAX);
     }
+    expect(getMat(spotMats("forest", 100).at(-1)!).tier).toBe(10);
+    expect(getMat(spotMats("mine", 100).at(-1)!).tier).toBe(10);
   });
 
-  it("existing unlocks never moved later than before", () => {
-    const old: Record<string, number> = { birch_log: 3, ironwood_log: 6, elder_log: 10, copper_ore: 3, iron_ore: 5, silver_ore: 10, gold_ore: 15, mithril_ore: 22, adamant_ore: 30, shell: 2, pearl: 6, eel: 12, wool: 3, milk: 5, hide: 5, bluebell: 3, nightshade: 7, moonpetal: 12 };
-    for (const id of ids) for (const [m, l] of SPOTS[id].mats) if (old[m]) expect(l, m).toBeLessThanOrEqual(old[m]!);
+  it("old saves keep materials they had unlocked under the old levels", () => {
+    expect(legacyKeep("mine", 30)).toContain("aetherium_ore");
+    const s = newGame({ name: "T", gender: "male", race: "human", bg: "farmer" });
+    delete s.spotKeep; s.spots = { mine: 10 };
+    migrateSave(s);
+    expect(spotMatsFor(s, "mine")).toEqual(expect.arrayContaining(["copper_ore", "iron_ore", "silver_ore"]));
+    s.sta = 100; expect(gatherSpot(s, "mine", "silver_ore")).toBe(true);
+    expect(gatherSpot(s, "mine", "gold_ore")).toBe(false);
+  });
+
+  it("new characters start with nothing grandfathered", () => {
+    const s = newGame({ name: "T", gender: "male", race: "human", bg: "farmer" });
+    expect(migrateSave(s)).toBe(false);
+    expect(spotMatsFor(s, "mine")).toEqual(["stone", "copper_ore"]);
+  });
+
+  it("upgrade cost grows smoothly to level 100", () => {
+    expect(spotUpgradeCost("mine", 1).gold).toBe(40);
+    expect(spotUpgradeCost("mine", 99).gold).toBeLessThan(200000);
+    for (let l = 2; l < 100; l++) expect(spotUpgradeCost("mine", l).gold).toBeGreaterThan(spotUpgradeCost("mine", l - 1).gold);
   });
 
   it("everything caught at the pond can be cooked", () => {
@@ -41,13 +57,15 @@ describe("gathering spot levels", () => {
       const mt = getMat(m);
       if (mt.food) continue;
       expect(mt.refine?.station, m).toBe("tan");
-      expect(getMat(mt.refine!.to).tier, m).toBe(mt.tier + 1);
+      expect(getMat(mt.refine!.to).tier, m).toBe(Math.min(10, mt.tier + 1));
     }
   });
 
-  it("the forest's best wood is tier 9 and refined woods never exceed tier 9", () => {
-    const top = spotMats("forest", SPOT_MAX).at(-1)!;
-    expect(getMat(top).tier).toBe(9);
-    for (const id of ids) for (const [m] of SPOTS[id].mats) { const r = getMat(m).refine; if (r) expect(getMat(r.to).tier, m).toBeLessThanOrEqual(9); }
+  it("tier-9 Aetherwood and Aetherium refine into tier-10 materials", () => {
+    expect(getMat(getMat("aether_log").refine!.to).tier).toBe(10);
+    expect(getMat("aether_log").refine!.station).toBe("carve");
+    expect(getMat(getMat("aetherium_ore").refine!.to).tier).toBe(10);
+    expect(getMat("aetherium_ore").refine!.station).toBe("smelt");
+    for (const id of ids) for (const [m] of SPOTS[id].mats) { const r = getMat(m).refine; if (r) expect(getMat(r.to).tier, m).toBeLessThanOrEqual(10); }
   });
 });

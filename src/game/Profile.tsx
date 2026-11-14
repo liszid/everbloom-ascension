@@ -65,7 +65,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
             {g
               ? <div className="mt-2"><GearCard g={g} equipped actions={<button className="pixel-btn py-2" onClick={() => onEquip(g.id)}>Unequip</button>} /><p className="text-xs text-muted-foreground">Grade {GRADES[g.grade]} · durability {g.dura}/{g.maxDura}</p></div>
               : <p className="mt-2 text-muted-foreground">Empty slot.{sel === "shield" && s.equip.two_hand ? " Two-handed weapon equipped." : ""}</p>}
-            {sel === "shield" && s.ranged && TOOL[s.ranged] && <p className="mt-1 text-sm">Readied: {TOOL[s.ranged]!.icon} <b>{TOOL[s.ranged]!.name}</b> <span className="text-xs text-muted-foreground">· {TOOL[s.ranged]!.desc}. Swap it at the Craftery; equipping a shield here puts it away.</span></p>}
+            {sel === "shield" && s.ranged && TOOL[s.ranged] && <p className="mt-1 text-sm">Readied: {TOOL[s.ranged]!.icon} <b>{TOOL[s.ranged]!.name}</b> <span className={`grade-${s.toolGrades?.[s.ranged] ?? 0}`}>{GRADES[s.toolGrades?.[s.ranged] ?? 0]}</span> <span className="text-xs text-muted-foreground">· {TOOL[s.ranged]!.desc}. Swap it at the Craftery; equipping a shield here puts it away.</span></p>}
             <h3 className="mt-2 text-accent">Available ({spare.length})</h3>
             {spare.map((x) => <GearCard key={x.id} g={x} actions={<button className="pixel-btn pixel-btn-primary py-2" onClick={() => onEquip(x.id)}>{g ? "Swap" : "Equip"}</button>} />)}
             {!spare.length && <p className="text-sm text-muted-foreground">No other gear of this type in your bag.</p>}

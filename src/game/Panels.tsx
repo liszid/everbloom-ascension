@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type Context, type ReactNode } from "react";
 import {
-  ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat,
+  ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat, matRole, ROLE_LABEL,
   type RefineStation, type Slot, type Stats,
 } from "./data";
 import {
@@ -10,6 +10,8 @@ import {
   bldgLvl, storageUsed, storageMax,
 } from "./engine";
 import { restPct } from "./items";
+import { ARCH, ARCHETYPES } from "./archetypes";
+import { RECIPES, RECIPE } from "./recipes";
 import { useGameConfirm } from "./Confirm";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "./Avatar";
@@ -79,7 +81,7 @@ export function GearCard({ g, actions, equipped }: { g: Gear; actions?: ReactNod
   );
 }
 
-function MatPicker({ s, sel, setSel, filter }: { s: GameState; sel: Record<string, number>; setSel: (f: (p: Record<string, number>) => Record<string, number>) => void; filter?: (id: string) => boolean }) {
+function MatPicker({ s, sel, setSel, filter, showRole }: { s: GameState; sel: Record<string, number>; setSel: (f: (p: Record<string, number>) => Record<string, number>) => void; filter?: (id: string) => boolean; showRole?: boolean }) {
   const ids = Object.keys(s.inv).filter((id) => (s.inv[id] ?? 0) > 0 && (!filter || filter(id))).sort((a, b) => getMat(b).tier - getMat(a).tier);
   if (!ids.length) return <p className="text-muted-foreground">No suitable materials.</p>;
   return (
@@ -90,7 +92,7 @@ function MatPicker({ s, sel, setSel, filter }: { s: GameState; sel: Record<strin
           <div key={id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/40 py-1 ${q ? "text-primary" : ""}`}>
             <div className="min-w-0">
               <div className="truncate">{mt.icon} {mt.name} <span className="text-muted-foreground">T{mt.tier} ×{have}</span> {ELEMENT_ICON[mt.element]}</div>
-              <div className="truncate text-xs text-muted-foreground">{PROPS.filter((p) => mt.props[p] >= 6).map((p) => PROP_LABEL[p]).join(" · ")}</div>
+              <div className="truncate text-xs text-muted-foreground">{showRole && <span className="text-accent">{ROLE_LABEL[matRole(id)]}{mt.element === "dark" ? " + Dark" : ""} · </span>}{PROPS.filter((p) => mt.props[p] >= 6).map((p) => PROP_LABEL[p]).join(" · ")}</div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <button className="pixel-btn h-9 w-9" disabled={!q} onClick={() => setSel((p) => ({ ...p, [id]: Math.max(0, q - 1) }))}>−</button>
@@ -128,6 +130,11 @@ export function ForgePanel({ s, onClose, onCraft, onEnhance, onRepair, onUpgrade
           {mats.length ? <>
             <div><GradeTag g={pv.grade} /> <span className={`grade-${pv.grade}`}>{pv.name}</span> {ELEMENT_ICON[pv.element]}</div>
             <div className="text-sm text-muted-foreground">{pv.kinds} kinds · {pv.qty} units · avg T{pv.avgTier.toFixed(1)} · 🔧 {pv.maxDura} · ±10% roll</div>
+            {pv.arch && <div className="my-1 border border-border/60 p-1.5 text-xs">
+              <div className="text-sm">{ARCH[pv.arch].icon} <b>{slot === "two_hand" ? ARCH[pv.arch].two : ARCH[pv.arch].one}</b> <span className="text-muted-foreground">· {ARCH[pv.arch].trait}</span></div>
+              {pv.ranks.length > 0 && <div className="text-muted-foreground">Closest mixes: {pv.ranks.slice(0, 3).map((r) => `${r.a.icon} ${slot === "two_hand" ? r.a.two : r.a.one} ${Math.round(r.match * 100)}%`).join(" · ")}</div>}
+              {pv.ranks.length === 0 && <div className="text-muted-foreground">No wood, metal, stone, bone or gem used — add some to steer the weapon type.</div>}
+            </div>}
             <StatLine stats={pv.base} />
             {pv.effects.length > 0 && <div className="text-sm text-accent">{pv.effects.map((e) => `${e.id} ${fmt(e.v)}%`).join(" · ")}</div>}
             {pv.cap < 7 && pv.reasons.length > 0 && <div className="text-xs text-muted-foreground">Next grade ({GRADES[pv.cap + 1]}) needs: {pv.reasons.join(", ")}</div>}
@@ -137,7 +144,11 @@ export function ForgePanel({ s, onClose, onCraft, onEnhance, onRepair, onUpgrade
             {s.gear.length >= GEAR_CAP ? "Gear bag full" : `Forge ${SLOT_INFO[slot].name}`}
           </button>
         </div>
-        <MatPicker s={s} sel={sel} setSel={setSel} filter={(id) => !getMat(id).seedOf} />
+        {(slot === "one_hand" || slot === "two_hand") && <details className="mb-2 text-xs text-muted-foreground"><summary className="cursor-pointer text-foreground">🧭 Weapon types — how the mix decides</summary>
+          <p className="my-1">Each material plays a role (its tag shows in the list below). The weapon type whose ideal mix is closest to yours wins. Quantities count, tiers don't. Dark-element materials also count as Dark.</p>
+          {ARCHETYPES.map((a) => <div key={a.id}>{a.icon} <b className="text-foreground">{a.one} / {a.two}</b>: {Object.entries(a.w).map(([k, v]) => `${ROLE_LABEL[k as keyof typeof ROLE_LABEL]} ×${v}`).join(", ")}</div>)}
+        </details>}
+        <MatPicker s={s} sel={sel} setSel={setSel} filter={(id) => !getMat(id).seedOf} showRole={slot === "one_hand" || slot === "two_hand"} />
       </>}
       {tab === "enh" && <div className="space-y-2">
         {!s.gear.length && <p className="text-muted-foreground">No gear yet.</p>}
@@ -192,6 +203,7 @@ export function BagPanel({ s, onClose, onEat, onEquip, onSell }: { s: GameState;
           </>} />); })}
       </div>}
       {tab === "food" && <>
+        <MealLine s={s} />
         {!s.foods.length && <p className="text-muted-foreground">No meals. Cook at the Kitchen 🍳 or buy at the Shop.</p>}
         {s.foods.map((f, i) => (
           <div key={i} className="flex items-center justify-between gap-2 border-b border-border/50 py-1">
@@ -204,17 +216,37 @@ export function BagPanel({ s, onClose, onEat, onEquip, onSell }: { s: GameState;
   );
 }
 
-export function KitchenPanel({ s, onClose, onCook }: { s: GameState; onClose: () => void; onCook: (m: { id: string; qty: number }[]) => void }) {
+export function MealLine({ s }: { s: GameState }) {
+  const r = s.meal ? RECIPE[s.meal.id] : undefined; if (!r || !s.meal) return null;
+  return <p className="mb-2 text-sm"><span className="text-accent">Meal buff:</span> {r.icon} {r.name} — {r.desc} · {s.meal.floors} floor{s.meal.floors === 1 ? "" : "s"} left</p>;
+}
+export function KitchenPanel({ s, onClose, onCook, onRecipe }: { s: GameState; onClose: () => void; onCook: (m: { id: string; qty: number }[]) => void; onRecipe: (id: string) => void }) {
+  const [tab, setTab] = useState<"book" | "free">("book");
   const [sel, setSel] = useState<Record<string, number>>({});
   const mats = Object.entries(sel).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty }));
   const pv = cookPreview(mats, s);
+  const ck = lvl(s, "cooking");
   return (
     <Sheet title="🍳 Kitchen" onClose={onClose}>
-      <div className="pixel-panel mb-2 p-2">
-        {pv.kinds ? <div>{pv.icon} {pv.servings}× {pv.name} · heals {fmt(pv.heal)}</div> : <p className="text-muted-foreground">Combine ingredients. More variety = tastier meals.</p>}
-        <button className="pixel-btn pixel-btn-primary mt-2 w-full py-3" disabled={!pv.kinds} onClick={() => { onCook(mats); setSel({}); }}>Cook</button>
-      </div>
-      <MatPicker s={s} sel={sel} setSel={setSel} filter={(id) => !!getMat(id).food} />
+      <Tabs tabs={[["book", "📖 Recipe book"], ["free", "🥣 Free cooking"]]} cur={tab} set={setTab} />
+      {tab === "book" && <>
+        <p className="mb-1 text-xs text-muted-foreground">Recipes are eaten straight away. Their buff lasts several Tower floors (it counts down each time you take stairs or retreat). A new recipe replaces the old buff. Cooking Lv {ck}.</p>
+        <MealLine s={s} />
+        {RECIPES.map((r) => { const locked = ck < r.cook; const ok = !locked && r.ing.every(([m, q]) => (s.inv[m] ?? 0) >= q); return (
+          <div key={r.id} className="mb-1 border-2 border-border p-2">
+            <div className="flex items-center gap-2"><span className="text-xl">{r.icon}</span>
+              <div className="min-w-0 flex-1"><div className="text-sm">{r.name} <span className="text-xs text-muted-foreground">· {r.floors} floors{locked ? ` · 🔒 Cooking Lv ${r.cook}` : ""}</span></div><div className="text-xs text-accent">{r.desc}</div></div></div>
+            <div className="mt-1 text-[0.7rem] text-muted-foreground">{r.ing.map(([m, q]) => `${getMat(m).icon} ${q}× ${getMat(m).name} (${s.inv[m] ?? 0})`).join(" · ")}</div>
+            <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={!ok} onClick={() => onRecipe(r.id)}>Cook & eat</button>
+          </div>); })}
+      </>}
+      {tab === "free" && <>
+        <div className="pixel-panel mb-2 p-2">
+          {pv.kinds ? <div>{pv.icon} {pv.servings}× {pv.name} · heals {fmt(pv.heal)}</div> : <p className="text-muted-foreground">Combine ingredients into a meal to carry and eat later. More variety = tastier meals.</p>}
+          <button className="pixel-btn pixel-btn-primary mt-2 w-full py-3" disabled={!pv.kinds} onClick={() => { onCook(mats); setSel({}); }}>Cook</button>
+        </div>
+        <MatPicker s={s} sel={sel} setSel={setSel} filter={(id) => !!getMat(id).food} />
+      </>}
     </Sheet>
   );
 }
@@ -228,7 +260,7 @@ export function RefinePanel({ s, station, onClose, onRefine }: { s: GameState; s
   const info = STATION_INFO[station];
   return (
     <Sheet title={info.title} onClose={onClose}>
-      <p className="mb-2 text-sm text-muted-foreground">2 raw → 1 refined material (+1 tier). {info.hint}</p>
+      <p className="mb-2 text-sm text-muted-foreground">2 raw → 1 refined material (+1 tier; tier-10 materials stay tier 10 with better properties). {info.hint}</p>
       {!ids.length && <p className="text-muted-foreground">Nothing to {info.verb}.</p>}
       {ids.map((id) => { const m = getMat(id); const to = getMat(m.refine!.to); const n = Math.floor((s.inv[id] ?? 0) / 2); return (
         <div key={id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">

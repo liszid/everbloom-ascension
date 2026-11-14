@@ -1,9 +1,11 @@
 // In-game guide: explains buildings, items and rules. Numbers are read from the game data
 // modules so the guide stays accurate when balance values change.
 import { useState, type ReactNode } from "react";
-import { GRADES, GRADE_GATES, PROPS, PROP_LABEL, RACES, SLOTS, SLOT_INFO, AFFINITIES, getMat } from "./data";
+import { GRADES, GRADE_GATES, PROPS, PROP_LABEL, RACES, SLOTS, SLOT_INFO, AFFINITIES, SKILLS, ROLE_LABEL, getMat } from "./data";
 import { SPOTS, SPOT_MAX, type SpotId } from "./gathering";
-import { AILMENTS, BLESSINGS, BLDG_INFO, BLDG_MAX, TOOLS, TRAP_RANGE, BASE_SIGHT, enchantPower, type BldgId } from "./items";
+import { AILMENTS, BLESSINGS, BLDG_INFO, BLDG_MAX, TOOLS, TRAP_RANGE, BASE_SIGHT, enchantPower, OFFHAND_MAX, offhandUpCost, type BldgId } from "./items";
+import { ARCHETYPES } from "./archetypes";
+import { RECIPES } from "./recipes";
 import { MAX_COMPANIONS, RENT_FLOORS, CAPTURE_HP, GUILD_BUY_MULT, TECH_REQ, techGold } from "./guild";
 import { SCHOOLS, SCHOOL_MAX, COMBO_LEVEL, ASCENSIONS, ASC_RACES, SPELLS } from "./magic";
 import { THEMES, THEME_SPAN } from "./themes";
@@ -23,6 +25,26 @@ const Grid = ({ head, rows }: { head: string[]; rows: ReactNode[][] }) => (
     </table>
   </div>
 );
+
+/** World actions that train each affinity directly (on top of the skills that feed it). */
+const AFF_ACTIONS: Record<string, string> = {
+  fire: "Hitting with a fire weapon, forging fire gear, torch fire strikes",
+  water: "Hitting with a water weapon, forging water gear, every catch at the Pond",
+  wind: "Hitting with a wind weapon, forging wind gear",
+  earth: "Hitting with an earth weapon, forging earth gear",
+  light: "Hitting with a light weapon, forging light gear, praying at the Church",
+  dark: "Hitting with a dark weapon, forging dark gear",
+  sword: "Attacking with a one-handed weapon",
+  might: "Attacking with a two-handed weapon or bare-handed",
+  shield: "Defending with a shield, and taking hits while defending",
+  agility: "Dodging attacks (walking adds a little, on a slow curve)",
+  arcane: "Studying a school at the Magic Tower",
+  crafting: "Forging gear, refining materials, making Craftery items, upgrading off-hands",
+  nature: "Hitting with a nature weapon, forging nature gear, harvesting crops",
+  hunting: "Defeating monsters (bosses count much more), shooting ranged weapons",
+  fortune: "Playing at the Casino",
+  culinary: "Cooking meals and recipes",
+};
 
 const BLDG_ROWS: { icon: string; name: string; id?: BldgId; text: ReactNode }[] = [
   { icon: "🏠", name: "Home", id: "house", text: <>Three tabs: <B>Rest</B> heals HP, mana and stamina; <B>Storage</B> keeps gear and materials safe; <B>Kitchen</B> cooks food you eat in battle or on the map.</> },
@@ -85,7 +107,8 @@ export function Guide({ onBack }: { onBack: () => void }) {
       </S>
 
       <S id="gather" icon="🌲" title="Gathering spots">
-        <P>The Forest, Mine, Pond, Animal Farm and flower Field open a window. Choose a material and press the button repeatedly to collect it. Each spot can be upgraded up to Lv {SPOT_MAX} with gold and its best material; higher levels unlock better materials, up to tier 9 at Lv {SPOT_MAX}, and make the spot look richer. Everything from the Pond can be cooked. Animal Farm eggs, milk and honey are cooked; its hides, wool, fleece, silk and feathers go to the Forge's Tannery to become leather and cloth for gear.</P>
+        <P>The Forest, Mine, Pond, Animal Farm and flower Field open a window. Choose a material and press (or hold) the button to collect it. Each spot can be upgraded up to Lv {SPOT_MAX} with gold and its best material. <B>Every 10 levels a new tier opens</B>: tier 1 at Lv 10, tier 2 at Lv 20 … tier 10 at Lv {SPOT_MAX}. The spot also looks richer at Lv 25, 50, 75 and 100. Materials an older save had already unlocked stay unlocked.</P>
+        <P>Everything from the Pond can be cooked. Animal Farm eggs, milk and honey are cooked; its hides, wool, fleece, silk and feathers go to the Forge's Tannery to become leather and cloth for gear. Tier-9 Aetherwood and Aetherium refine into tier-10 Timber and Ingots; tier-10 raws refine into tier-10 materials with better properties.</P>
         <Grid head={["Spot", "Materials (unlock level)"]} rows={(Object.keys(SPOTS) as SpotId[]).map((id) => [
           `${SPOTS[id].icon} ${SPOTS[id].name}`, SPOTS[id].mats.map(([m, l]) => `${getMat(m).name} (${l})`).join(", "),
         ])} />
@@ -96,6 +119,10 @@ export function Guide({ onBack }: { onBack: () => void }) {
         <P>Any mix of materials makes a piece of gear; nothing is predetermined. Each material has eight properties that decide the stats:</P>
         <L items={PROPS.map((p) => <><B>{PROP_LABEL[p]}</B>{{ hard: " — physical attack and defense", dens: " — health and defense", sharp: " — attack, crit chance and crit damage", flex: " — dodge, speed and stamina", cond: " — magic attack and mana", magic: " — magic attack, magic defense and luck", dura: " — durability and health", weight: " — heavy gear slows you down and lowers dodge" }[p]}</>)} />
         <P>Gear types: {SLOTS.map((s) => SLOT_INFO[s].name).join(", ")}. Two-handed weapons take both hands; one-handed weapons can be paired with an off-hand.</P>
+        <H>Weapon types</H>
+        <P>For weapons, every material plays a role: {(["wood", "metal", "stone", "bone", "gem", "hide"] as const).map((r) => ROLE_LABEL[r]).join(", ")}. Hide/Cloth and other materials still add stats but don't steer the type. Each weapon type has an <B>ideal mix</B> (the multipliers below); the type closest to the quantities you put in wins, so the result is predictable. The Forge preview shows the winner and the next closest.</P>
+        <Grid head={["Type (1H / 2H)", "Ideal mix", "Trait"]} rows={ARCHETYPES.map((a) => [`${a.icon} ${a.one} / ${a.two}`, Object.entries(a.w).map(([k, v]) => `${ROLE_LABEL[k as keyof typeof ROLE_LABEL]} ×${v}`).join(", "), a.trait])} />
+        <P>Examples: 2 wood + 1 metal makes an axe; metal alone makes a sword; metal with stone makes a hammer; wood with gems makes a staff; metal with bone or fangs makes a dagger; wood, metal and bone or dark materials make a scythe.</P>
         <H>Grade</H>
         <P>Using <B>more kinds</B> and a <B>larger quantity</B> of materials raises the grade. Each grade also needs a minimum average material tier, forge level and Smithing level:</P>
         <Grid head={["Grade", "Avg tier", "Forge", "Smithing"]} rows={GRADES.map((g, i) => [g, String(GRADE_GATES[i]![0]), String(GRADE_GATES[i]![1]), String(GRADE_GATES[i]![2])])} />
@@ -115,13 +142,20 @@ export function Guide({ onBack }: { onBack: () => void }) {
           <>Ranged weapons need ammunition (arrows, bolts, bullets or energy cells) and add a <B>Shoot</B> action to the battle Items menu.</>,
           <>Large ranged weapons are <B>two-handed</B>: {ranged.filter((r) => r.two).map((r) => r.name).join(", ")}. They remove your one-handed weapon.</>,
           <>Torches widen your sight in the dark dungeon (base sight {BASE_SIGHT} tiles) and add fire damage when you attack or defend. Special torches add sleep, life steal, blind, venom, chill, mana or burn effects.</>,
+          <>At the Craftery, a torch or ranged weapon you own can be upgraded from Common to {GRADES[OFFHAND_MAX]}. Each grade adds defense, health and attack close to a shield of the same grade, more fire damage, sight and effect chance for torches (plus up to 30% less fire damage taken), and harder shots for ranged weapons. Dragonbreath Brand's burn reaches 100% at EX.</>,
         ]} />
+        <Grid head={["To grade", "Materials", "Craftery"]} rows={Array.from({ length: OFFHAND_MAX }, (_, i) => { const c = offhandUpCost(TOOLS.find((t) => t.id === "torch")!, i + 1); return [GRADES[i + 1]!, c.mats.map(([m, q]) => `${q}× ${getMat(m).name}`).join(", "), `Lv ${c.lvl}`]; })} />
+        <P>Gold cost grows with the grade and with how expensive the item is to craft.</P>
       </S>
 
       <S id="skills" icon="📈" title="Skills, affinities & classes">
         <P>Skills grow by doing: walking trains Mobility, sword attacks train One-Hand Mastery, mining trains Mining, and so on (max level {MAX_SKILL}). Each skill also feeds an affinity such as Sword, Might, Nature or Arcane.</P>
         <P>Your <B>class</B> is decided by your <B>top five skills</B>, your <B>top two affinities</B> and your <B>equipped title</B>. A strong second affinity creates a hybrid class. Classes rise through four tiers and give passives and combat skills.</P>
-        <P>Affinities: {AFFINITIES.map((a) => `${a.icon} ${a.name}`).join(", ")}.</P>
+        <H>Training affinities</H>
+        <P>Every skill gain also feeds that skill's affinity, and some actions train an affinity directly. Affinity level = √(points ÷ 8). Higher affinity makes its skills grow faster, unlocks Guild specialists and shapes your class. Your race multiplies some affinities (for example Elves learn Arcane and Nature 1.3× faster).</P>
+        <Grid head={["Affinity", "Skills that feed it", "Direct training"]} rows={AFFINITIES.map((a) => [`${a.icon} ${a.name}`,
+          Object.values(SKILLS).filter((k) => k.aff === a.id).map((k) => k.name).join(", ") || "—", AFF_ACTIONS[a.id] ?? "—"])} />
+        <P>Using a combat skill of an affinity (class, title or specialist skill) also trains it.</P>
       </S>
 
       <S id="titles" icon="🏅" title="Titles & stars">
@@ -205,11 +239,16 @@ export function Guide({ onBack }: { onBack: () => void }) {
         <P>{THEMES.map((t, i) => `${t.icon} ${t.name} (${i * THEME_SPAN + 1}–${(i + 1) * THEME_SPAN})`).join(" · ")}</P>
       </S>
 
+      <S id="recipes" icon="🍳" title="Kitchen recipes">
+        <Grid head={["Recipe", "Ingredients", "Buff (floors)", "Cooking"]} rows={RECIPES.map((r) => [`${r.icon} ${r.name}`, r.ing.map(([m, q]) => `${q}× ${getMat(m).name}`).join(", "), `${r.desc} (${r.floors})`, `Lv ${r.cook}`])} />
+      </S>
+
       <S id="items" icon="🎒" title="Materials, food & selling">
         <L items={[
           <>Every material has a tier (0–10). Higher tiers come from deeper floors, upgraded gathering spots and refining.</>,
           <>Materials you collect in the dungeon go into your expedition bag. The bag stays with you from floor to floor; you keep everything when you retreat, but lose it all if you fall.</>,
-          <>Cook any edible materials together at the Kitchen. More and better ingredients make stronger meals that heal more.</>,
+          <>Cook any edible materials together at the Kitchen (Free cooking). More and better ingredients make stronger meals that heal more.</>,
+          <>The Kitchen's <B>Recipe book</B> cooks a dish you eat on the spot. Its buff lasts several Tower floors, counting down whenever you take stairs or retreat. A new recipe replaces the old buff.</>,
           <>Selling shows each item's tier and lists the highest tiers first. The Trading skill improves prices.</>,
           <>Storage at Home grows by 10 slots per Home level.</>,
         ]} />

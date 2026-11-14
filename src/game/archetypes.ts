@@ -12,7 +12,7 @@ export interface Archetype {
 }
 export const ARCHETYPES: Archetype[] = [
   { id: "sword", icon: "🗡️", one: "Blade", two: "Greatsword", w: { metal: 2.5, wood: 0.5 }, trait: "Balanced: +5% P.Attack, +3% crit, +4% accuracy", mods: { patk: 0.05, crit: 3, acc: 4 } },
-  { id: "axe", icon: "🪓", one: "Axe", two: "Greataxe", w: { wood: 2, metal: 1, bone: 0.5 }, trait: "Heavy chops: +15% P.Attack, +15% crit damage", mods: { patk: 0.15, critDmg: 15 } },
+  { id: "axe", icon: "🪓", one: "Axe", two: "Greataxe", w: { wood: 2, metal: 1 }, trait: "Heavy chops: +15% P.Attack, +15% crit damage", mods: { patk: 0.15, critDmg: 15 } },
   { id: "scythe", icon: "🌾", one: "Sickle", two: "Scythe", w: { wood: 2, metal: 1.5, bone: 2, dark: 2 }, trait: "Reaper's edge: +5% P.Attack, built-in bleed and life steal", mods: { patk: 0.05 }, effects: [{ id: "bleed", v: 3 }, { id: "lifesteal", v: 3 }] },
   { id: "hammer", icon: "🔨", one: "Mace", two: "Warhammer", w: { metal: 2.5, wood: 1, stone: 2 }, trait: "Crushing: +10% P.Attack, +25% crit damage, ignores 10% defense", mods: { patk: 0.1, critDmg: 25 }, effects: [{ id: "pierce", v: 10 }] },
   { id: "spear", icon: "🔱", one: "Spear", two: "Halberd", w: { wood: 2.5, metal: 1.5 }, trait: "Reach: +5% crit, +6% accuracy", mods: { crit: 5, acc: 6 } },

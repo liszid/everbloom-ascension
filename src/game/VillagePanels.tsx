@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
 import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId, type Spell } from "./magic";
-import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
-import { MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
-import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
+import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, OFFHAND_MAX, offhandFx, offhandUpCost, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
+import { GRADES } from "./data";
+import { offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
+import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
 import { emojiArt, objArt, icon, sceneArt } from "./art";
@@ -22,7 +23,7 @@ export const HOLD_EVERY_MS = Math.round(1000 / 12);
 export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: {
   s: GameState; spot: SpotId; onClose: () => void; onGather: (mat: string) => void; onUpgrade: () => void; onPlots?: (() => void) | undefined;
 }) {
-  const def = SPOTS[spot]; const L = spotLevel(s.spots, spot); const mats = spotMats(spot, L);
+  const def = SPOTS[spot]; const L = spotLevel(s.spots, spot); const mats = spotMatsFor(s, spot);
   const [mat, setMat] = useState(mats[mats.length - 1]!);
   const [swing, setSwing] = useState(0);
   const nx = nextUnlock(spot, L); const cost = spotUpgradeCost(spot, L); const max = playerStats(s).sta;
@@ -49,7 +50,7 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
   return (
     <Sheet title={`${def.icon} ${def.name} · Lv ${L}`} onClose={onClose}>
       <div className={`gather-scene gather-${spot}`} style={{ backgroundImage: `url(${sceneArt(spot)})` }}>
-        {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 30) / 3 }}><Em e={d} /></span>)}
+        {DECOR[spot].map((d, i) => <span key={i} className="gather-decor" style={{ left: `${6 + i * 22}%`, fontSize: 18 + (i % 2) * 8 + Math.min(L, 100) / 10 }}><Em e={d} /></span>)}
         {spot === "pond" && [0, 1, 2].map((i) => <span key={i} className="gather-ripple" style={{ animationDelay: `${i * 0.5}s`, bottom: `${10 + i * 8}%` }} />)}
         {spot === "pond" && [0, 1].map((i) => <img key={`lp${i}`} src={icon("lilypad")} alt="" draggable={false} className="gather-lilypad" style={{ right: `${8 + i * 22}%`, bottom: `${6 + i * 14}%`, animationDelay: `${i * 0.9}s` }} />)}
         <div className={`gather-hero ${swing ? "gather-swing" : ""}`} key={`h${swing}`}><Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir="r" frame={swing % 2 ? 1 : 0} /></div>
@@ -59,7 +60,7 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
       </div>
       <div className="mb-2 flex justify-between text-sm"><span>⚡ Stamina {Math.floor(s.sta)}/{max}</span><span className="text-muted-foreground">2 per action</span></div>
       <div className="mb-2 grid grid-cols-3 gap-1">
-        {def.mats.map(([m, lv]) => { const ok = L >= lv; return (
+        {def.mats.map(([m, lv]) => { const ok = mats.includes(m); return (
           <button key={m} disabled={!ok} className={`pixel-btn flex flex-col items-center py-2 ${mat === m ? "pixel-btn-active" : ""}`} onClick={() => setMat(m)}>
             <span className="text-lg">{ok ? getMat(m).icon : "🔒"}</span>
             <span className="text-[0.65rem] leading-tight">{getMat(m).name}</span>
@@ -78,7 +79,7 @@ export function GatherPanel({ s, spot, onClose, onGather, onUpgrade, onPlots }: 
       <div className="border-t-2 border-border pt-2">
         <h3 className="text-accent">Upgrade {def.name}</h3>
         {L >= SPOT_MAX ? <p className="text-sm text-muted-foreground">Fully upgraded.</p> : <>
-          <p className="text-sm">Next: Lv {L + 1}{nx ? ` · ${getMat(nx[0]).name} unlocks at Lv ${nx[1]}` : ""}. Bigger harvests.</p>
+          <p className="text-sm">Next: Lv {L + 1}{nx ? ` · ${getMat(nx[0]).name} (T${getMat(nx[0]).tier}) unlocks at Lv ${nx[1]}` : ""}. Bigger harvests. A new tier opens every 10 levels.</p>
           <p className="text-sm text-muted-foreground">Cost: {fmt(cost.gold)}g + {cost.qty}× {getMat(cost.mat).name} (have {s.inv[cost.mat] ?? 0})</p>
           <button className="pixel-btn mt-1 w-full py-3" disabled={s.gold < cost.gold || (s.inv[cost.mat] ?? 0) < cost.qty} onClick={onUpgrade}>⬆️ Upgrade</button>
         </>}
@@ -141,14 +142,14 @@ export function ChurchPanel({ s, onClose, onHeal, onCure, onBless, onPray, onEnc
   );
 }
 
-export function CrafteryPanel({ s, onClose, onCraft, onRanged }: { s: GameState; onClose: () => void; onCraft: (id: string, times: number) => void; onRanged: (id: RangedId | undefined) => void }) {
+export function CrafteryPanel({ s, onClose, onCraft, onRanged, onUpgrade }: { s: GameState; onClose: () => void; onCraft: (id: string, times: number) => void; onRanged: (id: RangedId | undefined) => void; onUpgrade: (id: string) => void }) {
   const [tab, setTab] = useState<ToolKind>("throw");
   return (
     <Sheet title="🪤 Craftery" onClose={onClose}>
       <div className="mb-2 grid grid-cols-5 gap-1">
         {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Ranged"], ["torch", "🔥 Torch"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn min-w-0 px-0.5 py-2 text-[0.65rem] ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
-      <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : tab === "torch" ? `Torches go in your off-hand instead of a shield or ranged weapon. They light up more of the dungeon and burn foes whenever you attack or defend. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.` : `Off-hand ranged weapons replace your shield or torch; two-handed ones also stow your one-handed weapon. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
+      <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : tab === "torch" ? `Torches go in your off-hand instead of a shield or ranged weapon. They light up more of the dungeon and burn foes whenever you attack or defend. Upgrade a torch you own, from Common to EX, for defense, attack and stronger effects. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.` : `Off-hand ranged weapons replace your shield or torch; two-handed ones also stow your one-handed weapon. Upgrade one you own, from Common to EX, for stronger shots and defense. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
       {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const held = t.kind === "ranged" || t.kind === "torch"; const owned = held && have > 0; return (
         <div key={t.id} className="mb-1 border-2 border-border p-2">
           <div className="flex items-center gap-2">
@@ -161,8 +162,27 @@ export function CrafteryPanel({ s, onClose, onCraft, onRanged }: { s: GameState;
             {!owned && !held && <button className="pixel-btn flex-1 py-2 text-xs" disabled={!ok} onClick={() => onCraft(t.id, 5)}>Craft ×5</button>}
             {owned && <button className="pixel-btn flex-1 py-2 text-xs" onClick={() => onRanged(s.ranged === t.id ? undefined : t.id as RangedId)}>{s.ranged === t.id ? "Unequip" : "Ready in off-hand"}</button>}
           </div>
+          {owned && <OffhandGrade s={s} id={t.id} onUpgrade={onUpgrade} />}
         </div>); })}
     </Sheet>
+  );
+}
+
+/** Grade, stats and next upgrade of an owned torch or ranged weapon. */
+function OffhandGrade({ s, id, onUpgrade }: { s: GameState; id: string; onUpgrade: (id: string) => void }) {
+  const t = TOOL[id]!; const g = toolGrade(s, id); const st = offhandStats(id, g); const fx = offhandFx(t, g);
+  const c = g < OFFHAND_MAX ? offhandUpCost(t, g + 1) : null; const cl = bldgLvl(s, "craftery");
+  const ok = !!c && cl >= c.lvl && s.gold >= c.gold && c.mats.every(([m, q]) => (s.inv[m] ?? 0) >= q);
+  const n = (x: number) => Math.round(x).toLocaleString();
+  return (
+    <div className="mt-1 border-t border-border/60 pt-1 text-[0.7rem]">
+      <div><span className={`grade-${g}`}>{GRADES[g]}</span> <span className="text-muted-foreground">· +{n(st.patk)} P.Atk · +{n(st.matk)} M.Atk · +{n(st.pdef)} P.Def · +{n(st.mdef)} M.Def · +{n(st.hp)} HP</span></div>
+      <div className="text-muted-foreground">{t.kind === "torch" ? `Light +${fx.sight.toFixed(1)} · fire ×${fx.fire.toFixed(2)}${t.fx ? ` · effect ${fx.chance}%` : ""}${fx.fireWard ? ` · −${fx.fireWard}% fire damage taken` : ""}` : `Shoot ×${fx.mult.toFixed(1)}`}</div>
+      {c ? <>
+        <div className="mt-0.5 text-muted-foreground">Next ({GRADES[g + 1]}): {fmt(c.gold)}g · {c.mats.map(([m, q]) => `${q}× ${getMat(m).name} (${s.inv[m] ?? 0})`).join(" · ")}{cl < c.lvl ? ` · 🔒 Craftery Lv ${c.lvl}` : ""}</div>
+        <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={!ok} onClick={() => onUpgrade(id)}>⬆️ Upgrade to {GRADES[g + 1]}</button>
+      </> : <div className="text-gold">Maximum grade reached.</div>}
+    </div>
   );
 }
 
