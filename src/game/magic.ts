@@ -108,14 +108,18 @@ export const ASC_RACES: AscRace[] = [
   { id: "ghoul", name: "Ghoul", icon: "🫥", desc: "Corpse-eater with a ravenous hunger.", mods: { patk: 0.2, crit: 0.08, hp: 0.1 }, growth: { hunting: 1.4 }, fx: { lifesteal: 5, haste: 8 },
     passive: { name: "Ravenous", desc: "Life steal and extra strikes." }, active: { id: "devour", name: "Devour", desc: "×2.2 strike healing 40% of damage." } },
 ];
-export interface AscCond { race: string; school: SchoolId; reqs: { stat: string; label: string; need: number; exact?: boolean }[] }
-/** Fixed lore conditions; progress counters are tracked in GameState.stats after the school is learned. */
+export interface AscCond { race: string; school: SchoolId; reqs: { stat: string; label: string; need: number; exact?: boolean; hint: string }[] }
+/** Fixed lore conditions; progress counters are tracked in GameState.stats (most only after the school's spells are known). */
 export const ASCENSIONS: AscCond[] = [
-  { race: "vampire", school: "blood", reqs: [{ stat: "bloodKills", label: "Monsters drained with Blood Magic", need: 200 }, { stat: "lifestealHeal", label: "HP regained through life steal", need: 10000 }] },
-  { race: "ghost", school: "soul", reqs: [{ stat: "soulDeaths", label: "Die exactly once after binding your soul", need: 1, exact: true }] },
-  { race: "werewolf", school: "transformation", reqs: [{ stat: "wolfBites", label: "Bitten by wolves", need: 100 }] },
-  { race: "lich", school: "necromancy", reqs: [{ stat: "undeadKills", label: "Undead destroyed with Necromancy learned", need: 300 }, { stat: "maxFloor", label: "Highest floor reached", need: 100 }] },
-  { race: "zombie", school: "plague", reqs: [{ stat: "poisonDeaths", label: "Die while poisoned", need: 3 }] },
-  { race: "ghoul", school: "plague", reqs: [{ stat: "plagueKills", label: "Corpses devoured with Plague Craft", need: 150 }] },
+  { race: "vampire", school: "blood", reqs: [
+    { stat: "bloodKills", label: "Monsters drained with Blood Magic", need: 200, hint: "Win a battle where the last spell you cast was Blood Magic." },
+    { stat: "lifestealHeal", label: "HP regained through life steal", need: 10000, hint: "Every HP healed by life steal, drain spells, siphon torches or Blood Feast. Counts even before you learn Blood Magic." }] },
+  { race: "ghost", school: "soul", reqs: [{ stat: "soulDeaths", label: "Die exactly once after binding your soul", need: 1, exact: true, hint: "Counts deaths while you know a Soul Binding spell. A second death closes this path." }] },
+  { race: "werewolf", school: "transformation", reqs: [{ stat: "wolfBites", label: "Bitten by wolves", need: 100, hint: "Get hit by a wolf while you know a Transformation spell." }] },
+  { race: "lich", school: "necromancy", reqs: [
+    { stat: "undeadKills", label: "Undead destroyed with Necromancy learned", need: 300, hint: "Defeat skeletons, wraiths, liches or vampires while you know a Necromancy spell." },
+    { stat: "maxFloor", label: "Highest floor reached", need: 100, hint: "Your highest Tower floor." }] },
+  { race: "zombie", school: "plague", reqs: [{ stat: "poisonDeaths", label: "Die while poisoned", need: 3, hint: "Die while poisoned and knowing a Plague Craft spell." }] },
+  { race: "ghoul", school: "plague", reqs: [{ stat: "plagueKills", label: "Corpses devoured with Plague Craft", need: 150, hint: "Win a battle where the last spell you cast was Plague Craft." }] },
 ];
 export const UNDEAD = new Set(["skeleton", "wraith", "lich", "vampire"]);

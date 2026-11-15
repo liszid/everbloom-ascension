@@ -3,6 +3,7 @@ import { ELEMENT_ICON, getMat, type Element } from "./data";
 import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId, type Spell } from "./magic";
 import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, OFFHAND_MAX, offhandFx, offhandUpCost, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
 import { GRADES } from "./data";
+import { PathReqs } from "./RacePaths";
 import { offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
@@ -268,13 +269,12 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, o
         </div>; })}
       </>}
       {tab === "rituals" && <>
-        <p className="mb-2 text-xs text-muted-foreground">Forbidden rites can transform your race. Progress only counts after the school is learned.{s.char.origin ? ` Born a ${s.char.origin}.` : ""}</p>
+        <p className="mb-2 text-xs text-muted-foreground">Forbidden rites can transform your race. Most counters only start once you know a spell of that school; each line says how it is earned. Battle results show any progress you make.{s.char.origin ? ` Born a ${s.char.origin}.` : ""}</p>
         {ascensionProgress(s).map((a) => { const r = ASC_RACES.find((x) => x.id === a.race)!; const cur = s.char.race === a.race; return (
           <div key={a.race} className="mb-1 border-2 border-border p-2">
             <div className="text-sm">{r.icon} {r.name} {cur && <span className="text-gold">· your race</span>}</div>
             <div className="text-xs text-muted-foreground">{r.passive.name}: {r.passive.desc} · {r.active.name}: {r.active.desc}</div>
-            <div className={`text-xs ${a.learned ? "text-gold" : ""}`}>{a.learned ? "✅" : "⬜"} Learn {SCHOOL[a.school].name}</div>
-            {a.reqs.map((q) => <div key={q.stat} className={`text-xs ${q.ok ? "text-gold" : q.failed ? "text-destructive" : ""}`}>{q.ok ? "✅" : q.failed ? "❌" : "⬜"} {q.label}: {fmt(Math.min(q.cur, q.need * 10))}/{fmt(q.need)}</div>)}
+            <PathReqs a={a} />
             {!cur && <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={!a.ready} onClick={() => onAscend(a.race)}>{a.failed ? "Path closed" : a.ready ? `Become a ${r.name}` : "Conditions not met"}</button>}
           </div>); })}
       </>}

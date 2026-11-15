@@ -3,3 +3,8 @@
 - [x] Phase 2: tier-10 refining (Aetherwood Timber, Aetherium Ingot, Astral Silk, new Lv-100 materials); weapon archetypes from material mix (axe, scythe, sword, hammer, spear, staff, dagger) shown in Forge preview
 - [x] Phase 3: off-hand torches/ranged upgradable Common→EX with full stats (fire ward, stronger effects, sight); Dragonbreath reaches EX
 - [x] Phase 4: Kitchen recipe book with meal buffs lasting several floors; Guide: affinity training table, gathering, archetypes, off-hand upgrades, recipes
+
+# Companions & race paths
+- [x] Companions shown holding their weapon/off-hand
+- [x] Gear given to a companion leaves the bag; removing it (or the companion leaving) returns it
+- [x] Clearer race-path counters: bars + how-to hints in Magic Tower, Profile › Classes, Journal, battle results

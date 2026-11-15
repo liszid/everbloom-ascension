@@ -391,7 +391,7 @@ function GameSession({ userId }: { userId: string }) {
       {panel?.t === "training" && <TrainingPanel s={s} onClose={close} onTrain={(k) => { const r = act((n) => trainSkill(n, k)); sfx(r ? "level" : "fail"); }} onTech={(a, k) => { if (act((n) => learnTech(n, a, k))) sfx("level"); }} />}
       {panel?.t === "companions" && <HirePanel s={s} onClose={close} onHire={(r, b) => { if (act((n) => hireCompanion(n, r, b))) sfx("level"); }} onParty={() => setPanel({ t: "party" })} />}
       {panel?.t === "party" && <PartyPanel s={s} start={panel.cid} onClose={close} onEquip={(c, g, sl) => act((n) => compEquip(n, c, g, sl))} onTitle={(c, t) => act((n) => compTitle(n, c, t))}
-        onDismiss={(c) => confirmation.ask({ title: "Part ways?", text: "This companion will leave your party for good.", label: "Confirm", action: () => act((n) => dismissCompanion(n, c)) })} />}
+        onDismiss={(c) => confirmation.ask({ title: "Part ways?", text: "This companion will leave your party for good. Any gear they carry goes back to your bag.", label: "Confirm", action: () => act((n) => dismissCompanion(n, c)) })} />}
       {panel?.t === "craftery" && <CrafteryPanel s={s} onClose={close} onCraft={(id, k) => { if (act((n) => craftTool(n, id, k))) sfx("loot"); else sfx("fail"); }} onRanged={(id) => act((n) => equipRanged(n, id))} onUpgrade={(id) => { if (act((n) => upgradeOffhand(n, id))) sfx("level"); else sfx("fail"); }} />}
       {trapAt && <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-2" onClick={() => setTrapAt(null)}>
         <div className="pixel-panel w-full max-w-md p-3" onClick={(e) => e.stopPropagation()}>

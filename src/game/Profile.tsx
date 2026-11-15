@@ -8,6 +8,7 @@ import {
 } from "./engine";
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
 import { TOOL } from "./items";
+import { StartedPaths } from "./RacePaths";
 import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
@@ -106,6 +107,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
           {rc.parts.map((p) => <div key={p.label} className="flex justify-between border-b border-border/30 py-0.5 text-xs">
             <span className="text-muted-foreground">{p.label}</span><span>{fmt(Math.floor(p.cur))} / {fmt(p.max)}</span></div>)}
         </div>; })()}
+        {!raceClassProgress(s) && <StartedPaths s={s} />}
         {!raceClassProgress(s) && (() => { const ci = classInputs(s); return <div className="pixel-panel mb-2 p-2 text-sm">
           <div className="text-accent">What shapes your class</div>
           <div>Top skills: {ci.skills.map((k) => `${SKILLS[k.k]?.name ?? k.k} ${k.l}`).join(", ") || "none"}</div>
@@ -130,6 +132,7 @@ function Journal({ s }: { s: GameState }) {
     ["Equipment", [["Items crafted", v("crafted")], ["Legendary+ crafted", v("craftedLegendary")], ["Relic+ crafted", v("craftedRelic")], ["EX crafted", v("craftedEX")], ["Upgrades performed", v("upgrades")]]],
     ["Gathering", [["Trees cut", v("treesCut")], ["Ores mined", v("oresMined")], ["Plants harvested", v("plantsHarvested")], ["Fish caught", v("fishCaught")], ["Animals tended", v("animalsTended")], ["Food cooked", v("foodCooked")]]],
     ["Skills", [["Highest skill level", best], ["Skills learned", Object.keys(s.skills).length], ["Current class", s.className], ["Classes discovered", s.classesSeen.length]]],
+    ["Dark paths", [["HP drained (life steal)", v("lifestealHeal")], ["Blood Magic kills", v("bloodKills")], ["Plague Craft kills", v("plagueKills")], ["Undead destroyed (Necromancy)", v("undeadKills")], ["Wolf bites (Transformation)", v("wolfBites")], ["Deaths with a bound soul", v("soulDeaths")], ["Deaths while poisoned (Plague)", v("poisonDeaths")]]],
     ["Usage", [["Most used weapon", favorite(s.usage.weapon).replace("_", "-")], ["Most used skill", favorite(s.usage.skill)], ["Favorite material", favorite(s.usage.mat)], ["Most hunted monster", favorite(s.usage.monster)]]],
     ["Lifetime", [["Total play time", time(s.playTime)], ["Playthrough started", new Date(s.createdAt).toLocaleDateString()], ["Floors cleared", v("floorsCleared")], ["Highest floor", s.maxFloor], ["Gold earned", v("goldEarned")], ["Gold spent", v("goldSpent")]]],
   ];

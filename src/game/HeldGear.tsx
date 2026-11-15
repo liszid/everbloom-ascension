@@ -1,5 +1,6 @@
-// Presentation-only overlay drawing the hero's equipped main-hand weapon and off-hand item.
-import type { GameState } from "./engine";
+// Presentation-only overlay drawing the equipped main-hand weapon and off-hand item of the hero or a companion.
+import type { GameState, Gear } from "./engine";
+import type { Companion } from "./guild";
 import { TOOL } from "./items";
 
 export type WeaponShape = "sword" | "dagger" | "mace" | "wand" | "great" | "hammer" | "halberd" | "staff" | "axe" | "scythe" | "spear";
@@ -26,14 +27,20 @@ function shapeOf(name: string, two: boolean, arch?: string): WeaponShape {
 
 /** Reads what the hero visibly holds from their equipment. */
 export function heldGearOf(s: GameState): Held {
-  const g = (id?: string) => (id ? s.gear.find((x) => x.id === id) : undefined);
-  const two = g(s.equip.two_hand), one = g(s.equip.one_hand), sh = g(s.equip.shield);
+  return heldFrom((id) => (id ? s.gear.find((x) => x.id === id) : undefined), s.equip, s.ranged);
+}
+/** Reads what a companion visibly holds from the gear they carry. */
+export function heldGearOfComp(c: Companion): Held {
+  return heldFrom((id) => (id ? c.held?.find((x) => x.id === id) : undefined), c.equip);
+}
+function heldFrom(g: (id?: string) => Gear | undefined, equip: GameState["equip"], ranged?: string): Held {
+  const two = g(equip.two_hand), one = g(equip.one_hand), sh = g(equip.shield);
   const w = two ?? one;
   const el = (x?: { ench?: { el: string } | undefined; element: string }) => x?.ench?.el ?? x?.element ?? "none";
   const held: Held = {};
   if (w) held.main = { shape: shapeOf(w.name, !!two, w.arch), two: !!two, el: el(w), grade: w.grade };
   if (sh) held.off = { kind: "shield", grade: sh.grade, el: el(sh) };
-  else if (s.ranged && TOOL[s.ranged]) held.off = TOOL[s.ranged]!.kind === "torch" ? { kind: "torch", id: s.ranged } : { kind: "ranged", id: s.ranged };
+  else if (ranged && TOOL[ranged]) held.off = TOOL[ranged]!.kind === "torch" ? { kind: "torch", id: ranged } : { kind: "ranged", id: ranged };
   return held;
 }
 

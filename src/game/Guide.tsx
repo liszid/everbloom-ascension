@@ -184,6 +184,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
           const r = ASC_RACES.find((x) => x.id === a.race)!;
           return [`${r.icon} ${r.name}`, SCHOOLS.find((x) => x.id === a.school)!.name, a.reqs.map((q) => `${q.label}: ${q.need.toLocaleString()}`).join("; ")];
         })} />
+        <P>Track every counter under Magic Tower › Rituals, Profile › Classes (Race paths) and Profile › Journal. The battle result screen also shows any race-path progress from that fight.</P>
         <P>Ascending <B>locks your class to the new race</B>. You start at its lowest rank and rise as your race mastery grows (its magic schools, skills, affinities and deeds). Mastery needed per rank: {RANK_AT.join("%, ")}%.</P>
         <Grid head={["Race", "Class ranks"]} rows={RACE_CLASSES.map((l) => [`${ASC_RACES.find((x) => x.id === l.race)!.icon} ${ASC_RACES.find((x) => x.id === l.race)!.name}`, l.ranks.join(" → ")])} />
       </S>
@@ -218,7 +219,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
           <><B>Merchant:</B> buys monster parts at about {GUILD_BUY_MULT}× the shop price (more with Guild level).</>,
           <><B>Training:</B> pay gold for a chance to raise a skill. Higher skills cost more and succeed less often.</>,
           <><B>Specialists:</B> only teach your top two affinities — a passive at affinity Lv {TECH_REQ.passive} ({techGold("passive")}g) and an active at Lv {TECH_REQ.active} ({techGold("active")}g).</>,
-          <><B>Companions:</B> up to {MAX_COMPANIONS}. Rent one for {RENT_FLOORS} floors, or buy one to keep forever. Owned companions get their own Stats, Equipment and Title tabs and use your spare gear.</>,
+          <><B>Companions:</B> up to {MAX_COMPANIONS}. Rent one for {RENT_FLOORS} floors, or buy one to keep forever. Owned companions get their own Stats, Equipment and Title tabs. Gear you give a companion leaves your bag and they carry it (and are shown holding their weapon); removing it puts it back in your bag, and everything returns when they leave the party.</>,
           <><B>Capture:</B> a normal monster below {Math.round(CAPTURE_HP * 100)}% HP can be captured in battle and joins as a companion. Guardians cannot be captured.</>,
         ]} />
       </S>

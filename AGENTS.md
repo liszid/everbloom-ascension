@@ -27,3 +27,5 @@
 - Sign-in return targets go through oauthReturnPath; social/email sign-in lands on the public /login page, which forwards to `next` once the session exists.
 - Weapon archetypes (ideal material-role mixes, traits) are pure data in src/game/archetypes.ts and Kitchen recipes/meal buffs in src/game/recipes.ts; material roles derive from Material.src via data.matRole so new materials need no tagging.
 - Craftery torches/ranged weapons stay stackable tool counts; their grade lives in GameState.toolGrades and engine.offhandStats derives stats from it, so no Gear objects or bag slots are needed.
+- Companion gear objects live on Companion.held (out of GameState.gear) and go back to the bag on removal, dismissal or contract end; migrateSave moves old bag-referenced companion gear so nothing duplicates.
+- Race-path counters snapshot into Combat.st0 at battle start and engine.pathGains diffs them for the result screen; ascension hints are data on ASCENSIONS reqs in magic.ts.

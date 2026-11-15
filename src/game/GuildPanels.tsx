@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { AFFINITIES, SKILLS, SLOTS, SLOT_INFO, getMat, type Slot } from "./data";
-import { guildSellMult, compStats, freeGear, lvl, techLock, specAffinities, type GameState } from "./engine";
+import { AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, getMat, type Slot } from "./data";
+import { guildSellMult, compGear, compStats, freeGear, GEAR_CAP, lvl, techLock, specAffinities, type GameState } from "./engine";
 import { HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, rentPrice, techGold, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { Sheet, fmt } from "./Panels";
 import { Avatar } from "./Avatar";
 import { MonsterSprite } from "./MonsterSprite";
+import { heldGearOfComp } from "./HeldGear";
 
 export function CompAvatar({ c }: { c: Companion }) {
-  return c.kind === "monster" ? <MonsterSprite kind={c.monDef ?? "slime"} name={c.name} boss={0} /> : <Avatar race={c.race} gender={c.gender} classId={c.role === "mage" ? "fire:1" : c.role === "cleric" ? "light:1" : c.role === "archer" ? "hunting:1" : "might:1"} />;
+  return c.kind === "monster" ? <MonsterSprite kind={c.monDef ?? "slime"} name={c.name} boss={0} /> : <Avatar race={c.race} gender={c.gender} classId={c.role === "mage" ? "fire:1" : c.role === "cleric" ? "light:1" : c.role === "archer" ? "hunting:1" : "might:1"} held={heldGearOfComp(c)} />;
 }
 
 export function GuildShopPanel({ s, onClose, onSell }: { s: GameState; onClose: () => void; onSell: (id: string, q: number) => void }) {
@@ -97,13 +98,14 @@ export function PartyPanel({ s, onClose, start, onEquip, onTitle, onDismiss }: {
         <button className="pixel-btn w-full py-2 text-xs" onClick={() => onDismiss(c.id)}>{c.rentLeft !== undefined ? "End contract" : c.kind === "monster" ? "Release" : "Dismiss"}</button>
       </div>}
       {tab === "equip" && <>
-        {SLOTS.map((sl) => { const g = s.gear.find((x) => x.id === c.equip[sl]); return (
+        <p className="mb-2 text-xs text-muted-foreground">Gear you hand over leaves your bag and is carried by {c.name}. Removing it puts it back in your bag ({s.gear.length}/{GEAR_CAP}). If {c.name} leaves the party, everything comes back to you.</p>
+        {SLOTS.map((sl) => { const g = compGear(c, sl); return (
           <div key={sl} className="mb-1 border-b border-border py-1 text-sm">
-            <div className="flex items-center gap-2"><span className="w-24 text-xs text-muted-foreground">{SLOT_INFO[sl].name}</span><span className="min-w-0 flex-1 truncate">{g ? g.name : "—"}</span>
-              {g && <button className="pixel-btn px-2 py-1 text-xs" onClick={() => onEquip(c.id, undefined, sl)}>Remove</button>}
+            <div className="flex items-center gap-2"><span className="w-24 text-xs text-muted-foreground">{SLOT_INFO[sl].name}</span><span className={`min-w-0 flex-1 truncate ${g ? `grade-${g.grade}` : ""}`}>{g ? g.name : "—"}</span>
+              {g && <button className="pixel-btn px-2 py-1 text-xs" disabled={s.gear.length >= GEAR_CAP} onClick={() => onEquip(c.id, undefined, sl)}>{s.gear.length >= GEAR_CAP ? "Bag full" : "Remove"}</button>}
               <button className="pixel-btn px-2 py-1 text-xs" onClick={() => setSlot(slot === sl ? null : sl)}>Pick</button></div>
             {slot === sl && <div className="mt-1 space-y-1">
-              {free.filter((x) => x.slot === sl).map((x) => <button key={x.id} className="pixel-btn w-full py-1 text-left text-xs" onClick={() => { onEquip(c.id, x.id, sl); setSlot(null); }}>{x.name}</button>)}
+              {free.filter((x) => x.slot === sl).sort((a, b) => b.grade - a.grade || b.enh - a.enh).map((x) => <button key={x.id} className="pixel-btn w-full py-1 text-left text-xs" onClick={() => { onEquip(c.id, x.id, sl); setSlot(null); }}><span className={`grade-${x.grade}`}>{x.name}</span> <span className="text-muted-foreground">· {GRADES[x.grade]}{x.enh ? ` +${x.enh}` : ""}{g ? " · swap" : ""}</span></button>)}
               {!free.some((x) => x.slot === sl) && <p className="text-xs text-muted-foreground">No spare gear for this slot.</p>}
             </div>}
           </div>); })}

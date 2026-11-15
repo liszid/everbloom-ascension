@@ -39,12 +39,15 @@ export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
   blind?: number; block?: boolean; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
+  /** Race-path counters when the battle started, for the result screen. */ st0?: Record<string, number> | undefined;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
   dealt: number; taken: number; turns: number; xp: number; gold: number; loot: { id: string; qty: number }[];
   gains: { k: string; xp: number; from: number; to: number }[]; hp: number; maxHp: number; sold: number; collected: boolean;
+  /** Race-path counters that went up this battle. */ paths?: PathGain[] | undefined;
 }
+export interface PathGain { icon: string; label: string; add: number; cur: number; need: number }
 export interface Quest { id: string; kind: "kill" | "gather" | "floor" | "craft"; target: string; need: number; base: number; gold: number; tokens: number; text: string }
 export interface ClassInfo { id: string; name: string; tier: number; primary?: string | undefined; secondary?: string | undefined; race?: string | undefined }
 export interface Evo { from: string; to: string; tier: number; bonuses: string[]; skills: string[]; delta: { k: StatKey; d: number }[]; major: boolean }
@@ -84,6 +87,13 @@ export function migrateSave(s: GameState): boolean {
     const keep: Partial<Record<SpotId, string[]>> = {};
     for (const id of Object.keys(SPOTS) as SpotId[]) { const k = legacyKeep(id, spotLevel(s.spots, id)); if (k.length) keep[id] = k; }
     s.spotKeep = keep; changed = true;
+  }
+  // Companion gear used to stay in the hero's bag; move it onto the companion who holds it.
+  for (const c of s.companions ?? []) for (const sl of SLOTS) {
+    const id = c.equip[sl]; if (!id || c.held?.some((g) => g.id === id)) continue;
+    const g = s.gear.find((x) => x.id === id);
+    if (!g || Object.values(s.equip).includes(id)) { c.equip = { ...c.equip, [sl]: undefined }; changed = true; continue; }
+    s.gear = s.gear.filter((x) => x.id !== id); c.held = [...(c.held ?? []), g]; changed = true;
   }
   return changed;
 }
@@ -760,10 +770,18 @@ export function captureBlock(s: GameState): string | null {
   if (m.hp > m.maxHp * CAPTURE_HP) return `Weaken it below ${CAPTURE_HP * 100}% HP first.`;
   return null;
 }
+/** The gear a companion is holding in a slot (companion gear lives on the companion, not in the hero's bag). */
+export const compGear = (c: Companion, sl: Slot) => (c.equip[sl] ? c.held?.find((g) => g.id === c.equip[sl]) : undefined);
+/** Hands every piece a companion holds back to the hero's bag (used when they leave the party). */
+function returnCompGear(s: GameState, c: Companion) {
+  const back = c.held ?? []; if (!back.length) return;
+  s.gear = [...s.gear, ...back]; c.held = []; c.equip = {};
+  log(s, `🎒 ${c.name} returned ${back.map((g) => g.name).join(", ")} to your bag.`);
+}
 export function compStats(s: GameState, c: Companion) {
   const L = compLevel(c.xp);
   let hp = (60 + L * 12) * c.base.hp, atk = (5 + L * 1.3) * c.base.atk, def = (3 + L * 0.9) * c.base.def;
-  for (const id of Object.values(c.equip)) { const g = s.gear.find((x) => x.id === id); if (!g) continue; const gs = gearStats(g); hp += gs.hp; atk += c.base.magic ? gs.matk : gs.patk; def += c.base.magic ? gs.mdef : gs.pdef; }
+  for (const sl of SLOTS) { const g = compGear(c, sl); if (!g) continue; const gs = gearStats(g); hp += gs.hp; atk += c.base.magic ? gs.matk : gs.patk; def += c.base.magic ? gs.mdef : gs.pdef; }
   const kit = titleKit(c.title, c.titleTime?.[c.title ?? ""] ?? 0);
   hp *= 1 + (kit.mods.hp ?? 0); atk *= 1 + (c.base.magic ? kit.mods.matk ?? 0 : kit.mods.patk ?? 0); def *= 1 + (kit.mods.pdef ?? 0);
   return { level: L, hp: Math.round(hp), atk: Math.round(atk), def: Math.round(def), stars: kit.stars };
@@ -785,7 +803,7 @@ function tickRentals(s: GameState) {
   if (!s.companions?.length) return;
   for (const c of s.companions) if (c.rentLeft !== undefined) c.rentLeft--;
   const gone = s.companions.filter((c) => c.rentLeft !== undefined && c.rentLeft <= 0);
-  if (gone.length) { s.companions = s.companions.filter((c) => !gone.includes(c)); log(s, `👋 ${gone.map((g) => g.name).join(", ")}'s contract ended.`); }
+  if (gone.length) { gone.forEach((g) => returnCompGear(s, g)); s.companions = s.companions.filter((c) => !gone.includes(c)); log(s, `👋 ${gone.map((g) => g.name).join(", ")}'s contract ended.`); }
 }
 export function hireCompanion(s: GameState, role: CompRole, buy: boolean): boolean {
   const h = HIRELINGS.find((x) => x.role === role); if (!h) return false;
@@ -798,15 +816,32 @@ export function hireCompanion(s: GameState, role: CompRole, buy: boolean): boole
     base: { hp: h.hp, atk: h.atk, def: h.def, magic: h.magic }, equip: {}, rentLeft: buy ? undefined : RENT_FLOORS }];
   log(s, `🤝 ${h.name} ${buy ? "joins you for good" : `is hired for ${RENT_FLOORS} floors`}.`); return true;
 }
-export function dismissCompanion(s: GameState, id: string) { s.companions = (s.companions ?? []).filter((c) => c.id !== id); }
+export function dismissCompanion(s: GameState, id: string) {
+  const c = s.companions?.find((x) => x.id === id); if (c) returnCompGear(s, c);
+  s.companions = (s.companions ?? []).filter((x) => x.id !== id);
+}
+/** Gear in the hero's bag that the hero is not wearing. */
 export function freeGear(s: GameState) {
-  const used = new Set([...Object.values(s.equip), ...(s.companions ?? []).flatMap((c) => Object.values(c.equip))].filter(Boolean));
+  const used = new Set(Object.values(s.equip).filter(Boolean));
   return s.gear.filter((g) => !used.has(g.id));
 }
-export function compEquip(s: GameState, cid: string, gid: string | undefined, slot: Slot) {
-  const c = s.companions?.find((x) => x.id === cid); if (!c) return;
-  if (gid && !freeGear(s).some((g) => g.id === gid && g.slot === slot)) return;
-  c.equip = { ...c.equip, [slot]: gid };
+/** Give a spare bag item to a companion (it leaves the bag), or take one back (it returns to the bag). */
+export function compEquip(s: GameState, cid: string, gid: string | undefined, slot: Slot): boolean {
+  const c = s.companions?.find((x) => x.id === cid); if (!c) return false;
+  const old = compGear(c, slot);
+  if (gid) {
+    const g = freeGear(s).find((x) => x.id === gid && x.slot === slot); if (!g) return false;
+    s.gear = s.gear.filter((x) => x.id !== gid);
+    if (old) s.gear.push(old);
+    c.held = [...(c.held ?? []).filter((x) => x.id !== old?.id), g]; c.equip = { ...c.equip, [slot]: gid };
+    log(s, `🤝 ${c.name} takes ${g.name}${old ? `; ${old.name} goes back to your bag` : ""}.`); return true;
+  }
+  if (old) {
+    if (s.gear.length >= GEAR_CAP) { log(s, "🎒 Gear bag full — make room before taking gear back."); return false; }
+    s.gear.push(old); c.held = (c.held ?? []).filter((x) => x.id !== old.id);
+    log(s, `🎒 ${old.name} is back in your bag.`);
+  }
+  c.equip = { ...c.equip, [slot]: undefined }; return true;
 }
 export function compTitle(s: GameState, cid: string, t: string | undefined) {
   const c = s.companions?.find((x) => x.id === cid); if (!c) return;
@@ -1160,11 +1195,28 @@ export function moveMonsters(s: GameState): Mon | null {
 // ======================= combat =======================
 export type CombatAct = "attack" | "defend" | "flee" | "race" | "shoot" | "capture" | { skill: number } | { eat: number } | { tool: string };
 const dmgFormula = (a: number, d: number) => (a * a) / (a + d);
+/** Every counter used by ascension conditions or race class ladders. */
+const PATH_STATS = [...new Set([
+  ...ASCENSIONS.flatMap((a) => a.reqs.map((r) => r.stat)).filter((k) => k !== "maxFloor"),
+  ...Object.values(RACE_CLASS).flatMap((l) => l.sources.flatMap((x) => (x.kind === "stat" ? [x.id] : []))),
+])];
+/** Race-path counters that rose since `st0`: open ascension paths, plus the hero's own race ladder once ascended. */
+export function pathGains(s: GameState, st0: Record<string, number>): PathGain[] {
+  const out: PathGain[] = []; const add = (k: string) => (s.stats[k] ?? 0) - (st0[k] ?? 0);
+  const line = RACE_CLASS[s.char.race];
+  if (line) for (const x of line.sources) if (x.kind === "stat" && add(x.id) > 0) out.push({ icon: ASC_RACES.find((r) => r.id === line.race)?.icon ?? "🧬", label: x.label, add: add(x.id), cur: s.stats[x.id] ?? 0, need: x.need });
+  for (const a of ascensionProgress(s)) {
+    if (s.char.race === a.race || a.failed) continue;
+    for (const r of a.reqs) if (r.stat !== "maxFloor" && add(r.stat) > 0) out.push({ icon: ASC_RACES.find((x) => x.id === a.race)!.icon, label: r.label, add: add(r.stat), cur: r.cur, need: r.need });
+  }
+  return out;
+}
 export function startCombat(s: GameState, m: Mon) {
   s.combat = {
     mon: m, log: [`⚔️ ${m.name} engages!${m.affix ? ` (${m.affix})` : ""}`], turn: 0, dealt: 0, taken: 0,
     xp0: { ...s.skills }, charXp0: s.xp, gold0: s.gold, stoneskin: 0, guardT: 0, roar: 0, stun: 0, monBurn: 0, monBleed: 0, pPoison: 0,
     lockT: 0, lockHp: 0, charging: false, shieldT: 0, frenzy: 0, raceUsed: false, eats: 0, healed: 0,
+    st0: Object.fromEntries(PATH_STATS.map((k) => [k, s.stats[k] ?? 0])),
   };
   if (m.trapStun) { s.combat.stun = m.trapStun; s.combat.log.unshift(`🪤 ${m.name} is caught in your trap!`); m.trapStun = 0; }
   if (m.trapBurn) { s.combat.monBurn = m.trapBurn; m.trapBurn = 0; }
@@ -1411,7 +1463,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   s.result = {
     won: outcome === "win", fled: outcome === "fled", died: outcome === "lose", name: m.name, icon: m.icon, boss: m.boss, floor: d.floor,
     dealt: c.dealt, taken: c.taken, turns: c.turn, xp, gold, loot: Object.entries(loot).map(([id, qty]) => ({ id, qty })), gains,
-    hp: Math.max(0, s.hp), maxHp: p.hp, sold, collected: false,
+    hp: Math.max(0, s.hp), maxHp: p.hp, sold, collected: false, paths: c.st0 ? pathGains(s, c.st0) : [],
   };
   if (autoLootFlag || outcome !== "win") collectLoot(s);
   s.combat = undefined;

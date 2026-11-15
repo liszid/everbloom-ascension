@@ -1,5 +1,6 @@
 // Adventurers Guild: companions, trainers and pricing — pure data, no engine imports.
 import type { Slot } from "./data";
+import type { Gear } from "./engine";
 
 export const MAX_COMPANIONS = 4;
 export const RENT_FLOORS = 5;
@@ -7,7 +8,9 @@ export type CompRole = "warrior" | "archer" | "cleric" | "mage" | "beast";
 export interface Companion {
   id: string; name: string; kind: "human" | "monster"; role: CompRole; race: string; gender: string; monDef?: string | undefined;
   xp: number; base: { hp: number; atk: number; def: number; magic: boolean };
-  equip: Partial<Record<Slot, string | undefined>>; title?: string | undefined; titleTime?: Record<string, number> | undefined;
+  equip: Partial<Record<Slot, string | undefined>>;
+  /** Gear objects this companion carries (taken out of the hero's bag while held). */ held?: Gear[] | undefined;
+  title?: string | undefined; titleTime?: Record<string, number> | undefined;
   rentLeft?: number | undefined; // undefined = owned permanently
 }
 export const HIRELINGS: { role: CompRole; name: string; icon: string; race: string; gender: string; desc: string; hp: number; atk: number; def: number; magic: boolean }[] = [
