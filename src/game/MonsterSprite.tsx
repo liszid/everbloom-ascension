@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Facing } from "./Avatar";
+import { monsterLook } from "./art";
 
 const ART = import.meta.glob("../assets/art/m_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 type Pixel = [number, number, number, number, string];
-export function MonsterSprite({ kind, name, dir = "d", moving = false, motionTick = 0, boss = 0 }: { kind: string; name?: string; dir?: Facing; moving?: boolean; motionTick?: number; boss?: number }) {
+export function MonsterSprite({ kind: id, name, dir = "d", moving = false, motionTick = 0, boss = 0 }: { kind: string; name?: string; dir?: Facing; moving?: boolean; motionTick?: number; boss?: number }) {
   const [frame, setFrame] = useState(0);
   const [walking, setWalking] = useState(false);
   useEffect(() => {
@@ -13,10 +14,12 @@ export function MonsterSprite({ kind, name, dir = "d", moving = false, motionTic
     const stop = setTimeout(() => { clearInterval(timer); setWalking(false); setFrame(0); }, 360);
     return () => { clearInterval(timer); clearTimeout(stop); };
   }, [moving, motionTick]);
+  const look = monsterLook(id); const kind = look.base;
+  const tint = look.hue ? { filter: `hue-rotate(${look.hue}deg) saturate(1.15)` } : undefined;
   const art = ART[`../assets/art/m_${kind}.webp`];
   const cls = `monster-art ${walking ? "monster-moving" : "monster-resting"} ${boss >= 2 ? "monster-warden" : boss ? "monster-guardian" : ""}`;
-  if (art) return <span className={`${cls} monster-cartoon`} data-facing={dir}>
-    <img src={art} alt={name ?? kind} width={256} height={256} loading="lazy" draggable={false} style={{ transform: `${dir === "l" ? "scaleX(-1) " : ""}translateY(${walking && frame ? -6 : 0}%) rotate(${walking ? (frame ? -4 : 4) : 0}deg)` }} />
+  if (art) return <span className={`${cls} monster-cartoon`} data-facing={dir} style={tint}>
+    <img src={art} alt={name ?? id} width={256} height={256} loading="lazy" draggable={false} style={{ transform: `${dir === "l" ? "scaleX(-1) " : ""}translateY(${walking && frame ? -6 : 0}%) rotate(${walking ? (frame ? -4 : 4) : 0}deg)` }} />
   </span>;
   const pixels: Pixel[] = [];
   const p = (x: number, y: number, w: number, h: number, c: string) => pixels.push([x, y, w, h, `var(--sprite-${c})`]);
@@ -56,8 +59,8 @@ export function MonsterSprite({ kind, name, dir = "d", moving = false, motionTic
     if (kind === "lich") { p(4, 0, 8, 2, "violet"); p(14, 2, 1, 12, "wood"); p(13, 1, 3, 3, "ice"); }
     if (kind === "sovereign") { p(4, 1, 8, 2, "gold"); p(4, 0, 1, 2, "gold"); p(7, 0, 2, 2, "gold"); p(11, 0, 1, 2, "gold"); p(6, 9, 4, 3, "violet"); }
   }
-  return <span className={`monster-art ${walking ? "monster-moving" : "monster-resting"} ${boss >= 2 ? "monster-warden" : boss ? "monster-guardian" : ""}`}>
-    <svg viewBox="-2 -2 20 20" role="img" aria-label={name ?? kind} shapeRendering="crispEdges" data-facing={dir} data-frame={frame}>
+  return <span className={`monster-art ${walking ? "monster-moving" : "monster-resting"} ${boss >= 2 ? "monster-warden" : boss ? "monster-guardian" : ""}`} style={tint}>
+    <svg viewBox="-2 -2 20 20" role="img" aria-label={name ?? id} shapeRendering="crispEdges" data-facing={dir} data-frame={frame}>
       <g transform={dir === "r" ? "translate(16 0) scale(-1 1)" : undefined}>{pixels.map(([x, y, w, h, c], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={c} />)}</g>
     </svg>
   </span>;

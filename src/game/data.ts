@@ -178,6 +178,11 @@ const LIST: Material[] = [
   m("titan_bone", "Titan Bone", "🦣", 9, [10, 10, 7, 2, 4, 5, 10, 9], "earth", "monster"),
   m("star_shard", "Star Shard", "⭐", 9, [8, 5, 10, 6, 10, 10, 8, 1], "light", "monster", { catalyst: true }),
   m("abyss_eye", "Abyss Eye", "👁️", 10, [7, 6, 9, 7, 10, 10, 8, 1], "void", "monster", { catalyst: true }),
+  // bestiary drops (D&D monsters)
+  m("chitin", "Chitin Plate", "🪲", 2, [7, 4, 4, 3, 1, 2, 6, 3], "earth", "monster"),
+  m("acid_gland", "Acid Gland", "🧫", 2, [0, 2, 6, 4, 4, 6, 2, 1], "nature", "monster"),
+  m("lion_mane", "Manticore Mane", "🦁", 4, [1, 3, 2, 9, 2, 5, 6, 1], "wind", "monster"),
+  m("hydra_heart", "Hydra Heart", "🫀", 6, [3, 6, 2, 6, 6, 9, 9, 3], "water", "monster"),
   // boss relics
   m("guardian_sigil", "Guardian Sigil", "🔱", 2, [6, 6, 6, 6, 6, 6, 8, 3], "none", "boss"),
   m("warden_crest", "Warden Crest", "🏵️", 5, [8, 7, 8, 7, 8, 8, 9, 3], "none", "boss"),
@@ -196,7 +201,7 @@ export type MatRole = "wood" | "metal" | "stone" | "bone" | "gem" | "hide" | "ot
 const ROLE_OVERRIDE: Record<string, MatRole> = {
   stone: "stone", obsidian: "stone", golem_heart: "stone", mana_crystal: "gem", pearl: "gem", leviathan_pearl: "gem",
   frost_shard: "gem", fire_core: "gem", star_shard: "gem", abyss_eye: "gem", eternity_core: "gem", wraith_essence: "gem",
-  lich_dust: "gem", phoenix_ash: "gem", guardian_sigil: "metal", warden_crest: "metal", shell: "stone", ancient_schematic: "other",
+  lich_dust: "gem", phoenix_ash: "gem", chitin: "bone", hydra_heart: "gem", guardian_sigil: "metal", warden_crest: "metal", shell: "stone", ancient_schematic: "other",
 };
 const RAW_OF: Record<string, string> = Object.fromEntries(LIST.filter((x) => x.refine).map((x) => [x.refine!.to, x.id]));
 export function matRole(id: string): MatRole {
@@ -234,10 +239,14 @@ export const ANIMALS: Record<string, { name: string; icon: string; drops: [strin
 export const VEINS: string[] = ["iron_ore", "silver_ore", "mana_crystal", "gold_ore", "obsidian", "mithril_ore", "adamant_ore", "starmetal", "void_ore"];
 
 // ---------- monsters ----------
+export type MonsterCategory = "undead" | "dragon" | "fiend" | "aberration" | "beast" | "humanoid" | "fey" | "monstrosity" | "construct" | "ooze" | "elemental" | "celestial" | "giant";
 export interface MonsterDef {
   id: string; name: string; icon: string; tier: number; weak: Element; element: Element; drops: string[];
   hp: number; atk: number; def: number; // archetype multipliers
   ability?: "heavy" | "drain" | "poison" | "shield" | "frenzy";
+  /** Creature family (kill counters, ascension paths). */ cat?: MonsterCategory;
+  /** Dungeon themes this monster naturally lives in (see themes.ts); spawn pools prefer natives. */ envs?: string[];
+  /** Attacks hit M.Def instead of P.Def. */ magical?: boolean;
 }
 export const MONSTERS: MonsterDef[] = [
   { id: "slime", name: "Slime", icon: "🟢", tier: 0, weak: "fire", element: "water", drops: ["slime_gel"], hp: 1.1, atk: 0.8, def: 0.6 },

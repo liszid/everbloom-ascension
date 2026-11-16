@@ -1,3 +1,12 @@
+# Big expansion (from the uploaded notes)
+- [ ] Phase 1: 100 D&D monsters spawn in their home dungeon themes (bestiary data, new drops, look-alike art, undead/magic flags)
+- [ ] Phase 2: new progress counters + 7 milestone titles (Sanguine, Immortal, Apostle, Sniper, Pyre, Loaded Dice, Alchemist)
+- [ ] Phase 3: Craftery Alchemy — elixirs, weapon oils (3 battles), throwing flasks, multi-floor tonics, from real materials
+- [ ] Phase 4: 3-aspect playstyle classes (100+ curated, incl. magic-school mastery, e.g. Transformation+Nature+Might = Druid)
+- [ ] Phase 5: linear specializations (Faith, Deadeye, Ember, Gambler, Colosseum, Transmuter) chosen in Profile
+- [ ] Phase 6: 35 new ascended races with lore ladders, conditions and race skills
+- [ ] Phase 7: build synergies (race + class + title + weapon + off-hand)
+
 # Progression, crafting agency & off-hand plan
 - [x] Phase 1: gathering spots to Lv 100, one new tier every 10 levels, old unlocks kept, smoother upgrade cost, richer art stages at 25/50/75/100
 - [x] Phase 2: tier-10 refining (Aetherwood Timber, Aetherium Ingot, Astral Silk, new Lv-100 materials); weapon archetypes from material mix (axe, scythe, sword, hammer, spear, staff, dagger) shown in Forge preview
