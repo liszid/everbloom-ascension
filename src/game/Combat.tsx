@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat, MONSTERS } from "./data";
+import { ELEMENT_ICON, SKILLS, STAT_LABEL, getMat } from "./data";
+import { BESTIARY } from "./bestiary";
+import { POTIONS, DRINKS_PER_FIGHT } from "./alchemy";
 import { TOOLS, ammoFor, TOOL } from "./items";
 import { captureBlock, combatActives, defendMode, mainSpell, playerStats, race as raceOf, type CombatAct, type Evo, type GameState } from "./engine";
 import { fmt } from "./Panels";
@@ -30,6 +32,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
   const shooter = s.ranged && TOOL[s.ranged]?.kind === "ranged" ? TOOL[s.ranged]! : undefined;
   const ammo = shooter ? (s.tools?.[ammoFor(s.ranged!)] ?? 0) : 0;
   const throws = TOOLS.filter((t) => t.kind === "throw" && (s.tools?.[t.id] ?? 0) > 0);
+  const potions = POTIONS.filter((x) => (s.potions?.[x.id] ?? 0) > 0);
   const logLines = st.detailedLog ? c.log.slice(0, 6) : c.log.slice(0, 2);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
@@ -71,6 +74,8 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
           {shooter && <button className="pixel-btn w-full py-3 text-left" disabled={!ammo} onClick={() => { onAct("shoot"); setMenu("main"); }}>{shooter.icon} Shoot {shooter.name} <span className="text-xs">· ammo ×{ammo}</span></button>}
           {throws.map((t) => <button key={t.id} className="pixel-btn w-full py-3 text-left" onClick={() => { onAct({ tool: t.id }); setMenu("main"); }}>{t.icon} {t.name} ×{s.tools![t.id]} <span className="text-xs">· {t.desc}</span></button>)}
           {!throws.length && !shooter && <p className="text-sm text-muted-foreground">No usable tools — craft some at the Craftery.</p>}
+          {potions.length > 0 && <div className="pt-1 text-xs text-muted-foreground">⚗️ Alchemy · {Math.max(0, DRINKS_PER_FIGHT - (c.drinks ?? 0))} elixirs left this fight{s.oil ? ` · oil: ${s.oil.left} battles` : ""}</div>}
+          {potions.map((x) => <button key={x.id} className="pixel-btn w-full py-3 text-left" disabled={x.cat === "elixir" && (c.drinks ?? 0) >= DRINKS_PER_FIGHT} onClick={() => { onAct({ potion: x.id }); setMenu("main"); }}>{x.icon} {x.name} ×{s.potions![x.id]} <span className="text-xs">· {x.desc}</span></button>)}
           <button className="pixel-btn w-full py-2" onClick={() => setMenu("main")}>Back</button>
         </div>}
       </div>
@@ -83,7 +88,7 @@ function Bar({ icon, cls, v, max }: { icon: string; cls: string; v: number; max:
 
 export function ResultView({ s, onCollect, onContinue }: { s: GameState; onCollect: () => void; onContinue: () => void }) {
   const r = s.result!;
-  const monsterKind = MONSTERS.find((monster) => monster.icon === r.icon)?.id ?? "sovereign";
+  const monsterKind = r.kind ?? BESTIARY.find((monster) => monster.icon === r.icon)?.id ?? "sovereign";
   const title = r.died ? "☠️ Defeated" : r.fled ? "🏃 Escaped" : "🏆 Victory!";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">

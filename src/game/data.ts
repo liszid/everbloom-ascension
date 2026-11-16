@@ -244,9 +244,9 @@ export interface MonsterDef {
   id: string; name: string; icon: string; tier: number; weak: Element; element: Element; drops: string[];
   hp: number; atk: number; def: number; // archetype multipliers
   ability?: "heavy" | "drain" | "poison" | "shield" | "frenzy";
-  /** Creature family (kill counters, ascension paths). */ cat?: MonsterCategory;
-  /** Dungeon themes this monster naturally lives in (see themes.ts); spawn pools prefer natives. */ envs?: string[];
-  /** Attacks hit M.Def instead of P.Def. */ magical?: boolean;
+  /** Creature family (kill counters, ascension paths). */ cat?: MonsterCategory | undefined;
+  /** Dungeon themes this monster naturally lives in (see themes.ts); spawn pools prefer natives. */ envs?: string[] | undefined;
+  /** Attacks hit M.Def instead of P.Def. */ magical?: boolean | undefined;
 }
 export const MONSTERS: MonsterDef[] = [
   { id: "slime", name: "Slime", icon: "🟢", tier: 0, weak: "fire", element: "water", drops: ["slime_gel"], hp: 1.1, atk: 0.8, def: 0.6 },
@@ -457,5 +457,13 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: "skills", name: "Polymath", stat: "skillsLearned", cat: "skill", tiers: [5, 12, 20], rewards: [{ gold: 60 }, { title: "Polymath" }, { title: "Savant", deco: "📚" }] },
   { id: "classes", name: "Many Paths", stat: "classesDiscovered", cat: "skill", tiers: [3, 10, 30], rewards: [{ gold: 80 }, { title: "Pathfinder" }, { title: "Thousand Faces", deco: "🎭" }] },
   { id: "floors", name: "Climber", stat: "maxFloor", cat: "lifetime", tiers: [10, 50, 100, 300, 500, 1000], rewards: [{ gold: 100 }, { title: "Climber" }, { title: "Centurion", mat: ["ancient_schematic", 1] }, { title: "Skybreaker" }, { title: "Halfway to Heaven" }, { title: "Tower Conqueror", deco: "👑" }] },
+  // milestone titles
+  { id: "sanguine", name: "Blood Drinker", stat: "lifestealHeal", cat: "combat", tiers: [5000, 50000], rewards: [{ title: "Blood Drinker", gold: 150 }, { title: "Sanguine Lord", mat: ["vampire_fang", 3] }] },
+  { id: "immortal", name: "Deathless", stat: "bestFloorStreak", cat: "lifetime", tiers: [10, 30, 100], rewards: [{ title: "Unbroken", gold: 120 }, { title: "Deathless Walker" }, { title: "Eternal", deco: "🕯️" }] },
+  { id: "apostle", name: "Faithful", stat: "prayers", cat: "skill", tiers: [10, 40, 100], rewards: [{ title: "Devout", gold: 60 }, { title: "Apostle of Light" }, { title: "Pope", deco: "⛪" }] },
+  { id: "sniper", name: "Sharpshooter", stat: "rangedHits", cat: "combat", tiers: [100, 500], rewards: [{ title: "Marksman", gold: 100 }, { title: "Phantom Sniper" }] },
+  { id: "pyre", name: "Firekeeper", stat: "torchStrikes", cat: "combat", tiers: [50, 200], rewards: [{ title: "Torchbearer", gold: 80 }, { title: "Pyrekeeper" }] },
+  { id: "dice", name: "High Roller", stat: "casinoWins", cat: "lifetime", tiers: [10, 50], rewards: [{ title: "Lucky Streak", gold: 100 }, { title: "Loaded Dice", mat: ["lucky_clover", 3] }] },
+  { id: "alchemist", name: "Alchemist", stat: "potionsBrewed", cat: "equipment", tiers: [20, 100], rewards: [{ title: "Brewer", gold: 100 }, { title: "Grand Alchemist", deco: "⚗️" }] },
   { id: "earned", name: "Wealthy", stat: "goldEarned", cat: "lifetime", tiers: [1000, 25000, 1000000], rewards: [{ gold: 50 }, { title: "Merchant Prince" }, { title: "Golden", deco: "💰" }] },
 ];

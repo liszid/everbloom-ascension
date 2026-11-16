@@ -117,7 +117,7 @@ export const ASCENSIONS: AscCond[] = [
   { race: "ghost", school: "soul", reqs: [{ stat: "soulDeaths", label: "Die exactly once after binding your soul", need: 1, exact: true, hint: "Counts deaths while you know a Soul Binding spell. A second death closes this path." }] },
   { race: "werewolf", school: "transformation", reqs: [{ stat: "wolfBites", label: "Bitten by wolves", need: 100, hint: "Get hit by a wolf while you know a Transformation spell." }] },
   { race: "lich", school: "necromancy", reqs: [
-    { stat: "undeadKills", label: "Undead destroyed with Necromancy learned", need: 300, hint: "Defeat skeletons, wraiths, liches or vampires while you know a Necromancy spell." },
+    { stat: "undeadKills", label: "Undead destroyed with Necromancy learned", need: 300, hint: "Defeat any undead (skeletons, ghouls, wights, vampires, liches…) while you know a Necromancy spell." },
     { stat: "maxFloor", label: "Highest floor reached", need: 100, hint: "Your highest Tower floor." }] },
   { race: "zombie", school: "plague", reqs: [{ stat: "poisonDeaths", label: "Die while poisoned", need: 3, hint: "Die while poisoned and knowing a Plague Craft spell." }] },
   { race: "ghoul", school: "plague", reqs: [{ stat: "plagueKills", label: "Corpses devoured with Plague Craft", need: 150, hint: "Win a battle where the last spell you cast was Plague Craft." }] },

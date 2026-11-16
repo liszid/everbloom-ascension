@@ -22,7 +22,7 @@ describe("new crafting panels render", () => {
   });
   it("Craftery shows the grade and upgrade of an owned torch", () => {
     const s = fresh(); s.inv = { oak_log: 2, hide: 1 }; craftTool(s, "torch");
-    render(<CrafteryPanel s={s} onClose={noop} onCraft={noop} onRanged={noop} onUpgrade={noop} />);
+    render(<CrafteryPanel s={s} onClose={noop} onCraft={noop} onRanged={noop} onUpgrade={noop} onBrew={noop} onUsePotion={noop} />);
     fireEvent.click(screen.getByRole("button", { name: /Torch/ }));
     expect(screen.getByRole("button", { name: /Upgrade to Uncommon/ })).toBeTruthy();
   });

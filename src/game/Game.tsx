@@ -7,7 +7,7 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, climbDown, climbUp, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, migrateSave, upgradeOffhand, cookRecipe, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, migrateSave, upgradeOffhand, cookRecipe, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, brewPotion, usePotion, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon, sightRadius,
 } from "./engine";
 import {
@@ -392,7 +392,7 @@ function GameSession({ userId }: { userId: string }) {
       {panel?.t === "companions" && <HirePanel s={s} onClose={close} onHire={(r, b) => { if (act((n) => hireCompanion(n, r, b))) sfx("level"); }} onParty={() => setPanel({ t: "party" })} />}
       {panel?.t === "party" && <PartyPanel s={s} start={panel.cid} onClose={close} onEquip={(c, g, sl) => act((n) => compEquip(n, c, g, sl))} onTitle={(c, t) => act((n) => compTitle(n, c, t))}
         onDismiss={(c) => confirmation.ask({ title: "Part ways?", text: "This companion will leave your party for good. Any gear they carry goes back to your bag.", label: "Confirm", action: () => act((n) => dismissCompanion(n, c)) })} />}
-      {panel?.t === "craftery" && <CrafteryPanel s={s} onClose={close} onCraft={(id, k) => { if (act((n) => craftTool(n, id, k))) sfx("loot"); else sfx("fail"); }} onRanged={(id) => act((n) => equipRanged(n, id))} onUpgrade={(id) => { if (act((n) => upgradeOffhand(n, id))) sfx("level"); else sfx("fail"); }} />}
+      {panel?.t === "craftery" && <CrafteryPanel s={s} onClose={close} onCraft={(id, k) => { if (act((n) => craftTool(n, id, k))) sfx("loot"); else sfx("fail"); }} onRanged={(id) => act((n) => equipRanged(n, id))} onUpgrade={(id) => { if (act((n) => upgradeOffhand(n, id))) sfx("level"); else sfx("fail"); }} onBrew={(id, k) => { if (act((n) => brewPotion(n, id, k))) sfx("loot"); else sfx("fail"); }} onUsePotion={(id) => { if (act((n) => usePotion(n, id))) sfx("loot"); }} />}
       {trapAt && <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-2" onClick={() => setTrapAt(null)}>
         <div className="pixel-panel w-full max-w-md p-3" onClick={(e) => e.stopPropagation()}>
           <h2 className="mb-2 text-accent">🪤 Place a trap</h2>

@@ -6,6 +6,9 @@ import { BLDG_MAX, bldgCost, blessBattles, churchDisc, guildMult, restPct, stora
 import { SPOTS, SPOT_MAX, legacyKeep, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import { ARCH, rankArchetypes, type ArchDim, type ArchId } from "./archetypes";
 import { RECIPE } from "./recipes";
+import { DRINKS_PER_FIGHT, OIL_BATTLES, POTION, TONIC_FLOORS } from "./alchemy";
+import { MON_DEF, isUndead, themePool } from "./bestiary";
+import { themeFor } from "./themes";
 import { OFFHAND_MAX, isHeldTool, offhandFx, offhandUpCost } from "./items";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
@@ -40,12 +43,14 @@ export interface Combat {
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
   blind?: number; block?: boolean; lockT: number; lockHp: number; charging: boolean; shieldT: number; frenzy: number; raceUsed: boolean; eats: number; healed: number; school?: SchoolId | undefined;
   /** Race-path counters when the battle started, for the result screen. */ st0?: Record<string, number> | undefined;
+  /** Share of the foe's defense melted by acid (0–1). */ shred?: number | undefined; /** Elixirs drunk this fight. */ drinks?: number | undefined;
 }
 export interface BattleResult {
   won: boolean; fled?: boolean | undefined; died?: boolean | undefined; name: string; icon: string; boss: number; floor: number;
   dealt: number; taken: number; turns: number; xp: number; gold: number; loot: { id: string; qty: number }[];
   gains: { k: string; xp: number; from: number; to: number }[]; hp: number; maxHp: number; sold: number; collected: boolean;
   /** Race-path counters that went up this battle. */ paths?: PathGain[] | undefined;
+  /** Monster id for the result art. */ kind?: string | undefined;
 }
 export interface PathGain { icon: string; label: string; add: number; cur: number; need: number }
 export interface Quest { id: string; kind: "kill" | "gather" | "floor" | "craft"; target: string; need: number; base: number; gold: number; tokens: number; text: string }
@@ -78,6 +83,9 @@ export interface GameState {
   spotKeep?: Partial<Record<SpotId, string[]>> | undefined;
   /** Grade (0 Common … 7 EX) of each Craftery torch / ranged weapon. */ toolGrades?: Record<string, number> | undefined;
   /** Active Kitchen recipe buff and how many more floors it lasts. */ meal?: { id: string; floors: number } | undefined;
+  /** Brewed Alchemy potions (stackable counts). */ potions?: Record<string, number> | undefined;
+  /** Weapon oil coating and battles left. */ oil?: { id: string; left: number } | undefined;
+  /** Alchemy stat tonic and floors left. */ tonic?: { id: string; floors: number } | undefined;
 }
 
 /** One-time save upgrades for older saves. Returns true when something changed. */
@@ -173,6 +181,8 @@ const HYBRID_PREFIX: Record<string, string> = {
 // Class = top 5 skills (by level) + top 2 affinities + equipped title. Each feeds a score per affinity.
 const TIER_SCORES = [8, 25, 55, 100];
 const TITLE_AFF: [RegExp, string][] = [
+  [/sanguine|blood/i, "dark"], [/pope|apostle|devout/i, "light"], [/sniper|marksman/i, "hunting"], [/pyre|torch/i, "fire"],
+  [/dice|streak/i, "fortune"], [/alchem|brewer/i, "crafting"], [/deathless|unbroken|eternal/i, "shield"],
   [/guardian|bastion|shield|bulwark/i, "shield"], [/bane|breaker|slayer|hunt/i, "hunting"], [/climb|centurion|sky|heaven|conquer/i, "agility"],
   [/smith|forge|craft|artisan/i, "crafting"], [/chef|cook|feast/i, "culinary"], [/lucky|fortune|gambl|roller/i, "fortune"],
   [/sword|blade/i, "sword"], [/mage|arcan/i, "arcane"], [/green|farm|grove|nature/i, "nature"],
@@ -360,6 +370,8 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
     if (meal.mana) effects.manaflow += meal.mana;
     if (meal.ward) wards[meal.ward.el] = (wards[meal.ward.el] ?? 0) + meal.ward.pct;
   }
+  const tonic = s.tonic ? POTION[s.tonic.id]?.tonic : undefined; if (tonic) applyMods(tonic);
+  const oil = s.oil ? POTION[s.oil.id]?.oil : undefined; if (oil?.el) element = oil.el;
   const ail = s.ailments ?? {};
   if (ail.weakened) { st.patk *= 0.85; st.matk *= 0.85; }
   if (ail.cursed) { st.pdef *= 0.9; st.mdef *= 0.9; st.luck -= 10; st.crit -= 5; }
@@ -500,7 +512,7 @@ export function craftGear(s: GameState, mats: { id: string; qty: number }[], slo
   const g: Gear = { id: uid(), name: pv.name, slot, grade: pv.grade, base, element: pv.element, effects: pv.effects,
     materials: list.map((x) => ({ ...x })), avgTier: pv.avgTier, dura: pv.maxDura, maxDura: pv.maxDura, enh: 0, crafted: Date.now(), arch: pv.arch };
   s.gear.push(g);
-  bump(s, "crafted"); if (g.grade >= 4) bump(s, "craftedLegendary"); if (g.grade >= 6) bump(s, "craftedRelic"); if (g.grade >= 7) bump(s, "craftedEX");
+  bump(s, "crafted"); if (slot !== "one_hand" && slot !== "two_hand") bump(s, "armorCrafted"); if (g.grade >= 4) bump(s, "craftedLegendary"); if (g.grade >= 6) bump(s, "craftedRelic"); if (g.grade >= 7) bump(s, "craftedEX");
   addXp(s, "smithing", (4 + pv.qty) * (1 + g.grade * 0.6) * (1 + pv.avgTier * 0.3));
   addAff(s, "crafting", 3 + pv.qty);
   if (pv.element !== "none") { const a = pv.element === "wind" ? "wind" : pv.element; if (AFF_BY_ID[a]) addAff(s, a, 2); }
@@ -607,6 +619,7 @@ export function cookRecipe(s: GameState, id: string): boolean {
 }
 /** A floor of the Tower has passed: meal buffs count down. */
 function tickMeal(s: GameState) {
+  if (s.tonic) { s.tonic = { ...s.tonic, floors: s.tonic.floors - 1 }; if (s.tonic.floors <= 0) { log(s, `🥤 ${POTION[s.tonic.id]?.name ?? "Your tonic"} wore off.`); s.tonic = undefined; } }
   if (!s.meal) return;
   s.meal = { ...s.meal, floors: s.meal.floors - 1 };
   if (s.meal.floors <= 0) { log(s, `🍽️ ${RECIPE[s.meal.id]?.name ?? "Your meal"} wore off.`); s.meal = undefined; }
@@ -624,7 +637,7 @@ const STATION_SKILL: Record<RefineStation, [string, string]> = { carve: ["carvin
 export function refine(s: GameState, id: string, times: number, station: RefineStation) {
   const mt = getMat(id); if (!mt.refine || mt.refine.station !== station) return;
   const n = Math.min(times, Math.floor((s.inv[id] ?? 0) / 2)); if (n <= 0) return;
-  takeMat(s, id, n * 2); addMat(s, mt.refine.to, n);
+  takeMat(s, id, n * 2); addMat(s, mt.refine.to, n); if (station === "smelt") bump(s, "ingotsSmelted", n);
   const [skill, ico] = STATION_SKILL[station];
   addXp(s, skill, n * (3 + mt.tier * 2)); addAff(s, "crafting", n);
   log(s, `${ico} Made ${n}× ${getMat(mt.refine.to).name}.`);
@@ -735,12 +748,12 @@ export function cureAilment(s: GameState, id: AilmentId): boolean {
 }
 export function buyBlessing(s: GameState, id: BlessingId): boolean {
   if (!spend(s, blessingCost(s, id))) { log(s, "❌ Not enough gold for the blessing."); return false; }
-  const n = blessBattles(bldgLvl(s, "church")); s.blessing = { id, left: n }; log(s, `✨ ${BLESSINGS[id].name} lasts ${n} battles.`); return true;
+  const n = blessBattles(bldgLvl(s, "church")); s.blessing = { id, left: n }; bump(s, "blessingsBought"); log(s, `✨ ${BLESSINGS[id].name} lasts ${n} battles.`); return true;
 }
 /** Free prayer once per return from the tower: builds faith (cheaper blessings) and grants a short random blessing. */
 export function pray(s: GameState): BlessingId | null {
   if (s.prayed) return null;
-  s.prayed = true; s.faith = (s.faith ?? 0) + 1; addAff(s, "light", 3);
+  s.prayed = true; s.faith = (s.faith ?? 0) + 1; addAff(s, "light", 3); bump(s, "prayers");
   const ids = Object.keys(BLESSINGS) as BlessingId[]; const id = ids[ri(0, ids.length - 1)]!;
   if (!s.blessing || s.blessing.left < 3) s.blessing = { id, left: 3 };
   log(s, `🙏 You pray. Faith ${s.faith}. ${BLESSINGS[id].name} settles on you.`); return id;
@@ -950,6 +963,42 @@ export function craftTool(s: GameState, id: string, times = 1): boolean {
   if (!made) { log(s, `❌ Missing materials or gold for ${t.name}.`); return false; }
   log(s, `🪤 Crafted ${t.makes * made}× ${t.name}.`); return true;
 }
+// ---- alchemy ----
+/** Brew a Craftery Alchemy recipe `times` times (stops when gold or materials run out). */
+export function brewPotion(s: GameState, id: string, times = 1): boolean {
+  const pt = POTION[id]; if (!pt) return false;
+  if (pt.lvl > bldgLvl(s, "craftery")) { log(s, `❌ Needs Craftery Lv ${pt.lvl}.`); return false; }
+  let made = 0;
+  for (let i = 0; i < times; i++) {
+    if (s.gold < pt.gold || pt.recipe.some(([m, q]) => (s.inv[m] ?? 0) < q)) break;
+    spend(s, pt.gold); for (const [m, q] of pt.recipe) takeMat(s, m, q);
+    s.potions = { ...s.potions, [id]: (s.potions?.[id] ?? 0) + pt.makes }; made++;
+    bump(s, "potionsBrewed", pt.makes); addXp(s, "smithing", 2); addAff(s, "crafting", 0.6); addAff(s, "nature", 0.3);
+  }
+  if (!made) { log(s, `❌ Missing materials or gold for ${pt.name}.`); return false; }
+  log(s, `⚗️ Brewed ${pt.makes * made}× ${pt.name}.`); return true;
+}
+/** Effect of drinking an elixir, coating your weapon with an oil or drinking a tonic. Returns HP restored. */
+function applyPotion(s: GameState, id: string, p = playerStats(s)): number {
+  const pt = POTION[id]!; let healed = 0;
+  if (pt.heal) {
+    const h = pt.heal;
+    if (h.hp) { const before = s.hp; s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * h.hp)); healed = s.hp - before; }
+    if (h.mp) s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * h.mp));
+    if (h.sta) s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * h.sta));
+    bump(s, "elixirsDrunk");
+  }
+  if (pt.oil) { s.oil = { id, left: OIL_BATTLES }; bump(s, "oilsApplied"); log(s, `🛢️ ${pt.name} coats your weapon for ${OIL_BATTLES} battles.`); }
+  if (pt.tonic) { s.tonic = { id, floors: TONIC_FLOORS }; log(s, `🥤 ${pt.name}: ${pt.desc} for ${TONIC_FLOORS} floors.`); }
+  return healed;
+}
+/** Use a potion outside battle (flasks can only be thrown in battle). */
+export function usePotion(s: GameState, id: string): boolean {
+  const pt = POTION[id]; if (!pt || pt.flask || !(s.potions?.[id] ?? 0)) return false;
+  s.potions = { ...s.potions, [id]: s.potions![id]! - 1 };
+  const h = applyPotion(s, id); if (pt.heal) log(s, `${pt.icon} ${pt.name}${h ? ` restores ${h} HP` : ""}.`);
+  return true;
+}
 /** Raise a crafted torch or ranged weapon one grade (Common → EX). */
 export function upgradeOffhand(s: GameState, id: string): boolean {
   const t = TOOL[id]; if (!t || !isHeldTool(t) || !(s.tools?.[id] ?? 0)) return false;
@@ -983,7 +1032,7 @@ export function placeTrap(s: GameState, id: string, x: number, y: number): boole
 }
 function triggerTrap(s: GameState, m: Mon) {
   const d = s.dungeon!; const tr = d.traps?.find((q) => q.x === m.x && q.y === m.y); if (!tr) return;
-  const t = TOOL[tr.id]!; d.traps = d.traps!.filter((q) => q !== tr);
+  const t = TOOL[tr.id]!; d.traps = d.traps!.filter((q) => q !== tr); bump(s, "trapsSprung");
   const dmg = Math.round(m.maxHp * (t.pct ?? 0) * (m.boss ? 0.4 : 1));
   m.hp -= dmg; bump(s, "dmgDealt", dmg); addXp(s, "hunting", 3);
   if (t.stun) { m.rooted = 5; m.trapStun = t.stun; }
@@ -995,7 +1044,7 @@ function triggerTrap(s: GameState, m: Mon) {
   } else log(s, `${t.icon} ${m.name} triggered your ${t.name} (−${dmg}).`);
 }
 /** Per-step ailment ticks while exploring. */
-export function stepAilments(s: GameState) { if (s.ailments?.poisoned && s.hp > 1) s.hp -= 1; }
+export function stepAilments(s: GameState) { bump(s, "dungeonSteps"); if (s.ailments?.poisoned && s.hp > 1) s.hp -= 1; }
 
 export function churchHealCost(s: GameState) { return 10 + Math.floor(s.maxFloor * 2); }
 export function churchHeal(s: GameState): boolean {
@@ -1006,7 +1055,7 @@ export function plant(s: GameState, x: number, y: number, seed: string) {
   const mt = getMat(seed); if (!mt.seedOf || !takeMat(s, seed, 1)) return;
   const L = lvl(s, "farming");
   s.village.plots[key(x, y)] = { crop: mt.seedOf, readyAt: s.step + Math.max(12, 40 - L) };
-  addXp(s, "farming", 3); log(s, `🌱 Planted ${getMat(mt.seedOf).name}.`);
+  addXp(s, "farming", 3); bump(s, "seedsPlanted"); log(s, `🌱 Planted ${getMat(mt.seedOf).name}.`);
 }
 export function harvest(s: GameState, x: number, y: number) {
   const k = key(x, y); const p = s.village.plots[k]; if (!p || p.readyAt > s.step) return;
@@ -1017,7 +1066,7 @@ export function harvest(s: GameState, x: number, y: number) {
   log(s, `🧺 Harvested ${q} ${getMat(p.crop).name}.`);
 }
 export function restAtHome(s: GameState) {
-  const p = playerStats(s); const k = restPct(bldgLvl(s, "house")) / 100;
+  const p = playerStats(s); const k = restPct(bldgLvl(s, "house")) / 100; bump(s, "rests");
   s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * k)); s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * k)); s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * k)); s.step += 60;
   log(s, `🛌 You rest and recover ${Math.round(k * 100)}%. The village grows a little.`);
 }
@@ -1035,9 +1084,14 @@ export function makeMonster(f: number, x: number, y: number, boss: 0 | 1 | 2 | 3
   let def: MonsterDef;
   if (boss === 3) def = MONSTERS.find((m) => m.id === "sovereign")!;
   else {
-    const tierPick = Math.random() < 0.7 || t === 0 ? t : t - 1;
-    const pool = MONSTERS.filter((m) => m.tier === tierPick && m.id !== "sovereign");
-    def = pool[ri(0, pool.length - 1)] ?? MONSTERS[0]!;
+    // Monsters live in their natural environment: prefer natives of this floor's theme, else the global tier pool.
+    const native = themePool(themeFor(f).name, t);
+    if (native.length) def = native[ri(0, native.length - 1)]!;
+    else {
+      const tierPick = Math.random() < 0.7 || t === 0 ? t : t - 1;
+      const pool = MONSTERS.filter((m) => m.tier === tierPick && m.id !== "sovereign");
+      def = pool[ri(0, pool.length - 1)] ?? MONSTERS[0]!;
+    }
   }
   const sc = monScale(f);
   let hp = 40 * def.hp * sc.hp, atk = 7 * def.atk * sc.atk, defn = 3 * def.def * sc.def, dodge = 4;
@@ -1054,7 +1108,7 @@ export function makeMonster(f: number, x: number, y: number, boss: 0 | 1 | 2 | 3
   const xp = Math.round(6 * Math.pow(1.1, f / 10) * (boss === 3 ? 60 : boss === 2 ? 25 : boss === 1 ? 8 : affix ? 2 : 1));
   return {
     uid: uid(), def: def.id, name, icon: def.icon, x, y, hp: Math.round(hp), maxHp: Math.round(hp), atk, defn, weak: def.weak, element: def.element,
-    tier: def.tier, boss, magical: MAGICAL.has(def.id), ability, affix, xp, drops: def.drops, dodge,
+    tier: def.tier, boss, magical: MON_DEF[def.id]?.magical ?? MAGICAL.has(def.id), ability, affix, xp, drops: def.drops, dodge,
   };
 }
 export function genDungeon(f: number): { d: Dungeon; start: { x: number; y: number } } {
@@ -1130,6 +1184,7 @@ export function climbUp(s: GameState) {
   if (d.bossAlive) return false;
   const first = f > s.maxFloor;
   if (first) { s.maxFloor = f; bump(s, "floorsCleared"); }
+  if (!d.fromAbove) { bump(s, `floors:${themeFor(f).name}`); bump(s, "floorStreak"); s.stats["bestFloorStreak"] = Math.max(s.stats["bestFloorStreak"] ?? 0, s.stats["floorStreak"] ?? 0); }
   let msg = `🏁 Floor ${f} cleared${first ? " for the first time" : ""}!`;
   if (!d.fromAbove) {
     const bonus = Math.round(10 * Math.pow(1.1, f / 10) * (first ? 3 : 1)); earn(s, bonus); addCharXp(s, Math.round(10 * Math.pow(1.1, f / 10)));
@@ -1193,7 +1248,7 @@ export function moveMonsters(s: GameState): Mon | null {
 }
 
 // ======================= combat =======================
-export type CombatAct = "attack" | "defend" | "flee" | "race" | "shoot" | "capture" | { skill: number } | { eat: number } | { tool: string };
+export type CombatAct = "attack" | "defend" | "flee" | "race" | "shoot" | "capture" | { skill: number } | { eat: number } | { tool: string } | { potion: string };
 const dmgFormula = (a: number, d: number) => (a * a) / (a + d);
 /** Every counter used by ascension conditions or race class ladders. */
 const PATH_STATS = [...new Set([
@@ -1223,27 +1278,35 @@ export function startCombat(s: GameState, m: Mon) {
 }
 const clog = (c: Combat, msg: string) => { c.log = [msg, ...c.log].slice(0, 20); };
 
-function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { magic?: boolean; el?: Element | undefined; sure?: boolean; label: string }) {
+function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { magic?: boolean; el?: Element | undefined; sure?: boolean; label: string; weapon?: boolean }) {
   const m = c.mon;
   const magic = opts.magic ?? p.magicWeapon;
   if (!opts.sure && Math.random() * 100 > Math.min(98, p.acc - m.dodge)) { clog(c, `💨 ${opts.label} missed!`); return 0; }
   const atk = (magic ? p.matk : p.patk) * mult;
   let def = m.defn * (magic ? 0.75 : 1) * (c.shieldT > 0 ? 1.6 : 1);
   def *= 1 - Math.min(0.6, p.effects.pierce / 100);
+  if (c.shred) def *= 1 - c.shred;
+  const oil = opts.weapon && s.oil ? POTION[s.oil.id]?.oil : undefined;
   let dmg = dmgFormula(atk, def) * rand(0.9, 1.1);
   const el = opts.el ?? p.element;
   if (p.enchDmg && el === p.element) dmg *= 1 + p.enchDmg / 100;
   if (el !== "none" && el === m.weak) dmg *= 1.5; else if (el !== "none" && el === m.element) dmg *= 0.7;
   if (p.effects.holy && m.element === "dark") dmg *= 1 + p.effects.holy / 100;
+  if (oil?.fx === "holy" && (MON_DEF[m.def]?.cat === "undead" || MON_DEF[m.def]?.cat === "fiend")) dmg *= 1 + oil.power / 100;
   if (s.char.race === "orc" && s.hp < playerStats(s).hp * 0.5) dmg *= 1.15;
   const crit = Math.random() * 100 < p.crit;
-  if (crit) dmg *= p.critDmg / 100;
+  if (crit) { dmg *= p.critDmg / 100; bump(s, "criticalHits"); }
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg; c.dealt += dmg; bump(s, "dmgDealt", dmg);
   if (dmg > (s.stats["highestHit"] ?? 0)) s.stats["highestHit"] = dmg;
   if (p.effects.lifesteal) { const h = Math.round(dmg * p.effects.lifesteal / 100); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); }
   if (p.effects.burn) c.monBurn = Math.max(c.monBurn, Math.round(dmg * p.effects.burn / 100));
   if (p.effects.bleed) c.monBleed = Math.max(c.monBleed, Math.round(dmg * p.effects.bleed / 100));
+  if (oil && oil.fx !== "holy" && m.hp > 0 && Math.random() * 100 < oil.chance) {
+    if (oil.fx === "poison" || oil.fx === "bleed") { c.monBleed = Math.max(c.monBleed, Math.round(dmg * oil.power / 100)); clog(c, oil.fx === "poison" ? "🐍 The venom takes hold!" : "🩸 A deep, bleeding cut!"); }
+    else if (oil.fx === "burn") { c.monBurn = Math.max(c.monBurn, Math.round(dmg * oil.power / 100)); clog(c, "🔥 The napalm ignites!"); }
+    else if (oil.fx === "chill") { c.roar = Math.max(c.roar, 2); clog(c, "❄️ The foe is chilled — its blows weaken."); }
+  }
   clog(c, `${crit ? "💥 CRIT! " : ""}${opts.label} hits for ${dmg}${el !== "none" && el === m.weak ? " (weak!)" : ""}`);
   return dmg;
 }
@@ -1253,7 +1316,7 @@ function torchStrike(s: GameState, c: Combat, p: PStats, label: string) {
   const t = heldTorch(s); const m = c.mon; if (!t || m.hp <= 0) return;
   const fx = offhandFx(t, toolGrade(s, t.id));
   const d = playerHit(s, c, p, fx.fire || 0.3, { magic: p.matk >= p.patk, el: "fire", sure: true, label });
-  if (AFF_BY_ID["fire"]) addAff(s, "fire", 0.3);
+  if (AFF_BY_ID["fire"]) addAff(s, "fire", 0.3); if (d) bump(s, "torchStrikes");
   if (!d || m.hp <= 0 || !t.fx || Math.random() * 100 >= fx.chance) return;
   switch (t.fx) {
     case "sleep": c.stun = Math.max(c.stun, m.boss ? 1 : 2); clog(c, `💤 ${m.name} is lulled to sleep!`); break;
@@ -1273,16 +1336,16 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
   let defending = false; c.block = false;
   const wskill = p.weaponSkill;
   if (a === "attack") {
-    playerHit(s, c, p, 1, { label: "You" });
+    playerHit(s, c, p, 1, { label: "You", weapon: true });
     addXp(s, p.magicWeapon ? "spellcasting" : wskill, 3); use(s.usage.weapon, wskill);
     if (wskill === "one_hand") addAff(s, "sword", 1); if (wskill === "two_hand") addAff(s, "might", 1.2); if (wskill === "unarmed") addAff(s, "might", 0.6);
     if (p.element !== "none" && AFF_BY_ID[p.element]) addAff(s, p.element, 0.6);
-    if (m.hp > 0 && Math.random() * 100 < p.effects.haste) playerHit(s, c, p, 0.7, { label: "Hasted strike" });
+    if (m.hp > 0 && Math.random() * 100 < p.effects.haste) playerHit(s, c, p, 0.7, { label: "Hasted strike", weapon: true });
     const tt = heldTorch(s); if (tt) torchStrike(s, c, p, tt.name);
   } else if (a === "defend") {
     defending = true; s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * 0.12)); s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * 0.06));
     const dm = defendMode(s); c.block = dm === "shield";
-    addXp(s, "defense", dm === "shield" ? 4 : 3); if (dm === "shield") addAff(s, "shield", 1.5);
+    addXp(s, "defense", dm === "shield" ? 4 : 3); if (dm === "shield") { addAff(s, "shield", 1.5); bump(s, "shieldBlocks"); }
     clog(c, dm === "shield" ? "🛡️ You raise your shield." : dm === "torch" ? `🔥 You ward with your ${heldTorch(s)!.name}.` : "🙅 You brace yourself.");
   } else if (a === "flee") {
     const boss = m.boss > 0;
@@ -1315,7 +1378,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     const chance = Math.min(0.85, 0.35 + lvl(s, "hunting") * 0.006 + (1 - m.hp / m.maxHp) * 0.2);
     addXp(s, "hunting", 4);
     if (Math.random() < chance) {
-      const def = MONSTERS.find((x) => x.id === m.def);
+      const def = MON_DEF[m.def];
       const L = Math.max(1, Math.round(d0(s) * 0.8));
       const name = m.name.replace(/^(Guardian|Arch-Warden) /, "").replace(new RegExp(`^(${ELITE_AFFIX.join("|")}) `), "");
       s.companions = [...(s.companions ?? []), { id: uid(), name, kind: "monster", role: "beast", race: "", gender: "", monDef: m.def, xp: 15 * (L - 1) ** 2,
@@ -1329,7 +1392,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (!r || !def || !(s.tools?.[ammo] ?? 0)) { clog(c, "No ammunition!"); c.turn--; return null; }
     s.tools = { ...s.tools, [ammo]: s.tools![ammo]! - 1 };
     const pp = def.pierce ? { ...p, effects: { ...p.effects, pierce: p.effects.pierce + def.pierce } } : p;
-    playerHit(s, c, pp, offhandFx(def, toolGrade(s, r)).mult, { magic: false, el: r === "laser" ? "light" : undefined, label: def.name });
+    if (playerHit(s, c, pp, offhandFx(def, toolGrade(s, r)).mult, { magic: false, el: r === "laser" ? "light" : undefined, label: def.name })) bump(s, "rangedHits");
     addXp(s, "hunting", 4); addAff(s, "hunting", 1);
   } else if ("tool" in a) {
     const t = TOOL[a.tool]; if (!t || t.kind !== "throw" || !(s.tools?.[t.id] ?? 0)) { c.turn--; return null; }
@@ -1347,14 +1410,26 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
     if (sk.res === "mp") s.mp -= sk.cost; else s.sta -= sk.cost;
     use(s.usage.skill, sk.name);
     if (sk.aff !== "none") addAff(s, sk.aff, 1.5);
-    if (sk.school) { c.school = sk.school; s.magic = { ...s.magic, [sk.school]: (s.magic?.[sk.school] ?? 0) + 3 }; addXp(s, "spellcasting", 2); }
+    if (sk.school) { bump(s, "spellsCast"); bump(s, `cast:${sk.school}`); c.school = sk.school; s.magic = { ...s.magic, [sk.school]: (s.magic?.[sk.school] ?? 0) + 3 }; addXp(s, "spellcasting", 2); }
     if (sk.kind === "drain") { const d = playerHit(s, c, p, sk.mult, { magic: true, el: sk.el, label: sk.name }); const h = Math.round(d * 0.4); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); addXp(s, "spellcasting", 5); } else
-    if (sk.kind === "phys") { playerHit(s, c, p, sk.mult, { magic: false, label: sk.name }); addXp(s, wskill, 4); }
+    if (sk.kind === "phys") { playerHit(s, c, p, sk.mult, { magic: false, label: sk.name, weapon: true }); addXp(s, wskill, 4); }
     else if (sk.kind === "mag") { playerHit(s, c, p, sk.mult, { magic: true, el: sk.el, label: sk.name }); addXp(s, "spellcasting", 5); }
     else if (sk.kind === "heal") { const h = Math.round(p.hp * sk.mult); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "healing", h); clog(c, `💚 ${sk.name} restores ${h} HP.`); addXp(s, "spellcasting", 3); }
     else if (sk.kind === "guard") { c.guardT = 2; defending = true; clog(c, `🛡️ ${sk.name}! Damage greatly reduced.`); addXp(s, "defense", 4); }
     else if (sk.kind === "lock") { c.lockT = sk.mult; c.lockHp = Math.max(1, s.hp); clog(c, `♾️ ${sk.name}! Your HP is locked for ${sk.mult} turns.`); addXp(s, "endurance", 4); }
     else { equipped(s).forEach((g) => { g.dura = Math.min(g.maxDura, g.dura + Math.round(g.maxDura * 0.1)); }); clog(c, "🔧 Field Repair restores gear durability."); }
+  } else if ("potion" in a) {
+    const pt = POTION[a.potion]; if (!pt || !(s.potions?.[pt.id] ?? 0)) { c.turn--; return null; }
+    if (pt.cat === "elixir" && (c.drinks ?? 0) >= DRINKS_PER_FIGHT) { clog(c, "🤢 You can't drink any more this fight."); c.turn--; return null; }
+    s.potions = { ...s.potions, [pt.id]: s.potions![pt.id]! - 1 }; use(s.usage.skill, pt.name);
+    if (pt.flask) {
+      const f = pt.flask; const d = playerHit(s, c, p, f.mult, { magic: !!f.el, el: f.el, sure: true, label: pt.name });
+      if (f.burn && d) c.monBurn = Math.max(c.monBurn, Math.round(d * f.burn));
+      if (f.shred) { c.shred = Math.max(c.shred ?? 0, f.shred); clog(c, `🧫 ${m.name}'s armor melts!`); }
+      if (f.blind) { c.blind = Math.max(c.blind ?? 0, f.blind); clog(c, `🌟 ${m.name} is blinded!`); }
+      if (f.stun) { c.stun = Math.max(c.stun, f.stun); clog(c, `🧊 ${m.name} is frozen solid!`); }
+      addXp(s, "hunting", 3);
+    } else { if (pt.cat === "elixir") c.drinks = (c.drinks ?? 0) + 1; const h = applyPotion(s, pt.id, p); c.healed += h; clog(c, `${pt.icon} ${pt.name}${h ? ` restores ${h} HP` : ""}.`); }
   } else if ("eat" in a) {
     if (c.eats >= 2) { clog(c, "🤢 You can't eat more during this fight."); c.turn--; return null; }
     const h = eatFood(s, a.eat); c.eats++; c.healed += h; clog(c, `🍖 Ate and recovered ${h} HP.`);
@@ -1424,13 +1499,20 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   // durability wear
   for (const g of equipped(s)) g.dura = Math.max(0, g.dura - ((g.slot === "one_hand" || g.slot === "two_hand") ? 2 : 1));
   if (s.blessing) { s.blessing.left--; if (s.blessing.left <= 0) s.blessing = undefined; }
+  if (s.oil) {
+    if (outcome === "win" && POTION[s.oil.id]?.oil?.fx === "poison") bump(s, "venomKills");
+    s.oil = s.oil.left > 1 ? { ...s.oil, left: s.oil.left - 1 } : undefined; if (!s.oil) log(s, "🛢️ Your weapon oil has worn off.");
+  }
   if (outcome === "win") {
     d.monsters = d.monsters.filter((x) => x.uid !== m.uid);
     if (m.boss) { d.bossAlive = false; bump(s, "bosses"); }
     for (const cp of s.companions ?? []) cp.xp += m.xp * 1.2;
     if (c.school === "blood") bump(s, "bloodKills");
     if (c.school === "plague") bump(s, "plagueKills");
-    if (UNDEAD.has(m.def) && s.spells?.some((x) => x.startsWith("necromancy_"))) bump(s, "undeadKills");
+    if ((UNDEAD.has(m.def) || isUndead(m.def)) && s.spells?.some((x) => x.startsWith("necromancy_"))) bump(s, "undeadKills");
+    const cat = MON_DEF[m.def]?.cat; if (cat) bump(s, `kills:${cat}`);
+    bump(s, "noFleeStreak"); s.stats["bestNoFlee"] = Math.max(s.stats["bestNoFlee"] ?? 0, s.stats["noFleeStreak"] ?? 0);
+    if (c.taken === 0) bump(s, "flawlessWins"); if (c.turn <= 1) bump(s, "oneTurnKills");
     bump(s, "kills"); bump(s, "streak"); s.stats["bestStreak"] = Math.max(s.stats["bestStreak"] ?? 0, s.stats["streak"] ?? 0);
     use(s.usage.monster, m.name.replace(/^(Guardian|Arch-Warden) /, "").replace(new RegExp(`^(${ELITE_AFFIX.join("|")}) `), ""));
     xp = m.xp; addCharXp(s, xp); addXp(s, "hunting", 3 + m.tier + (m.boss ? 10 : 0)); addAff(s, "hunting", 1 + (m.boss ? 5 : 0));
@@ -1453,7 +1535,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
     }
     clog(c, `🏆 ${m.name} defeated!`);
   } else if (outcome === "lose") {
-    bump(s, "deaths"); s.stats["streak"] = 0;
+    bump(s, "deaths"); s.stats["streak"] = 0; s.stats["floorStreak"] = 0; s.stats["noFleeStreak"] = 0;
     if (s.spells?.some((x) => x.startsWith("soul_"))) bump(s, "soulDeaths");
     if (s.ailments?.poisoned && s.spells?.some((x) => x.startsWith("plague_"))) bump(s, "poisonDeaths");
     addAilment(s, "cursed");
@@ -1463,10 +1545,11 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   s.result = {
     won: outcome === "win", fled: outcome === "fled", died: outcome === "lose", name: m.name, icon: m.icon, boss: m.boss, floor: d.floor,
     dealt: c.dealt, taken: c.taken, turns: c.turn, xp, gold, loot: Object.entries(loot).map(([id, qty]) => ({ id, qty })), gains,
-    hp: Math.max(0, s.hp), maxHp: p.hp, sold, collected: false, paths: c.st0 ? pathGains(s, c.st0) : [],
+    hp: Math.max(0, s.hp), maxHp: p.hp, sold, collected: false, kind: m.def, paths: c.st0 ? pathGains(s, c.st0) : [],
   };
   if (autoLootFlag || outcome !== "win") collectLoot(s);
   s.combat = undefined;
+  if (outcome === "fled") s.stats["noFleeStreak"] = 0;
   if (outcome === "fled") { const r = s.dungeon!; const free = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: s.pos.x + dx!, y: s.pos.y + dy! })).find((q) => r.tiles[q.y]?.[q.x] === "." && !r.monsters.some((mm) => mm.x === q.x && mm.y === q.y)); if (free) s.pos = free; }
   if (outcome === "lose") {
     const lost = Math.floor(s.gold * 0.1); s.gold -= lost;
@@ -1566,7 +1649,7 @@ export function playDice(s: GameState, bet: number, high: boolean) {
   if (!casinoGuard(s, bet)) return null;
   const a = ri(1, 6), b = ri(1, 6), t = a + b;
   const win = t !== 7 && (high ? t > 7 : t < 7);
-  if (win) earn(s, Math.round(bet * 1.9));
+  if (win) { earn(s, Math.round(bet * 1.9)); bump(s, "casinoWins"); }
   log(s, `🎲 ${a}+${b}=${t} — ${win ? `won ${Math.round(bet * 1.9)}g` : "lost"}`); return { a, b, win };
 }
 const REELS = ["🍒", "🍋", "🔔", "⭐", "💎", "🍀"];
@@ -1578,13 +1661,13 @@ export function playSlots(s: GameState, bet: number) {
   let pay = 0, token = 0;
   if (r[0] === r[1] && r[1] === r[2]) { pay = r[0] === "🍀" ? 25 : r[0] === "💎" ? 15 : r[0] === "⭐" ? 8 : 4; token = r[0] === "🍀" ? 3 : 1; }
   else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) pay = 1.2;
-  if (pay) earn(s, Math.round(bet * pay)); s.tokens += token;
+  if (pay) earn(s, Math.round(bet * pay)); if (pay > 1.5) bump(s, "casinoWins"); s.tokens += token;
   log(s, `🎰 ${r.join(" ")} — ${pay ? `won ${Math.round(bet * pay)}g${token ? ` +${token} token` : ""}` : "nothing"}`); return { r, pay, token };
 }
 export function playHighLow(s: GameState, bet: number, cur: number, higher: boolean) {
   if (!casinoGuard(s, bet)) return null;
   const next = ri(1, 13); const win = higher ? next > cur : next < cur;
-  if (win) earn(s, Math.round(bet * 1.85));
+  if (win) { earn(s, Math.round(bet * 1.85)); bump(s, "casinoWins"); }
   log(s, `🃏 ${cur} → ${next}: ${win ? `won ${Math.round(bet * 1.85)}g` : "lost"}`); return { next, win };
 }
 export const TOKEN_SHOP: { id: string; cost: number }[] = [{ id: "lucky_clover", cost: 6 }, { id: "mana_crystal", cost: 4 }, { id: "guardian_sigil", cost: 15 }, { id: "ancient_schematic", cost: 80 }];

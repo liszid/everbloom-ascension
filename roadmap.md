@@ -1,7 +1,7 @@
 # Big expansion (from the uploaded notes)
-- [ ] Phase 1: 100 D&D monsters spawn in their home dungeon themes (bestiary data, new drops, look-alike art, undead/magic flags)
-- [ ] Phase 2: new progress counters + 7 milestone titles (Sanguine, Immortal, Apostle, Sniper, Pyre, Loaded Dice, Alchemist)
-- [ ] Phase 3: Craftery Alchemy — elixirs, weapon oils (3 battles), throwing flasks, multi-floor tonics, from real materials
+- [x] Phase 1: 100 D&D monsters spawn in their home dungeon themes (bestiary data, new drops, look-alike art, undead/magic flags)
+- [x] Phase 2: new progress counters + 7 milestone titles (Sanguine, Immortal, Apostle, Sniper, Pyre, Loaded Dice, Alchemist)
+- [x] Phase 3: Craftery Alchemy — elixirs, weapon oils (3 battles), throwing flasks, multi-floor tonics, from real materials
 - [ ] Phase 4: 3-aspect playstyle classes (100+ curated, incl. magic-school mastery, e.g. Transformation+Nature+Might = Druid)
 - [ ] Phase 5: linear specializations (Faith, Deadeye, Ember, Gambler, Colosseum, Transmuter) chosen in Profile
 - [ ] Phase 6: 35 new ascended races with lore ladders, conditions and race skills

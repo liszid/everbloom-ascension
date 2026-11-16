@@ -67,6 +67,56 @@ export const TITLE_THEMES: Record<string, TitleSkill[]> = {
     A("Mana Mend", "Restore HP.", "heal", 0.2, 16, "mp"),
     P("Focus", "Regenerate mana every turn.", undefined, { manaflow: 4 }),
   ],
+  // ---- milestone themes ----
+  sanguine: [
+    P("Crimson Feast", "Steal life on every hit.", undefined, { lifesteal: 8 }),
+    P("Blood Vigor", "Max HP up.", { hp: 0.18 }),
+    A("Sanguine Lance", "Dark magic that drinks the foe's blood.", "mag", 2.4, 22, "mp", "dark"),
+    A("Blood Boiling Ward", "A red mist keeps your HP from dropping.", "lock", 2, 28, "sta"),
+    P("Hemomancer's Dominion", "Your hits make foes bleed.", undefined, { bleed: 12 }),
+  ],
+  immortal: [
+    P("Indomitable Spirit", "Dodge and physical defense up.", { dodge: 0.05, pdef: 0.12 }),
+    P("Iron Marrow", "Huge health and stamina.", { hp: 0.2, sta: 0.15 }),
+    A("Unyielding Roar", "Heal back a large chunk of HP.", "heal", 0.35, 24, "sta"),
+    A("Aegis of Eternity", "Your HP cannot drop for a few turns.", "lock", 3, 35, "sta"),
+    P("Titan's Defiance", "Physical and magic defense up.", { pdef: 0.15, mdef: 0.15 }),
+  ],
+  apostle: [
+    P("Divine Benediction", "Extra damage against dark monsters.", undefined, { holy: 10 }),
+    P("Sanctified Grace", "Mana and magic defense up.", { mp: 0.2, mdef: 0.15 }),
+    A("Judgment Ray", "A pillar of searing light.", "mag", 2.6, 25, "mp", "light"),
+    A("Angelic Intervention", "A great wave of healing.", "heal", 0.45, 30, "mp"),
+    P("Seraph's Crown", "Regenerate HP and MP every turn.", undefined, { regen: 5, manaflow: 5 }),
+  ],
+  sniper: [
+    P("Hawkeye", "Crit chance and accuracy up.", { crit: 0.08, acc: 0.1 }),
+    P("Armor Piercer", "Ignore part of enemy defense.", undefined, { pierce: 15 }),
+    A("Phantom Arrow", "A silent piercing shot.", "phys", 2.8, 20, "sta"),
+    A("Camouflage", "Vanish and greatly reduce damage.", "guard", 1, 14, "sta"),
+    P("Deadly Velocity", "Crit damage up.", { critDmg: 0.45 }),
+  ],
+  pyre: [
+    P("Blazing Soul", "Your hits set foes on fire.", undefined, { burn: 10 }),
+    P("Flame Tempered", "Physical and magic attack up.", { patk: 0.08, matk: 0.12 }),
+    A("Infernal Eruption", "A wave of consuming fire.", "mag", 2.5, 22, "mp", "fire"),
+    A("Cauterizing Ward", "Burn wounds shut so HP can't drop.", "lock", 2, 26, "sta"),
+    P("Ashen Rebirth", "Crit chance and crit damage up.", { crit: 0.06, critDmg: 0.25 }),
+  ],
+  loaded_dice: [
+    P("Gambler's Folly", "Huge luck boost.", { luck: 0.35 }),
+    P("High Stakes", "Crit chance and dodge up.", { crit: 0.07, dodge: 0.06 }),
+    A("Double Down", "A wild, heavy blow.", "phys", 2.7, 18, "sta"),
+    A("Bribe the Reaper", "Pay off death: HP can't drop for a few turns.", "lock", 2, 25, "sta"),
+    P("Golden Cascade", "Crit damage up.", { critDmg: 0.5 }),
+  ],
+  alchemist: [
+    P("Quick Distillation", "Magic attack and health up.", { matk: 0.06, hp: 0.06 }),
+    P("Acidic Solvent", "Ignore part of enemy defense.", undefined, { pierce: 12 }),
+    A("Volatile Concoction", "Hurl an exploding brew.", "mag", 2.4, 20, "mp"),
+    A("Philosopher's Aegis", "A transmuted barrier greatly reduces damage.", "guard", 1, 16, "mp"),
+    P("Elixir of Life", "Regenerate HP and MP every turn.", undefined, { regen: 4, manaflow: 4 }),
+  ],
 };
 
 // title -> [theme, base stars]
@@ -81,6 +131,13 @@ export const TITLE_DEFS: Record<string, [string, number]> = {
   "Green Thumb": ["nature", 1], Rancher: ["nature", 1], Angler: ["nature", 1], Chef: ["nature", 1],
   Golden: ["fortune", 2], "Merchant Prince": ["fortune", 2],
   Polymath: ["sage", 2], Savant: ["sage", 2], "Thousand Faces": ["sage", 3],
+  "Blood Drinker": ["sanguine", 1], "Sanguine Lord": ["sanguine", 3],
+  "Unbroken": ["immortal", 1], "Deathless Walker": ["immortal", 3], "Eternal": ["immortal", 4],
+  "Devout": ["apostle", 1], "Apostle of Light": ["apostle", 3], Pope: ["apostle", 4],
+  Marksman: ["sniper", 1], "Phantom Sniper": ["sniper", 3],
+  Torchbearer: ["pyre", 1], Pyrekeeper: ["pyre", 2],
+  "Lucky Streak": ["loaded_dice", 1], "Loaded Dice": ["loaded_dice", 3],
+  Brewer: ["alchemist", 1], "Grand Alchemist": ["alchemist", 3],
 };
 export const MAX_STARS = 5;
 // Equipped hours needed for each star gained above the base: 2h, 6h, 18h, 54h (cumulative).

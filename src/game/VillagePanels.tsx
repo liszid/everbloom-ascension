@@ -8,6 +8,7 @@ import { offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, 
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
+import { AlchemyTab } from "./AlchemyPanel";
 import { emojiArt, objArt, icon, sceneArt } from "./art";
 const TARGET: Record<SpotId, () => string | undefined> = { forest: () => objArt("T"), mine: () => objArt("R"), pond: () => icon("fish"), ranch: () => objArt("w"), field: () => objArt("F") };
 const Em = ({ e, cls }: { e: string; cls?: string }) => { const a = emojiArt(e); return a ? <img src={a} alt={e} draggable={false} className={`gather-img ${cls ?? ""}`} /> : <>{e}</>; };
@@ -143,13 +144,14 @@ export function ChurchPanel({ s, onClose, onHeal, onCure, onBless, onPray, onEnc
   );
 }
 
-export function CrafteryPanel({ s, onClose, onCraft, onRanged, onUpgrade }: { s: GameState; onClose: () => void; onCraft: (id: string, times: number) => void; onRanged: (id: RangedId | undefined) => void; onUpgrade: (id: string) => void }) {
-  const [tab, setTab] = useState<ToolKind>("throw");
+export function CrafteryPanel({ s, onClose, onCraft, onRanged, onUpgrade, onBrew, onUsePotion }: { s: GameState; onClose: () => void; onCraft: (id: string, times: number) => void; onRanged: (id: RangedId | undefined) => void; onUpgrade: (id: string) => void; onBrew: (id: string, times: number) => void; onUsePotion: (id: string) => void }) {
+  const [tab, setTab] = useState<ToolKind | "alchemy">("throw");
   return (
     <Sheet title="🪤 Craftery" onClose={onClose}>
-      <div className="mb-2 grid grid-cols-5 gap-1">
-        {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Ranged"], ["torch", "🔥 Torch"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn min-w-0 px-0.5 py-2 text-[0.65rem] ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
+      <div className="mb-2 grid grid-cols-6 gap-1">
+        {([["throw", "🔪 Throw"], ["trap", "🪤 Traps"], ["ammo", "➶ Ammo"], ["ranged", "🏹 Ranged"], ["torch", "🔥 Torch"], ["alchemy", "⚗️ Alchemy"]] as const).map(([t, l]) => <button key={t} className={`pixel-btn min-w-0 px-0.5 py-2 text-[0.65rem] ${tab === t ? "pixel-btn-active" : ""}`} onClick={() => setTab(t)}>{l}</button>)}
       </div>
+      {tab === "alchemy" ? <AlchemyTab s={s} onBrew={onBrew} onUse={onUsePotion} /> : <>
       <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : tab === "torch" ? `Torches go in your off-hand instead of a shield or ranged weapon. They light up more of the dungeon and burn foes whenever you attack or defend. Upgrade a torch you own, from Common to EX, for defense, attack and stronger effects. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.` : `Off-hand ranged weapons replace your shield or torch; two-handed ones also stow your one-handed weapon. Upgrade one you own, from Common to EX, for stronger shots and defense. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
       {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const held = t.kind === "ranged" || t.kind === "torch"; const owned = held && have > 0; return (
         <div key={t.id} className="mb-1 border-2 border-border p-2">
@@ -165,6 +167,7 @@ export function CrafteryPanel({ s, onClose, onCraft, onRanged, onUpgrade }: { s:
           </div>
           {owned && <OffhandGrade s={s} id={t.id} onUpgrade={onUpgrade} />}
         </div>); })}
+      </>}
     </Sheet>
   );
 }
