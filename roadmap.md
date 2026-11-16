@@ -1,3 +1,8 @@
+# Hero sprite & weapon art fixes
+- [ ] Remove weapons drawn into race portraits (angel, abyssal, archmage, arch-lich, lich, centaur, firbolg, githyanki, goliath, orc war-god, triton, valkyrie, gnome)
+- [ ] Side and back walking sprites for every race (map movement uses them)
+- [ ] Equipped weapon look varies by material, tier and name (cheap wood → majestic tier-10)
+
 # Ascended race sprite artwork
 - [x] Generate race-specific male and female artwork for all 35 added ascended races.
 - [x] Replace tinted stand-ins with optimized transparent sprites and verify rendering.
