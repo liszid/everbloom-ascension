@@ -1099,7 +1099,7 @@ function triggerTrap(s: GameState, m: Mon) {
   if (t.stun) { m.rooted = 5; m.trapStun = t.stun; }
   if (t.burn) m.trapBurn = Math.round(m.maxHp * t.burn);
   if (m.hp <= 0) {
-    d.monsters = d.monsters.filter((x) => x !== m); bump(s, "kills"); addCharXp(s, m.xp);
+    d.monsters = d.monsters.filter((x) => x !== m); bump(s, "kills"); addCharXp(s, killXp(m, d.floor));
     const id = m.drops[ri(0, m.drops.length - 1)]!; addMat(s, id, 1, true);
     log(s, `${t.icon} ${m.name} died in your ${t.name}! +${getMat(id).name}`);
   } else log(s, `${t.icon} ${m.name} triggered your ${t.name} (−${dmg}).`);
@@ -1138,6 +1138,20 @@ export const floorTier = (f: number) => Math.min(10, Math.floor(11 * Math.pow(f 
 // Enemy curve: every floor is MON_GROWTH× stronger than the floor below (HP, ATK and DEF); floor 1 is the baseline.
 export const MON_GROWTH = 1.05;
 export const monScale = (f: number) => { const m = Math.pow(MON_GROWTH, Math.max(0, f - 1)); return { hp: m, atk: m, def: m }; };
+// Monster XP follows the character level curve: a floor-f enemy counts as Lv ~1+0.3f (floor 1000 ≈ the Lv 300 cap)
+// and a plain kill is worth about 1/20 of a level at that level, so deeper floors pay proportionally more.
+export const XP_KILLS_PER_LEVEL = 20;
+export const floorXpLevel = (f: number) => 1 + 0.3 * Math.max(1, f);
+export const XP_MULT = { normal: 1, elite: 2, guardian: 8, warden: 25, sovereign: 60 } as const;
+export function monXp(f: number, boss: 0 | 1 | 2 | 3 = 0, elite = false) {
+  const base = 4 + (30 / XP_KILLS_PER_LEVEL) * Math.pow(floorXpLevel(f), 1.75);
+  const mult = boss === 3 ? XP_MULT.sovereign : boss === 2 ? XP_MULT.warden : boss === 1 ? XP_MULT.guardian : elite ? XP_MULT.elite : XP_MULT.normal;
+  return Math.round(base * mult);
+}
+/** XP for killing m on floor f; monsters saved under the old flat curve are lifted to the current one. */
+export const killXp = (m: Mon, f: number) => Math.max(m.xp, monXp(f, m.boss, !!m.affix));
+/** Companions keep their original, gentler XP share so their separate level curve is unchanged. */
+const compXp = (m: Mon, f: number) => Math.round(6 * Math.pow(1.1, f / 10) * (m.boss === 3 ? 60 : m.boss === 2 ? 25 : m.boss === 1 ? 8 : m.affix ? 2 : 1));
 const MAGICAL = new Set(["bat", "wraith", "imp", "frost", "lich", "seraph", "phoenix", "starspawn", "horror", "naga"]);
 
 export function makeMonster(f: number, x: number, y: number, boss: 0 | 1 | 2 | 3 = 0): Mon {
@@ -1166,7 +1180,7 @@ export function makeMonster(f: number, x: number, y: number, boss: 0 | 1 | 2 | 3
     if (affix === "Swift") dodge = 18; if (affix === "Vampiric") ability = "drain"; if (affix === "Venomous") ability = "poison";
     hp *= 1.3;
   }
-  const xp = Math.round(6 * Math.pow(1.1, f / 10) * (boss === 3 ? 60 : boss === 2 ? 25 : boss === 1 ? 8 : affix ? 2 : 1));
+  const xp = monXp(f, boss, !!affix);
   return {
     uid: uid(), def: def.id, name, icon: def.icon, x, y, hp: Math.round(hp), maxHp: Math.round(hp), atk, defn, weak: def.weak, element: def.element,
     tier: def.tier, boss, magical: MON_DEF[def.id]?.magical ?? MAGICAL.has(def.id), ability, affix, xp, drops: def.drops, dodge,
@@ -1248,7 +1262,7 @@ export function climbUp(s: GameState) {
   if (!d.fromAbove) { bump(s, `floors:${themeFor(f).name}`); bump(s, "floorStreak"); s.stats["bestFloorStreak"] = Math.max(s.stats["bestFloorStreak"] ?? 0, s.stats["floorStreak"] ?? 0); }
   let msg = `🏁 Floor ${f} cleared${first ? " for the first time" : ""}!`;
   if (!d.fromAbove) {
-    const bonus = Math.round(10 * Math.pow(1.1, f / 10) * (first ? 3 : 1)); earn(s, bonus); addCharXp(s, Math.round(10 * Math.pow(1.1, f / 10)));
+    const bonus = Math.round(10 * Math.pow(1.1, f / 10) * (first ? 3 : 1)); earn(s, bonus); addCharXp(s, monXp(f) * 2);
     msg += ` +${bonus}g.`;
   }
   if (first && f % 10 === 0) note(s, `🏁 Floor ${f} conquered!`);
@@ -1585,7 +1599,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   if (outcome === "win") {
     d.monsters = d.monsters.filter((x) => x.uid !== m.uid);
     if (m.boss) { d.bossAlive = false; bump(s, "bosses"); }
-    for (const cp of s.companions ?? []) cp.xp += m.xp * 1.2;
+    for (const cp of s.companions ?? []) cp.xp += compXp(m, d.floor) * 1.2;
     if (c.school === "blood") bump(s, "bloodKills");
     if (c.school === "plague") bump(s, "plagueKills");
     if ((UNDEAD.has(m.def) || isUndead(m.def)) && s.spells?.some((x) => x.startsWith("necromancy_"))) bump(s, "undeadKills");
@@ -1594,7 +1608,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
     if (c.taken === 0) bump(s, "flawlessWins"); if (c.turn <= 1) bump(s, "oneTurnKills");
     bump(s, "kills"); bump(s, "streak"); s.stats["bestStreak"] = Math.max(s.stats["bestStreak"] ?? 0, s.stats["streak"] ?? 0);
     use(s.usage.monster, m.name.replace(/^(Guardian|Arch-Warden) /, "").replace(new RegExp(`^(${ELITE_AFFIX.join("|")}) `), ""));
-    xp = m.xp; addCharXp(s, xp); addXp(s, "hunting", 3 + m.tier + (m.boss ? 10 : 0)); addAff(s, "hunting", 1 + (m.boss ? 5 : 0));
+    xp = killXp(m, d.floor); addCharXp(s, xp); addXp(s, "hunting", 3 + m.tier + (m.boss ? 10 : 0)); addAff(s, "hunting", 1 + (m.boss ? 5 : 0));
     gold = Math.round(5 * Math.pow(1.1, d.floor / 10) * (m.boss === 3 ? 100 : m.boss === 2 ? 30 : m.boss === 1 ? 8 : m.affix ? 2 : 1) * rand(0.8, 1.3) * p.itemFind);
     earn(s, gold);
     const rolls = 1 + (m.affix ? 1 : 0) + (m.boss ? 3 + m.boss * 2 : 0) + (Math.random() < p.itemFind - 1 ? 1 : 0);

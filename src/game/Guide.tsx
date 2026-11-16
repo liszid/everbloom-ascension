@@ -11,7 +11,7 @@ import { SCHOOLS, SCHOOL_MAX, COMBO_LEVEL, ASCENSIONS, ASC_RACES, SPELLS } from 
 import { THEMES, THEME_SPAN } from "./themes";
 import { RACE_CLASSES, RANK_AT } from "./raceClasses";
 import { MAX_STARS, STAR_HOURS } from "./titles";
-import { GEAR_CAP, MAX_SKILL, MAX_SPELL_SLOTS, SPELL_MAX_LV, MON_GROWTH } from "./engine";
+import { GEAR_CAP, MAX_SKILL, MAX_SPELL_SLOTS, SPELL_MAX_LV, MON_GROWTH, monXp } from "./engine";
 
 const H = ({ children }: { children: ReactNode }) => <h4 className="mt-3 mb-1 text-sm text-primary">{children}</h4>;
 const P = ({ children }: { children: ReactNode }) => <p className="mb-1.5 text-sm leading-relaxed">{children}</p>;
@@ -227,6 +227,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
       <S id="tower" icon="🗼" title="Tower & combat">
         <L items={[
           <>Monsters get <B>{Math.round((MON_GROWTH - 1) * 100)}% stronger every floor</B> (health, attack and defense), and it stacks: each floor is tougher than the one before. Elite monsters with special traits appear more often higher up.</>,
+          <>Experience grows with the floor too: <B>deeper monsters give much more XP</B> (a floor 160 enemy is worth about {Math.round(monXp(160) / monXp(10))}× a floor 10 one). Elites give 2×, Guardians 8×, Arch-Wardens 25×.</>,
           <>Every 10th floor has a <B>Guardian</B>, every 100th an <B>Arch-Warden</B>, and floor 1000 the <B>Eternal Warden</B>. Bosses must be defeated to use the stairs, you cannot flee from them, and they drop the relics needed for forge upgrades.</>,
           <>Battle buttons: <B>Hit</B> attacks with your weapon; the <B>spell button</B> casts your highest-level equipped Magic Tower spell (the first equipped one on a tie); <B>Defend</B> uses your off-hand — a shield takes only 30% damage instead of 50%, a torch burns back; <B>Items</B> lets you eat (2 per fight), throw tools or shoot; <B>Skills</B> lists every active skill, your race skill and Capture; <B>Flee</B> escapes (not from bosses).</>,
           <>A result screen shows damage, loot and skill gains after every fight.</>,
