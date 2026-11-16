@@ -440,7 +440,8 @@ function NavBtn({ icon, label, onClick, danger }: { icon: string; label: string;
   return <button className={`pixel-btn flex min-h-14 flex-col items-center justify-center py-1 ${danger ? "pixel-btn-danger" : ""}`} onClick={() => { sfx("ui"); onClick(); }}><span className="text-xl leading-none">{icon}</span><span className="text-[0.62rem]">{label}</span></button>;
 }
 function MiniBar({ cls, v, max, label }: { cls: string; v: number; max: number; label: string }) {
-  return <div><div className={`bar ${cls}`}><div style={{ width: `${Math.max(0, (v / max) * 100)}%` }} /></div><div className="text-center text-muted-foreground">{label} {fmt(Math.max(0, v))}/{fmt(max)}</div></div>;
+  const pct = Math.max(0, Math.min(100, max ? (v / max) * 100 : 0));
+  return <div className={`bar bar-labeled ${cls}`}><div style={{ width: `${pct}%` }} /><span className="bar-label">{label} {fmt(Math.max(0, v))}/{fmt(max)}</span></div>;
 }
 
 function bfs(s: GameState, tx: number, ty: number, adjacent: boolean) {
