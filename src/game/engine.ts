@@ -422,7 +422,9 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
 export function buildInput(s: GameState, c: ClassInfo = computeClass(s)): BuildInput {
   const w = s.gear.find((g) => g.id === (s.equip.two_hand ?? s.equip.one_hand));
   const offhand = s.equip.shield ? "shield" : heldTorch(s) ? "torch" : s.ranged && TOOL[s.ranged]?.kind === "ranged" ? "ranged" : "none";
-  return { race: s.char.race, className: c.name, triad: c.triad, title: s.title, arch: w?.arch, offhand, spec: s.spec && SPEC[s.spec] && specRank(SPEC[s.spec]!, s.stats) >= 0 ? s.spec : undefined };
+  // Weapons forged before archetypes existed carry no arch: read it from the weapon's name instead.
+  const arch = w?.arch ?? (w ? ([["scythe", /scythe|sickle/i], ["dagger", /dagger|knife|dirk/i], ["staff", /staff|wand|rod/i], ["hammer", /hammer|mace|maul|club/i], ["axe", /axe/i], ["spear", /spear|halberd|lance|pike/i], ["sword", /sword|blade|saber|katana/i]] as const).find(([, re]) => re.test(w.name))?.[0] : undefined);
+  return { race: s.char.race, className: c.name, triad: c.triad, title: s.title, arch, offhand, spec: s.spec && SPEC[s.spec] && specRank(SPEC[s.spec]!, s.stats) >= 0 ? s.spec : undefined };
 }
 export const activeSynergies = (s: GameState, c?: ClassInfo) => evaluateSynergies(buildInput(s, c));
 /** Choose (or clear) the linear specialization; the path must have at least its first rank unlocked. */

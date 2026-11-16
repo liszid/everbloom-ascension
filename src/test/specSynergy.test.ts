@@ -29,3 +29,12 @@ describe("synergies", () => {
     expect(playerStats(s).synEl.fire).toBeCloseTo(0.35);
   });
 });
+
+describe("synergy weapon detection", () => {
+  it("older weapons without a recorded type are read from their name", async () => {
+    const { buildInput } = await import("@/game/engine");
+    const s = newGame({ name: "T", gender: "Male", race: "human", bg: "farmhand" });
+    s.gear.push({ id: "w1", name: "Oak Warhammer", slot: "two_hand" } as never); s.equip.two_hand = "w1";
+    expect(buildInput(s).arch).toBe("hammer");
+  });
+});

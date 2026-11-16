@@ -29,3 +29,7 @@
 - Craftery torches/ranged weapons stay stackable tool counts; their grade lives in GameState.toolGrades and engine.offhandStats derives stats from it, so no Gear objects or bag slots are needed.
 - Companion gear objects live on Companion.held (out of GameState.gear) and go back to the bag on removal, dismissal or contract end; migrateSave moves old bag-referenced companion gear so nothing duplicates.
 - Race-path counters snapshot into Combat.st0 at battle start and engine.pathGains diffs them for the result screen; ascension hints are data on ASCENSIONS reqs in magic.ts.
+- Monster homes/categories and the extra D&D bestiary are pure data in src/game/bestiary.ts; engine.makeMonster only picks from the theme pool and keeps its own scaling, and new monsters borrow drawn art via art.MONSTER_LOOK.
+- Alchemy potions are data in src/game/alchemy.ts, stored as GameState.potions counts; oils last battles and tonics last floors, so no Gear objects are needed.
+- Playstyle (3-aspect) classes, specialization paths and build synergies are pure data in playstyleClasses.ts, specializations.ts and synergies.ts; engine.computeClass/playerStats apply them and ascended race ladders still take priority.
+- New ascended races and ladders live in src/game/ascendedRaces.ts and are appended to ASC_RACES/ASCENSIONS/RACE_CLASSES; their active skills are data-driven (AscRace.act) so no combat switch edits are needed.
