@@ -7,7 +7,7 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, climbDown, climbUp, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, migrateSave, upgradeOffhand, cookRecipe, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, brewPotion, usePotion, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, migrateSave, upgradeOffhand, cookRecipe, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, setSpec, brewPotion, usePotion, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon, sightRadius,
 } from "./engine";
 import {
@@ -404,7 +404,7 @@ function GameSession({ userId }: { userId: string }) {
       {panel?.t === "forge" && <ForgePanel s={s} onClose={close} onCraft={(m, sl) => { const g = act((n) => craftGear(n, m, sl)); sfx(g ? "loot" : "fail"); }}
         onEnhance={(id) => act((n) => enhance(n, id))} onRepair={(id) => act((n) => repair(n, id))} onUpgrade={() => act(upgradeForge)} />}
       {panel?.t === "bag" && <BagPanel s={s} onClose={close} onEat={(i) => act((n) => { eatFood(n, i); })} onEquip={(id) => act((n) => equipGear(n, id))} onSell={(id) => { act((n) => sellGear(n, id)); sfx("coin"); }} />}
-      {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} />}
+      {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} onSpec={(id) => act((n) => setSpec(n, id))} />}
       {panel?.t === "settings" && <SettingsPanel onClose={close} saving={saving} onSave={() => void save()} onSignOut={async () => { await save(); await supabase.auth.signOut(); }} chars={{
         list: slots.current.map((x, i) => i === active.current && ref.current ? ref.current : x), active: active.current, max: MAX_CHARS,
         onSwitch: (i) => { if (ref.current) slots.current[active.current] = ref.current; active.current = i; const g = slots.current[i]!; g.notes = []; ref.current = g; setS(g); close(); void save(); },

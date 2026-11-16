@@ -1,5 +1,5 @@
 // Ascension path progress: each lore condition with a bar, its current count and how it is earned.
-import { ascensionProgress, type GameState } from "./engine";
+import { ascensionProgress, pathStarted, type GameState } from "./engine";
 import { ASC_RACES, SCHOOL } from "./magic";
 import { fmt } from "./Panels";
 
@@ -21,11 +21,11 @@ export function PathReqs({ a }: { a: Path }) {
 
 /** Compact list of ascension paths the hero has started (school learned or any progress made). */
 export function StartedPaths({ s }: { s: GameState }) {
-  const list = ascensionProgress(s).filter((a) => s.char.race !== a.race && (a.learned || a.reqs.some((r) => r.stat !== "maxFloor" && r.cur > 0)));
+  const list = ascensionProgress(s).filter((a) => s.char.race !== a.race && pathStarted(a));
   return (
     <div className="pixel-panel mb-2 p-2 text-sm">
       <div className="text-accent">Race paths</div>
-      {!list.length && <p className="text-xs text-muted-foreground">No transformation path started yet. Learn Blood Magic, Soul Binding, Transformation, Necromancy or Plague Craft at the Magic Tower to begin one.</p>}
+      {!list.length && <p className="text-xs text-muted-foreground">No transformation path started yet. Learn a magic school at the Magic Tower to begin one — each race path names the school it needs (Magic Tower › Rituals).</p>}
       {list.map((a) => { const r = ASC_RACES.find((x) => x.id === a.race)!; return (
         <div key={a.race} className="border-b border-border/30 py-1 last:border-0">
           <div>{r.icon} {r.name} {a.ready ? <span className="text-gold">· ready at the Magic Tower</span> : a.failed ? <span className="text-destructive">· path closed</span> : null}</div>

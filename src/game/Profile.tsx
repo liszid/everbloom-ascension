@@ -9,11 +9,12 @@ import {
 import { GearCard, Sheet, Tabs, fmt } from "./Panels";
 import { TOOL } from "./items";
 import { StartedPaths } from "./RacePaths";
+import { ClassCodex, PlaystyleBlock, SpecBlock, SynergyBlock } from "./ClassPaths";
 import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 
-export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; onClose: () => void; onTitle: (t: string | undefined) => void; onEquip: (id: string) => void }) {
+export function ProfilePanel({ s, onClose, onTitle, onEquip, onSpec = () => {} }: { s: GameState; onClose: () => void; onTitle: (t: string | undefined) => void; onEquip: (id: string) => void; onSpec?: (id: string | undefined) => void }) {
   const [tab, setTab] = useState<"info" | "stats" | "equip" | "aff" | "skills" | "class" | "journal">("info");
   const p = playerStats(s); const L = charLevel(s.xp); const c = computeClass(s);
   const race = raceOf(s); const bg = BACKGROUNDS.find((b) => b.id === s.char.bg);
@@ -107,6 +108,9 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
           {rc.parts.map((p) => <div key={p.label} className="flex justify-between border-b border-border/30 py-0.5 text-xs">
             <span className="text-muted-foreground">{p.label}</span><span>{fmt(Math.floor(p.cur))} / {fmt(p.max)}</span></div>)}
         </div>; })()}
+        {!raceClassProgress(s) && <PlaystyleBlock s={s} />}
+        <SpecBlock s={s} onSpec={onSpec} />
+        <SynergyBlock s={s} />
         {!raceClassProgress(s) && <StartedPaths s={s} />}
         {!raceClassProgress(s) && (() => { const ci = classInputs(s); return <div className="pixel-panel mb-2 p-2 text-sm">
           <div className="text-accent">What shapes your class</div>
@@ -118,6 +122,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip }: { s: GameState; o
         {!s.classHistory.length && <p className="text-muted-foreground">Your path has not yet diverged.</p>}
         {s.classHistory.slice().reverse().map((h, i) => <div key={i} className="border-b border-border/30 py-1 text-sm">{h.from} → <b className="text-primary">{h.to}</b> <span className="text-muted-foreground">· floor {h.floor} · {new Date(h.at).toLocaleDateString()}</span></div>)}
         <p className="mt-2 text-sm text-muted-foreground">Classes discovered: {s.classesSeen.length}</p>
+        <ClassCodex s={s} />
       </div>}
       {tab === "journal" && <Journal s={s} />}
     </Sheet>
@@ -133,6 +138,8 @@ function Journal({ s }: { s: GameState }) {
     ["Gathering", [["Trees cut", v("treesCut")], ["Ores mined", v("oresMined")], ["Plants harvested", v("plantsHarvested")], ["Fish caught", v("fishCaught")], ["Animals tended", v("animalsTended")], ["Food cooked", v("foodCooked")]]],
     ["Skills", [["Highest skill level", best], ["Skills learned", Object.keys(s.skills).length], ["Current class", s.className], ["Classes discovered", s.classesSeen.length]]],
     ["Dark paths", [["HP drained (life steal)", v("lifestealHeal")], ["Blood Magic kills", v("bloodKills")], ["Plague Craft kills", v("plagueKills")], ["Undead destroyed (Necromancy)", v("undeadKills")], ["Wolf bites (Transformation)", v("wolfBites")], ["Deaths with a bound soul", v("soulDeaths")], ["Deaths while poisoned (Plague)", v("poisonDeaths")]]],
+    ["Milestones", [["Prayers", v("prayers")], ["Ranged hits", v("rangedHits")], ["Torch strikes", v("torchStrikes")], ["Casino wins", v("casinoWins")], ["Potions brewed", v("potionsBrewed")], ["Critical hits", v("criticalHits")], ["Best deathless floor run", v("bestFloorStreak")], ["Best no-flee run", v("bestNoFlee")], ["Flawless wins", v("flawlessWins")]]],
+    ["Bestiary", [["Beasts", v("kills:beast")], ["Undead", v("kills:undead")], ["Dragons", v("kills:dragon")], ["Fiends", v("kills:fiend")], ["Aberrations", v("kills:aberration")], ["Monstrosities", v("kills:monstrosity")], ["Humanoids", v("kills:humanoid")], ["Fey", v("kills:fey")]]],
     ["Usage", [["Most used weapon", favorite(s.usage.weapon).replace("_", "-")], ["Most used skill", favorite(s.usage.skill)], ["Favorite material", favorite(s.usage.mat)], ["Most hunted monster", favorite(s.usage.monster)]]],
     ["Lifetime", [["Total play time", time(s.playTime)], ["Playthrough started", new Date(s.createdAt).toLocaleDateString()], ["Floors cleared", v("floorsCleared")], ["Highest floor", s.maxFloor], ["Gold earned", v("goldEarned")], ["Gold spent", v("goldSpent")]]],
   ];

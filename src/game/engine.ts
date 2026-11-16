@@ -1,11 +1,14 @@
 import { titleKit } from "./titles";
 import { RACE_CLASS, raceMastery } from "./raceClasses";
 import { CAPTURE_HP, HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, compLevel, rentPrice, techGold, techId, trainChance, trainCost, type CompRole, type Companion } from "./guild";
-import { ASCENSIONS, ASC_RACES, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
+import { ASCENSIONS, ASC_RACES, CLASSIC_ASC, COMBO_LEVEL, SCHOOL, SPELL, SPELLS, STUDY_XP, UNDEAD, schoolLevel, studyCost, type SchoolId } from "./magic";
 import { BLDG_MAX, bldgCost, blessBattles, churchDisc, guildMult, restPct, storageCap, ammoFor, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ALT, ENCHANT_MAT, TOOL, TRAP_RANGE, BASE_SIGHT, enchantCost, enchantPower, servicePrice, type AilmentId, type BlessingId, type RangedId } from "./items";
 import { SPOTS, SPOT_MAX, legacyKeep, spotLevel, spotMats, spotUpgradeCost, type SpotId } from "./gathering";
 import { ARCH, rankArchetypes, type ArchDim, type ArchId } from "./archetypes";
 import { RECIPE } from "./recipes";
+import { SPEC, specRank } from "./specializations";
+import { evaluateSynergies, type BuildInput } from "./synergies";
+import { SCHOOL_AFF_W, SCHOOL_ASPECTS, SCHOOL_ASPECT_W, SCHOOL_TO_AFF, TRIAD, TRIAD_SCALE, resolveTriad, triadName } from "./playstyleClasses";
 import { DRINKS_PER_FIGHT, OIL_BATTLES, POTION, TONIC_FLOORS } from "./alchemy";
 import { MON_DEF, isUndead, themePool } from "./bestiary";
 import { themeFor } from "./themes";
@@ -54,7 +57,7 @@ export interface BattleResult {
 }
 export interface PathGain { icon: string; label: string; add: number; cur: number; need: number }
 export interface Quest { id: string; kind: "kill" | "gather" | "floor" | "craft"; target: string; need: number; base: number; gold: number; tokens: number; text: string }
-export interface ClassInfo { id: string; name: string; tier: number; primary?: string | undefined; secondary?: string | undefined; race?: string | undefined }
+export interface ClassInfo { id: string; name: string; tier: number; primary?: string | undefined; secondary?: string | undefined; race?: string | undefined; /** Playstyle (3-aspect) class id. */ triad?: string | undefined }
 export interface Evo { from: string; to: string; tier: number; bonuses: string[]; skills: string[]; delta: { k: StatKey; d: number }[]; major: boolean }
 export interface GameState {
   v: 2;
@@ -86,6 +89,7 @@ export interface GameState {
   /** Brewed Alchemy potions (stackable counts). */ potions?: Record<string, number> | undefined;
   /** Weapon oil coating and battles left. */ oil?: { id: string; left: number } | undefined;
   /** Alchemy stat tonic and floors left. */ tonic?: { id: string; floors: number } | undefined;
+  /** Chosen linear specialization path (specializations.ts). */ spec?: string | undefined;
 }
 
 /** One-time save upgrades for older saves. Returns true when something changed. */
@@ -200,23 +204,41 @@ export function raceClassProgress(s: GameState) {
     school: (id) => knowsSchool(s, id) ? schoolLevel(s.magic![id]!) : 0,
     skill: (id) => s.skills[id] !== undefined ? lvl(s, id) : 0,
     aff: (id) => affLevel(s.aff[id] ?? 0),
-    stat: (id) => s.stats[id] ?? 0,
+    stat: (id) => statValue(s, id),
   });
   return { line, ...m };
+}
+/** Class scores: affinity scores (skills, affinities, title, elemental school mastery) and aspect scores (those plus special schools). */
+export function classScores(s: GameState) {
+  const inp = classInputs(s);
+  const score: Record<string, number> = {};
+  for (const sk of inp.skills) { const a = SKILLS[sk.k]?.aff; if (a) score[a] = (score[a] ?? 0) + sk.l; }
+  for (const a of inp.affs) score[a.id] = (score[a.id] ?? 0) + a.l * 2;
+  const aspect: Record<string, number> = {};
+  for (const [id, xp] of Object.entries(s.magic ?? {}) as [SchoolId, number][]) {
+    const L = schoolLevel(xp ?? 0); const a = SCHOOL_TO_AFF[id];
+    if (a) score[a] = (score[a] ?? 0) + L * SCHOOL_AFF_W;
+    else if (SCHOOL_ASPECTS.includes(id)) aspect[id] = L * SCHOOL_ASPECT_W;
+  }
+  if (inp.titleAff) score[inp.titleAff] = (score[inp.titleAff] ?? 0) * 1.25 + 10;
+  return { aff: score, aspect: { ...score, ...aspect } };
 }
 export function computeClass(s: GameState): ClassInfo {
   const rc = raceClassProgress(s);
   // Ascended races are lore-locked: the class follows the race ladder, ranking up with race mastery only.
   if (rc) { const [p, q] = rc.line.affs; return { id: `${p}+${q}:${rc.rank}:${rc.line.race}`, name: rc.line.ranks[rc.rank]!, tier: rc.rank, primary: p, secondary: q, race: rc.line.race }; }
-  const inp = classInputs(s);
-  const score: Record<string, number> = {};
-  for (const sk of inp.skills) { const a = SKILLS[sk.k]?.aff; if (a) score[a] = (score[a] ?? 0) + sk.l; }
-  for (const a of inp.affs) score[a.id] = (score[a.id] ?? 0) + a.l * 2;
-  if (inp.titleAff) score[inp.titleAff] = (score[inp.titleAff] ?? 0) * 1.25 + 10;
+  const { aff: score, aspect } = classScores(s);
   const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
   const [pId, pS] = ranked[0] ?? ["", 0]; const q = ranked[1];
   let tier = -1; TIER_SCORES.forEach((t, i) => { if (pS >= t) tier = i; });
   if (tier < 0 || !AFF_BY_ID[pId]) return { id: "adventurer", name: "Adventurer", tier: -1 };
+  // Three strong aspects with a curated combination become a playstyle class (e.g. Transformation + Nature + Might = Druid).
+  const tri = tier >= 1 ? resolveTriad(aspect) : undefined;
+  if (tri) {
+    const affs = tri.triad.filter((a) => AFF_BY_ID[a]).sort((a, b) => (score[b] ?? 0) - (score[a] ?? 0));
+    const p = affs[0] ?? pId; const p2 = affs[1];
+    return { id: `${p}${p2 ? `+${p2}` : ""}:${tier}:~${tri.id}`, name: triadName(tri, tier), tier, primary: p, secondary: p2, triad: tri.id };
+  }
   const base = AFF_BY_ID[pId]!.titles[tier]!;
   if (q && q[1] >= 8 && q[1] >= pS * 0.5) return { id: `${pId}+${q[0]}:${tier}`, name: `${HYBRID_PREFIX[q[0]]} ${base}`, tier, primary: pId, secondary: q[0] };
   return { id: `${pId}:${tier}`, name: base, tier, primary: pId };
@@ -264,6 +286,8 @@ function classPassives(c: ClassInfo): Partial<Record<StatKey, number>> {
     for (const [k, v] of Object.entries(AFF_BY_ID[a]!.passive)) out[k as StatKey] = (out[k as StatKey] ?? 0) + v * w * (1 + c.tier);
   };
   add(c.primary, 1); add(c.secondary, 0.5);
+  const tri = c.triad ? TRIAD[c.triad] : undefined;
+  if (tri) for (const [k, v] of Object.entries(tri.mods)) out[k as StatKey] = (out[k as StatKey] ?? 0) + v * (TRIAD_SCALE[Math.max(0, c.tier)] ?? 1);
   return out;
 }
 export function describePassives(c: ClassInfo) {
@@ -294,6 +318,7 @@ export interface PStats extends Stats {
   element: Element; effects: Record<EffectId, number>; weaponSkill: string; magicWeapon: boolean;
   craftEff: number; gatherEff: number; itemFind: number; rareDrop: number; level: number;
   enchDmg: number; wardEl: Element; wardV: number; wards: Partial<Record<Element, number>>;
+  /** Extra damage share per element from build synergies. */ synEl: Partial<Record<Element, number>>;
 }
 export const gearStats = (g: Gear): Stats => {
   const m = (1 + g.enh * 0.08) * (g.dura <= 0 ? 0.5 : 1);
@@ -356,7 +381,12 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
     }
   };
   applyMods(race(s).mods);
-  applyMods(classPassives(classOverride ?? computeClass(s)));
+  const cinfo = classOverride ?? computeClass(s);
+  applyMods(classPassives(cinfo));
+  const sp = s.spec ? SPEC[s.spec] : undefined; const spr = sp ? specRank(sp, s.stats) : -1;
+  if (sp && spr >= 0) applyMods(sp.ranks[spr]!.mods);
+  const synEl: Partial<Record<Element, number>> = {};
+  for (const sy of activeSynergies(s, cinfo)) { applyMods(sy.mods); if (sy.el) synEl[sy.el.el] = (synEl[sy.el.el] ?? 0) + sy.el.bonus; }
   const kit = titleKit(s.title, s.titleTime?.[s.title ?? ""] ?? 0);
   applyMods(kit.mods);
   for (const t of s.techs ?? []) { const [a, k] = t.split(":"); if (k === "passive" && AFF_BY_ID[a!]) applyMods(Object.fromEntries(Object.entries(AFF_BY_ID[a!]!.passive).map(([kk, v]) => [kk, v * 2]))); }
@@ -381,12 +411,24 @@ export function playerStats(s: GameState, classOverride?: ClassInfo): PStats {
   st.crit = Math.min(75, st.crit); st.dodge = Math.max(0, Math.min(60, st.dodge)); effects.guard = Math.min(50, effects.guard);
   for (const k of ["hp", "mp", "sta"] as StatKey[]) st[k] = Math.round(st[k]);
   return {
-    ...st, element, effects, weaponSkill, magicWeapon, level: L, enchDmg, wardEl, wardV, wards,
+    ...st, element, effects, weaponSkill, magicWeapon, level: L, enchDmg, wardEl, wardV, wards, synEl,
     craftEff: 1 + sk("smithing") * 0.01 + affLevel(s.aff["crafting"] ?? 0) * 0.01,
     gatherEff: 1 + affLevel(s.aff["nature"] ?? 0) * 0.01 + (s.char.race === "dwarf" ? 0.1 : 0),
     itemFind: 1 + st.luck / 200 + (s.char.race === "elf" ? 0.2 : 0),
     rareDrop: 0.03 + st.luck / 4000,
   };
+}
+/** What the build looks like for synergy checks. */
+export function buildInput(s: GameState, c: ClassInfo = computeClass(s)): BuildInput {
+  const w = s.gear.find((g) => g.id === (s.equip.two_hand ?? s.equip.one_hand));
+  const offhand = s.equip.shield ? "shield" : heldTorch(s) ? "torch" : s.ranged && TOOL[s.ranged]?.kind === "ranged" ? "ranged" : "none";
+  return { race: s.char.race, className: c.name, triad: c.triad, title: s.title, arch: w?.arch, offhand, spec: s.spec && SPEC[s.spec] && specRank(SPEC[s.spec]!, s.stats) >= 0 ? s.spec : undefined };
+}
+export const activeSynergies = (s: GameState, c?: ClassInfo) => evaluateSynergies(buildInput(s, c));
+/** Choose (or clear) the linear specialization; the path must have at least its first rank unlocked. */
+export function setSpec(s: GameState, id: string | undefined): boolean {
+  if (id && (!SPEC[id] || specRank(SPEC[id]!, s.stats) < 0)) return false;
+  s.spec = id; log(s, id ? `🎖️ Specialization: ${SPEC[id]!.name}.` : "Specialization cleared."); return true;
 }
 export function clampVitals(s: GameState) {
   const p = playerStats(s);
@@ -936,10 +978,14 @@ export function levelSpell(s: GameState, id: string): boolean {
 }
 export function ascensionProgress(s: GameState) {
   return ASCENSIONS.map((a) => {
-    const reqs = a.reqs.map((r) => { const cur = r.stat === "maxFloor" ? s.maxFloor : s.stats[r.stat] ?? 0; return { ...r, cur, ok: r.exact ? cur === r.need : cur >= r.need, failed: !!r.exact && cur > r.need }; });
+    const reqs = a.reqs.map((r) => { const cur = statValue(s, r.stat); return { ...r, cur, ok: r.exact ? cur === r.need : cur >= r.need, failed: !!r.exact && cur > r.need }; });
     const learned = knowsSchool(s, a.school);
     return { ...a, learned, reqs, ready: learned && reqs.every((r) => r.ok) && s.char.race !== a.race, failed: reqs.some((r) => r.failed) };
   });
+}
+/** A race path counts as started once its school is learned (the six classic paths also once any counter moves). */
+export function pathStarted(a: ReturnType<typeof ascensionProgress>[number]) {
+  return a.learned || (CLASSIC_ASC.has(a.race) && a.reqs.some((r) => r.stat !== "maxFloor" && r.cur > 0));
 }
 export function ascend(s: GameState, raceId: string): boolean {
   const a = ascensionProgress(s).find((x) => x.race === raceId); if (!a?.ready) return false;
@@ -1261,7 +1307,7 @@ export function pathGains(s: GameState, st0: Record<string, number>): PathGain[]
   const line = RACE_CLASS[s.char.race];
   if (line) for (const x of line.sources) if (x.kind === "stat" && add(x.id) > 0) out.push({ icon: ASC_RACES.find((r) => r.id === line.race)?.icon ?? "🧬", label: x.label, add: add(x.id), cur: s.stats[x.id] ?? 0, need: x.need });
   for (const a of ascensionProgress(s)) {
-    if (s.char.race === a.race || a.failed) continue;
+    if (s.char.race === a.race || a.failed || !pathStarted(a)) continue;
     for (const r of a.reqs) if (r.stat !== "maxFloor" && add(r.stat) > 0) out.push({ icon: ASC_RACES.find((x) => x.id === a.race)!.icon, label: r.label, add: add(r.stat), cur: r.cur, need: r.need });
   }
   return out;
@@ -1291,6 +1337,7 @@ function playerHit(s: GameState, c: Combat, p: PStats, mult: number, opts: { mag
   const el = opts.el ?? p.element;
   if (p.enchDmg && el === p.element) dmg *= 1 + p.enchDmg / 100;
   if (el !== "none" && el === m.weak) dmg *= 1.5; else if (el !== "none" && el === m.element) dmg *= 0.7;
+  if (el !== "none" && p.synEl?.[el]) dmg *= 1 + p.synEl[el]!;
   if (p.effects.holy && m.element === "dark") dmg *= 1 + p.effects.holy / 100;
   if (oil?.fx === "holy" && (MON_DEF[m.def]?.cat === "undead" || MON_DEF[m.def]?.cat === "fiend")) dmg *= 1 + oil.power / 100;
   if (s.char.race === "orc" && s.hp < playerStats(s).hp * 0.5) dmg *= 1.15;
@@ -1372,6 +1419,23 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       case "rot": c.lockT = 3; c.lockHp = Math.max(1, s.hp); clog(c, "🧟 Undying Rot! You will not fall for 3 turns."); break;
       case "devour": { const d = playerHit(s, c, p, 2.2, { magic: false, label: "Devour" }); const h = Math.round(d * 0.4); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; break; }
       case "radiance": { const h = Math.round(p.hp * 0.25); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; clog(c, `😇 Radiance heals ${h}.`); break; }
+      default: {
+        // Data-driven race skills (ascendedRaces.ts)
+        const ra = ASC_RACES.find((x) => x.id === r.id)?.act; if (!ra) break;
+        const d = ra.mult ? playerHit(s, c, p, ra.mult, { magic: ra.magic, el: ra.el, sure: true, label: r.active.name }) : 0;
+        const v = ra.v ?? 0;
+        switch (ra.fx) {
+          case "heal": { const h = Math.round(p.hp * v); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; clog(c, `${r.icon} ${r.active.name} heals ${h}.`); break; }
+          case "rewind": { const h = Math.round(p.hp * v); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; c.stun = Math.max(c.stun, 1); clog(c, `${r.icon} Time stops — ${m.name} is frozen and you heal ${h}.`); break; }
+          case "stun": c.stun = Math.max(c.stun, m.boss ? 1 : Math.max(1, v)); clog(c, `${r.icon} ${m.name} is held fast!`); break;
+          case "burn": c.monBurn = Math.max(c.monBurn, Math.round(d * 0.5)); break;
+          case "bleed": c.monBleed = Math.max(c.monBleed, Math.round(d * 0.6)); break;
+          case "drain": { const h = Math.round(d * v); s.hp = Math.min(p.hp, s.hp + h); c.healed += h; bump(s, "lifestealHeal", h); break; }
+          case "guard": c.guardT = Math.max(c.guardT, v || 2); clog(c, `${r.icon} You brace behind a barrier.`); break;
+          case "lock": c.lockT = v || 2; c.lockHp = Math.max(1, s.hp); break;
+          case "weaken": c.roar = Math.max(c.roar, 3); clog(c, `${r.icon} ${m.name} falters!`); break;
+        }
+      }
     }
   } else if (a === "capture") {
     const why = captureBlock(s); if (why) { clog(c, `🚫 ${why}`); c.turn--; return null; }
@@ -1716,8 +1780,8 @@ export function checkClass(s: GameState) {
   s.classId = c.id; s.className = c.name;
 }
 function parseClassId(id: string): ClassInfo {
-  const [affs, t] = id.split(":"); const [p, q] = (affs ?? "").split("+");
-  return { id, name: "", tier: Number(t), primary: p, secondary: q };
+  const [affs, t, extra] = id.split(":"); const [p, q] = (affs ?? "").split("+");
+  return { id, name: "", tier: Number(t), primary: p, secondary: q, triad: extra?.startsWith("~") ? extra.slice(1) : undefined };
 }
 
 export function favorite(m: Record<string, number>) { const e = Object.entries(m).sort((a, b) => b[1] - a[1])[0]; return e ? e[0] : "—"; }

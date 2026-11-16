@@ -32,17 +32,27 @@ export type Facing = "d" | "u" | "l" | "r";
 const ART = import.meta.glob("../assets/art/a_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const artFor = (race: string, gender: string) => ART[`../assets/art/a_${race}_${gender === "Female" ? "f" : "m"}.webp`];
 
+/** Newer ascended races borrow the closest drawn race, tinted (hue degrees) so each still looks distinct. */
+const RACE_LOOK: Record<string, [string, number]> = {
+  angel: ["aasimar", 20], archmage: ["elf", 200], transmuter: ["gnome", 90], dragonkin: ["dragonborn", -40], fey: ["elf", 110], abyssal: ["elf", 170],
+  colossus: ["dwarf", 60], valkyrie: ["aasimar", -25], archdemon: ["tiefling", -20], chronoborn: ["human", 220], mind_flayer: ["lich", 250], arch_lich: ["lich", 120],
+  djinn: ["aasimar", 160], githyanki: ["halforc", 60], yuan_ti: ["dragonborn", 80], tabaxi: ["werewolf", 30], firbolg: ["dwarf", 140], tortle: ["dwarf", 100],
+  triton: ["elf", 190], kenku: ["halfling", 240], aarakocra: ["elf", 30], goliath: ["halforc", 180], centaur: ["human", 30], minotaur: ["orc", -60],
+  changeling: ["ghost", 200], warforged: ["dwarf", 200], shifter: ["werewolf", -30], satyr: ["halfling", 60], dryad: ["elf", 80], sahuagin: ["orc", 150],
+  scale_lord: ["dragonborn", 30], hobgoblin: ["orc", -100], orc_god: ["orc", 20], drow: ["elf", 260], githzerai: ["human", 150],
+};
 export function Avatar(props: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined; held?: Held | undefined }) {
-  const { race, gender, classId, size = "100%", dir = "d", frame, held } = props;
+  const { gender, classId, size = "100%", dir = "d", frame, held } = props;
+  const look = RACE_LOOK[props.race]; const race = look?.[0] ?? props.race; const tint = look ? `hue-rotate(${look[1]}deg)` : "";
   const src = artFor(race, gender);
-  if (!src) return <PixelAvatar {...props} />;
+  if (!src) return <PixelAvatar {...props} race={race} />;
   const { p, tier } = parseClass(classId);
   const [main, trim] = OUTFIT[p] ?? OUTFIT["none"]!;
   const step = frame === undefined ? 0 : frame === 0 ? -4 : 4;
   return (
     <span className="avatar-cartoon" style={{ width: size, height: size, opacity: race === "ghost" ? 0.8 : 1 }} aria-label={`${gender} ${race}`}>
       <img src={src} alt={`${gender} ${race}`} draggable={false} loading="lazy" width={256} height={256}
-        style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)`, filter: dir === "u" ? "brightness(0.8)" : undefined }} />
+        style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)`, filter: [tint, dir === "u" ? "brightness(0.8)" : ""].filter(Boolean).join(" ") || undefined }} />
       {held && <span className="held-wrap" style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)` }}><HeldGear held={held} dir={dir} /></span>}
       {p !== "none" && <span className="avatar-badge" style={{ background: main, borderColor: trim }}>{tier >= 3 ? "★" : ""}</span>}
     </span>

@@ -1,5 +1,6 @@
 // Magic Tower schools, spells and ascended (undead / cursed) races — pure data, no engine imports.
 import type { Element, Race } from "./data";
+import { NEW_ASCENSIONS, NEW_ASC_RACES } from "./ascendedRaces";
 
 export type SchoolId = "fire" | "water" | "wind" | "earth" | "light" | "dark" | "herbal" | "summoning" | "soul" | "transformation"
   | "blood" | "necromancy" | "plague" | "storm" | "magma";
@@ -93,7 +94,12 @@ export const SPELLS: Spell[] = SCHOOLS.flatMap((sc) => [...base, ...advanced].fi
 export const SPELL: Record<string, Spell> = Object.fromEntries(SPELLS.map((x) => [x.id, x]));
 
 // ---- ascended races ----
-export interface AscRace extends Race { fx: Partial<Record<"lifesteal" | "regen" | "guard" | "pierce" | "haste" | "bleed" | "burn" | "manaflow", number>>; poisonImmune?: boolean }
+export type RaceActFx = "heal" | "stun" | "burn" | "bleed" | "drain" | "guard" | "lock" | "weaken" | "rewind";
+export interface AscRace extends Race {
+  fx: Partial<Record<"lifesteal" | "regen" | "guard" | "pierce" | "haste" | "bleed" | "burn" | "manaflow", number>>; poisonImmune?: boolean;
+  /** Data-driven race skill: hit multiplier (0 = no hit), element, magic or physical, extra effect and its value. */
+  act?: { mult: number; el?: Element; magic: boolean; fx?: RaceActFx; v?: number } | undefined;
+}
 export const ASC_RACES: AscRace[] = [
   { id: "vampire", name: "Vampire", icon: "🧛", desc: "Ageless predator sustained by blood.", mods: { patk: 0.15, matk: 0.15, spd: 0.1 }, growth: { dark: 1.4 }, fx: { lifesteal: 10 },
     passive: { name: "Thirst", desc: "+10% life steal." }, active: { id: "bloodfeast", name: "Blood Feast", desc: "Dark strike ×2.4 healing 60% of damage." } },
@@ -107,6 +113,7 @@ export const ASC_RACES: AscRace[] = [
     passive: { name: "Already Dead", desc: "Immune to poison, +10% guard." }, active: { id: "rot", name: "Undying Rot", desc: "Lock HP for 3 turns." } },
   { id: "ghoul", name: "Ghoul", icon: "🫥", desc: "Corpse-eater with a ravenous hunger.", mods: { patk: 0.2, crit: 0.08, hp: 0.1 }, growth: { hunting: 1.4 }, fx: { lifesteal: 5, haste: 8 },
     passive: { name: "Ravenous", desc: "Life steal and extra strikes." }, active: { id: "devour", name: "Devour", desc: "×2.2 strike healing 40% of damage." } },
+  ...NEW_ASC_RACES,
 ];
 export interface AscCond { race: string; school: SchoolId; reqs: { stat: string; label: string; need: number; exact?: boolean; hint: string }[] }
 /** Fixed lore conditions; progress counters are tracked in GameState.stats (most only after the school's spells are known). */
@@ -121,5 +128,8 @@ export const ASCENSIONS: AscCond[] = [
     { stat: "maxFloor", label: "Highest floor reached", need: 100, hint: "Your highest Tower floor." }] },
   { race: "zombie", school: "plague", reqs: [{ stat: "poisonDeaths", label: "Die while poisoned", need: 3, hint: "Die while poisoned and knowing a Plague Craft spell." }] },
   { race: "ghoul", school: "plague", reqs: [{ stat: "plagueKills", label: "Corpses devoured with Plague Craft", need: 150, hint: "Win a battle where the last spell you cast was Plague Craft." }] },
+  ...NEW_ASCENSIONS,
 ];
+/** The six original undead/cursed paths (their counters run before the school is learned). */
+export const CLASSIC_ASC = new Set(["vampire", "ghost", "werewolf", "lich", "zombie", "ghoul"]);
 export const UNDEAD = new Set(["skeleton", "wraith", "lich", "vampire"]);

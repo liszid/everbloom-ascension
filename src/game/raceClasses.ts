@@ -1,6 +1,7 @@
 // Lore-locked class ladders for ascended races — pure data plus a pure mastery calculator.
 // Once a hero ascends, their class is bound to the race and only ranks up through race-related growth.
 import type { SchoolId } from "./magic";
+import { NEW_RACE_CLASSES } from "./ascendedRaces";
 
 export type MasterySource =
   | { kind: "school"; id: SchoolId; label: string }
@@ -70,6 +71,7 @@ export const RACE_CLASSES: RaceClassLine[] = [
       { kind: "skill", id: "unarmed", label: "Brawling" }, { kind: "skill", id: "evasion", label: "Evasion" },
       { kind: "stat", id: "plagueKills", label: "Corpses devoured", need: 3000 },
     ] },
+  ...NEW_RACE_CLASSES,
 ];
 export const RACE_CLASS: Record<string, RaceClassLine> = Object.fromEntries(RACE_CLASSES.map((l) => [l.race, l]));
 
