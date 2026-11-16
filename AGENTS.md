@@ -33,3 +33,4 @@
 - Alchemy potions are data in src/game/alchemy.ts, stored as GameState.potions counts; oils last battles and tonics last floors, so no Gear objects are needed.
 - Playstyle (3-aspect) classes, specialization paths and build synergies are pure data in playstyleClasses.ts, specializations.ts and synergies.ts; engine.computeClass/playerStats apply them and ascended race ladders still take priority.
 - New ascended races and ladders live in src/game/ascendedRaces.ts and are appended to ASC_RACES/ASCENSIONS/RACE_CLASSES; their active skills are data-driven (AscRace.act) so no combat switch edits are needed.
+- Avatar artwork uses transparent 256×256 a_<race>_<m|f>.webp assets resolved by race ID, including ascended races, so portraits and map sprites share race-specific art without recoloring substitutes.

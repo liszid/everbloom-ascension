@@ -1,3 +1,7 @@
+# Ascended race sprite artwork
+- [x] Generate race-specific male and female artwork for all 35 added ascended races.
+- [x] Replace tinted stand-ins with optimized transparent sprites and verify rendering.
+
 # Big expansion (from the uploaded notes)
 - [x] Phase 1: 100 D&D monsters spawn in their home dungeon themes (bestiary data, new drops, look-alike art, undead/magic flags)
 - [x] Phase 2: new progress counters + 7 milestone titles (Sanguine, Immortal, Apostle, Sniper, Pyre, Loaded Dice, Alchemist)
