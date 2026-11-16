@@ -30,11 +30,18 @@ export function parseClass(classId: string) {
 
 export type Facing = "d" | "u" | "l" | "r";
 const ART = import.meta.glob("../assets/art/a_*.webp", { eager: true, import: "default" }) as Record<string, string>;
-const artFor = (race: string, gender: string) => ART[`../assets/art/a_${race}_${gender === "Female" ? "f" : "m"}.webp`];
+const VIEW: Record<Facing, string> = { d: "", u: "_back", l: "_side", r: "_side" };
+/** Front art, or the race's side/back view when one exists (side views face right). */
+const artFor = (race: string, gender: string, dir: Facing = "d") => {
+  const base = `../assets/art/a_${race}_${gender === "Female" ? "f" : "m"}`;
+  return ART[`${base}${VIEW[dir]}.webp`] ?? ART[`${base}.webp`];
+};
+const hasView = (race: string, gender: string, dir: Facing) => dir !== "d" && !!ART[`../assets/art/a_${race}_${gender === "Female" ? "f" : "m"}${VIEW[dir]}.webp`];
 
 export function Avatar(props: { race: string; gender: string; classId: string; size?: number | string; dir?: Facing; frame?: 0 | 1 | undefined; held?: Held | undefined }) {
   const { race, gender, classId, size = "100%", dir = "d", frame, held } = props;
-  const src = artFor(race, gender);
+  const src = artFor(race, gender, dir);
+  const real = hasView(race, gender, dir);
   if (!src) return <PixelAvatar {...props} race={race} />;
   const { p, tier } = parseClass(classId);
   const [main, trim] = OUTFIT[p] ?? OUTFIT["none"]!;
@@ -42,7 +49,7 @@ export function Avatar(props: { race: string; gender: string; classId: string; s
   return (
     <span className="avatar-cartoon" style={{ width: size, height: size, opacity: race === "ghost" ? 0.8 : 1 }} aria-label={`${gender} ${race}`}>
       <img src={src} alt={`${gender} ${race}`} draggable={false} loading="lazy" width={256} height={256}
-        style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)`, filter: dir === "u" ? "brightness(0.8)" : undefined }} />
+        style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)`, filter: dir === "u" && !real ? "brightness(0.8)" : undefined }} />
       {held && <span className="held-wrap" style={{ transform: `${dir === "l" ? "scaleX(-1)" : ""} rotate(${step}deg)` }}><HeldGear held={held} dir={dir} /></span>}
       {p !== "none" && <span className="avatar-badge" style={{ background: main, borderColor: trim }}>{tier >= 3 ? "★" : ""}</span>}
     </span>

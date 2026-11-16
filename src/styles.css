@@ -380,3 +380,5 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
+.held-sparkle { transform-box: fill-box; transform-origin: center; animation: held-twinkle 1.4s ease-in-out infinite; }
+@keyframes held-twinkle { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1.1); } }
