@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ELEMENT_ICON, getMat, type Element } from "./data";
-import { SPELL, ASC_RACES, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId, type Spell } from "./magic";
+import { SPELL, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, studyCost, type SchoolId, type Spell } from "./magic";
 import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, OFFHAND_MAX, offhandFx, offhandUpCost, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
 import { GRADES } from "./data";
-import { PathReqs } from "./RacePaths";
-import { pathStarted, offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, ascensionProgress, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
+import { RitualBrowser } from "./RacePaths";
+import { offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
@@ -219,7 +219,6 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, o
   const [tab, setTab] = useState<"schools" | "spells" | "rituals">("schools");
   const [open, setOpen] = useState<Partial<Record<SchoolId, boolean>>>({});
   const [showAll, setShowAll] = useState<Partial<Record<SchoolId, boolean>>>({});
-  const [ritualAll, setRitualAll] = useState(false);
   const matk = Math.round(playerStats(s).matk);
   const known = SCHOOLS.filter((x) => s.magic?.[x.id] !== undefined);
   return (
@@ -274,19 +273,7 @@ export function MagicPanel({ s, onClose, onLearn, onStudy, onAscend, onToggle, o
       </>}
       {tab === "rituals" && <>
         <p className="mb-2 text-xs text-muted-foreground">Forbidden rites can transform your race. Most counters only start once you know a spell of that school; each line says how it is earned. Battle results show any progress you make.{s.char.origin ? ` Born a ${s.char.origin}.` : ""}</p>
-        {(() => { const all = ascensionProgress(s); const started = all.filter((a) => pathStarted(a) || s.char.race === a.race); return (
-          <div className="mb-2 flex gap-1">
-            <button className={`pixel-btn flex-1 py-1 text-xs ${!ritualAll ? "pixel-btn-active" : ""}`} onClick={() => setRitualAll(false)}>Started ({started.length})</button>
-            <button className={`pixel-btn flex-1 py-1 text-xs ${ritualAll ? "pixel-btn-active" : ""}`} onClick={() => setRitualAll(true)}>All races ({all.length})</button>
-          </div>); })()}
-        {!ritualAll && !ascensionProgress(s).some((a) => pathStarted(a) || s.char.race === a.race) && <p className="text-xs text-muted-foreground">No path started yet — learn the school a race needs to begin. See “All races”.</p>}
-        {ascensionProgress(s).filter((a) => ritualAll || pathStarted(a) || s.char.race === a.race).map((a) => { const r = ASC_RACES.find((x) => x.id === a.race)!; const cur = s.char.race === a.race; return (
-          <div key={a.race} className="mb-1 border-2 border-border p-2">
-            <div className="text-sm">{r.icon} {r.name} {cur && <span className="text-gold">· your race</span>}</div>
-            <div className="text-xs text-muted-foreground">{r.passive.name}: {r.passive.desc} · {r.active.name}: {r.active.desc}</div>
-            <PathReqs a={a} />
-            {!cur && <button className="pixel-btn mt-1 w-full py-2 text-xs" disabled={!a.ready} onClick={() => onAscend(a.race)}>{a.failed ? "Path closed" : a.ready ? `Become a ${r.name}` : "Conditions not met"}</button>}
-          </div>); })}
+        <RitualBrowser s={s} onAscend={onAscend} />
       </>}
     </Sheet>
   );

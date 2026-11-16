@@ -989,6 +989,19 @@ export function ascensionProgress(s: GameState) {
 export function pathStarted(a: ReturnType<typeof ascensionProgress>[number]) {
   return a.learned || (CLASSIC_ASC.has(a.race) && a.reqs.some((r) => r.stat !== "maxFloor" && r.cur > 0));
 }
+export type PathState = "current" | "ready" | "open" | "locked" | "closed";
+/** Where a race path stands for this hero: their own race, ready to ascend now, available to work toward (started, or its school can be learned today), still locked behind an undiscovered school, or closed by an exact-counter miss. */
+export function pathState(s: GameState, a: ReturnType<typeof ascensionProgress>[number]): PathState {
+  if (s.char.race === a.race) return "current";
+  if (a.failed) return "closed";
+  if (a.ready) return "ready";
+  if (pathStarted(a) || !schoolLock(s, a.school)) return "open";
+  return "locked";
+}
+/** 0..1 — how close the hero is to a path's conditions (mean of each requirement's capped progress). */
+export function pathCloseness(a: ReturnType<typeof ascensionProgress>[number]) {
+  return a.reqs.reduce((t, r) => t + Math.max(0, Math.min(1, r.cur / r.need)), 0) / (a.reqs.length || 1);
+}
 export function ascend(s: GameState, raceId: string): boolean {
   const a = ascensionProgress(s).find((x) => x.race === raceId); if (!a?.ready) return false;
   s.char = { ...s.char, origin: s.char.origin ?? s.char.race, race: raceId };
