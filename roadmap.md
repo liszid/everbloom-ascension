@@ -1,3 +1,8 @@
+# Monster directional artwork
+- [ ] Generate individual front, right-side and back artwork for every monster.
+- [ ] Connect directional movement and replace borrowed monster appearances.
+- [ ] Verify artwork coverage, game rendering and existing monster tests.
+
 # Hero sprite & weapon art fixes
 - [x] Remove weapons drawn into race portraits (angel, abyssal, archmage, arch-lich, lich, centaur, firbolg, githyanki, goliath, orc war-god, triton, valkyrie, gnome)
 - [x] Side and back walking sprites for every race (map movement uses them)
