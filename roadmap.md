@@ -1,7 +1,7 @@
 # Monster directional artwork
-- [ ] Generate individual front, right-side and back artwork for every monster.
-- [ ] Connect directional movement and replace borrowed monster appearances.
-- [ ] Verify artwork coverage, game rendering and existing monster tests.
+- [x] Generate individual front, right-side and back artwork for every monster.
+- [x] Connect directional movement and replace borrowed monster appearances.
+- [x] Verify artwork coverage, game rendering and existing monster tests.
 
 # Hero sprite & weapon art fixes
 - [x] Remove weapons drawn into race portraits (angel, abyssal, archmage, arch-lich, lich, centaur, firbolg, githyanki, goliath, orc war-god, triton, valkyrie, gnome)
