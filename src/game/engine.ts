@@ -112,6 +112,8 @@ export function migrateSave(s: GameState): boolean {
 /** Materials the player can gather at a spot right now. */
 export const spotMatsFor = (s: GameState, id: SpotId) => spotMats(id, spotLevel(s.spots, id), s.spotKeep?.[id]);
 export const toolGrade = (s: GameState, id: string) => Math.max(0, Math.min(OFFHAND_MAX, s.toolGrades?.[id] ?? 0));
+/** Display name of a Craftery off-hand with its grade, e.g. "{Relic} Dragonbreath Brand". */
+export const offhandName = (s: GameState, id: string) => `{${GRADES[toolGrade(s, id)]}} ${TOOL[id]?.name ?? id}`;
 
 // ======================= utils =======================
 export const uid = () => Math.random().toString(36).slice(2, 10);

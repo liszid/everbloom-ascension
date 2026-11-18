@@ -4,7 +4,7 @@ import { SPELL, SCHOOL, SCHOOLS, SCHOOL_MAX, SPELLS, STUDY_XP, schoolLevel, stud
 import { BLDG_INFO, BLDG_MAX, bldgCost, blessBattles, type BldgId, AILMENTS, BLESSINGS, ENCHANT_ELEMENTS, TOOL, TOOLS, enchantPower, OFFHAND_MAX, offhandFx, offhandUpCost, type AilmentId, type BlessingId, type RangedId, type ToolKind } from "./items";
 import { GRADES } from "./data";
 import { RitualBrowser } from "./RacePaths";
-import { offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
+import { offhandName, offhandStats, spotMatsFor, toolGrade, MAX_SPELL_SLOTS, SPELL_LV_BONUS, SPELL_MAX_LV, equippedSpells, spellUpCost, bldgLvl, schoolLock, spellLock, ailmentCost, blessingCost, churchHealCost, enchantMatFor, playerStats, type GameState } from "./engine";
 import { SPOTS, SPOT_MAX, nextUnlock, spotLevel, spotUpgradeCost, type SpotId } from "./gathering";
 import { Sheet } from "./Panels";
 import { Avatar } from "./Avatar";
@@ -153,7 +153,20 @@ export function CrafteryPanel({ s, onClose, onCraft, onRanged, onUpgrade, onBrew
       </div>
       {tab === "alchemy" ? <AlchemyTab s={s} onBrew={onBrew} onUse={onUsePotion} /> : <>
       <p className="mb-2 text-xs text-muted-foreground">{tab === "trap" ? "In the dungeon, press and hold an empty floor tile (up to 3 steps away) to set a trap." : tab === "throw" ? "Single-use items — throw them from the Items menu in battle." : tab === "ammo" ? "Each Shoot uses one round of your off-hand's ammo." : tab === "torch" ? `Torches go in your off-hand instead of a shield or ranged weapon. They light up more of the dungeon and burn foes whenever you attack or defend. Upgrade a torch you own, from Common to EX, for defense, attack and stronger effects. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.` : `Off-hand ranged weapons replace your shield or torch; two-handed ones also stow your one-handed weapon. Upgrade one you own, from Common to EX, for stronger shots and defense. Readied: ${s.ranged ? TOOL[s.ranged]!.name : "none"}.`}</p>
-      {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const held = t.kind === "ranged" || t.kind === "torch"; const owned = held && have > 0; return (
+      {TOOLS.filter((t) => t.kind === tab).map((t) => { const have = s.tools?.[t.id] ?? 0; const locked = (t.lvl ?? 1) > bldgLvl(s, "craftery"); const ok = !locked && s.gold >= t.gold && t.recipe.every(([m, q]) => (s.inv[m] ?? 0) >= q); const held = t.kind === "ranged" || t.kind === "torch"; const owned = held && have > 0;
+        if (owned) return (
+          <details key={t.id} className="mb-1 border-2 border-border p-2">
+            <summary className="flex cursor-pointer items-center gap-2 text-sm">
+              <span className="text-xl">{t.icon}</span>
+              <span className={`min-w-0 flex-1 truncate grade-${toolGrade(s, t.id)}`}>{offhandName(s, t.id)}</span>
+              {s.ranged === t.id && <span className="text-xs text-accent">Readied</span>}
+              <span className="text-xs text-muted-foreground">▾</span>
+            </summary>
+            <div className="mt-1 text-xs text-muted-foreground">{t.two ? "🙌 Two-handed · " : "Off-hand · "}{t.desc}{t.uses ? ` (uses ${TOOL[t.uses]?.name})` : ""}</div>
+            <button className="pixel-btn mt-1 w-full py-2 text-xs" onClick={() => onRanged(s.ranged === t.id ? undefined : t.id as RangedId)}>{s.ranged === t.id ? "Unequip" : "Ready in off-hand"}</button>
+            <OffhandGrade s={s} id={t.id} onUpgrade={onUpgrade} />
+          </details>);
+        return (
         <div key={t.id} className="mb-1 border-2 border-border p-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">{t.icon}</span>

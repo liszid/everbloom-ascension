@@ -63,6 +63,22 @@ export function StatLine({ stats }: { stats: Stats }) {
 }
 export function GradeTag({ g }: { g: number }) { return <span className={`grade-${g}`}>{GRADES[g]}</span>; }
 
+/** Material amount picker: "(icon) Name - Tier" over [None] — percentage slider — [All]. */
+export function AmountSlider({ id, have, q, set, extra }: { id: string; have: number; q: number; set: (q: number) => void; extra?: ReactNode }) {
+  const mt = getMat(id); const pct = have ? Math.round((q / have) * 100) : 0;
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="flex items-baseline gap-2"><span className="min-w-0 flex-1 truncate">{mt.icon} {mt.name} - T{mt.tier}</span><span className="shrink-0 text-xs text-muted-foreground">{q}/{have} · {pct}%</span></div>
+      {extra}
+      <div className="mt-1 flex items-center gap-2">
+        <button className="pixel-btn h-9 px-2 text-xs" disabled={!q} onClick={() => set(0)}>None</button>
+        <input type="range" aria-label={`${mt.name} amount (%)`} min={0} max={100} step={1} value={pct} onChange={(e) => set(Math.round((Number(e.target.value) / 100) * have))} className="min-w-0 flex-1 accent-[var(--primary)]" />
+        <button className="pixel-btn h-9 px-2 text-xs" disabled={q >= have} onClick={() => set(have)}>All</button>
+      </div>
+    </div>
+  );
+}
+
 export function GearCard({ g, actions, equipped }: { g: Gear; actions?: ReactNode; equipped?: boolean }) {
   return (
     <div className={`border-2 p-2 ${equipped ? "border-primary" : "border-border/60"}`}>
@@ -89,17 +105,9 @@ function MatPicker({ s, sel, setSel, filter, showRole }: { s: GameState; sel: Re
       {ids.map((id) => {
         const mt = getMat(id); const have = s.inv[id] ?? 0; const q = sel[id] ?? 0;
         return (
-          <div key={id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/40 py-1 ${q ? "text-primary" : ""}`}>
-            <div className="min-w-0">
-              <div className="truncate">{mt.icon} {mt.name} <span className="text-muted-foreground">T{mt.tier} ×{have}</span> {ELEMENT_ICON[mt.element]}</div>
-              <div className="truncate text-xs text-muted-foreground">{showRole && <span className="text-accent">{ROLE_LABEL[matRole(id)]}{mt.element === "dark" ? " + Dark" : ""} · </span>}{PROPS.filter((p) => mt.props[p] >= 6).map((p) => PROP_LABEL[p]).join(" · ")}</div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button className="pixel-btn h-9 w-9" disabled={!q} onClick={() => setSel((p) => ({ ...p, [id]: Math.max(0, q - 1) }))}>−</button>
-              <span className="w-6 text-center">{q}</span>
-              <button className="pixel-btn h-9 w-9" disabled={q >= have} onClick={() => setSel((p) => ({ ...p, [id]: q + 1 }))}>+</button>
-              <button className="pixel-btn h-9 px-2" disabled={q >= have} onClick={() => setSel((p) => ({ ...p, [id]: have }))}>All</button>
-            </div>
+          <div key={id} className={`border-b border-border/40 py-1 ${q ? "text-primary" : ""}`}>
+            <AmountSlider id={id} have={have} q={q} set={(n) => setSel((p) => ({ ...p, [id]: n }))}
+              extra={<div className="truncate text-xs text-muted-foreground">{ELEMENT_ICON[mt.element]} {showRole && <span className="text-accent">{ROLE_LABEL[matRole(id)]}{mt.element === "dark" ? " + Dark" : ""} · </span>}{PROPS.filter((p) => mt.props[p] >= 6).map((p) => PROP_LABEL[p]).join(" · ")}</div>} />
           </div>
         );
       })}
@@ -341,6 +349,7 @@ export function HousePanel({ s, onClose, onRest }: { s: GameState; onClose: () =
 // ======================= ECONOMY =======================
 export function ShopPanel({ s, onClose, onBuy, onSell }: { s: GameState; onClose: () => void; onBuy: (i: number) => void; onSell: (id: string, q: number) => void }) {
   const [tab, setTab] = useState<"buy" | "sell">("buy");
+  const [amt, setAmt] = useState<Record<string, number>>({});
   return (
     <Sheet title={`🏪 Shop · ${s.gold.toLocaleString()}g`} onClose={onClose}>
       <Tabs tabs={[["buy", "Buy"], ["sell", "Sell"]]} cur={tab} set={setTab} />
@@ -350,11 +359,11 @@ export function ShopPanel({ s, onClose, onBuy, onSell }: { s: GameState; onClose
           <Button variant="secondary" className="pixel-btn h-11 min-w-16" disabled={s.gold < it.price} onClick={() => onBuy(i)}>{it.price}g</Button>
         </div>))}
       {tab === "sell" && sellableList(s).length === 0 && <p className="py-3 text-sm text-muted-foreground">Nothing to sell.</p>}
-      {tab === "sell" && sellableList(s).map((it) => (
-        <div key={it.id} className="shop-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/40 py-2">
-          <div className="min-w-0 leading-tight"><div className="break-words">{getMat(it.id).icon} {getMat(it.id).name}</div><div className="text-sm text-muted-foreground">T{it.tier} · ×{it.qty}</div></div>
-          <span className="flex shrink-0 gap-1"><Button variant="secondary" className="pixel-btn h-11 min-w-16" onClick={() => onSell(it.id, 1)}>{it.price}g</Button><Button variant="secondary" className="pixel-btn h-11" onClick={() => onSell(it.id, it.qty)}>All</Button></span>
-        </div>))}
+      {tab === "sell" && sellableList(s).map((it) => { const q = Math.min(it.qty, amt[it.id] ?? 0); return (
+        <div key={it.id} className="shop-row border-b border-border/40 py-2">
+          <AmountSlider id={it.id} have={it.qty} q={q} set={(n) => setAmt((p) => ({ ...p, [it.id]: n }))} />
+          <Button variant="secondary" className="pixel-btn mt-1 h-10 w-full" disabled={!q} onClick={() => { onSell(it.id, q); setAmt((p) => ({ ...p, [it.id]: 0 })); }}>Sell {q} · {fmt(it.price * q)}g <span className="text-xs text-muted-foreground">({it.price}g each)</span></Button>
+        </div>); })}
     </Sheet>
   );
 }
