@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PartyPanel } from "@/game/GuildPanels";
 import { ResultView } from "@/game/Combat";
+import { fmt } from "@/game/Panels";
 import { ProfilePanel } from "@/game/Profile";
 import { compEquip, hireCompanion, learnSchool, newGame, type Gear } from "@/game/engine";
 
@@ -19,13 +20,15 @@ describe("companion and race-path screens", () => {
     expect(screen.getByText("Ember Fang")).toBeTruthy();
     expect(screen.getByText(/leaves your bag/)).toBeTruthy();
   });
-  it("battle result lists race-path progress", () => {
+  it("battle result tucks unfinished class counters into a Class progress dropdown and hides finished ones", () => {
     const s = fresh();
     s.result = { won: true, name: "Wolf", icon: "🐺", boss: 0, floor: 3, dealt: 1, taken: 1, turns: 1, xp: 1, gold: 1, loot: [], gains: [], hp: 1, maxHp: 1, sold: 0, collected: true,
-      paths: [{ icon: "🧛", label: "HP regained through life steal", add: 120, cur: 4320, need: 10000 }] };
+      paths: [{ icon: "🧛", label: "HP regained through life steal", add: 120, cur: 4320, need: 10000 }, { icon: "🌑", label: "Dark spells cast", add: 2, cur: 300, need: 300 }] };
     render(<ResultView s={s} onCollect={noop} onContinue={noop} />);
-    expect(screen.getByText("Race path progress")).toBeTruthy();
+    expect(screen.getByText("Class progress (1)").closest("details")?.open).toBe(false);
     expect(screen.getByText(/\+120/)).toBeTruthy();
+    expect(document.querySelector(".bar-label")?.textContent).toBe(`${fmt(4320)}/${fmt(10000)}`);
+    expect(screen.queryByText(/Dark spells cast/)).toBeNull();
   });
   it("Profile › Classes shows started race paths with how they are earned", () => {
     const s = fresh(); s.stats["lifestealHeal"] = 500; learnSchool(s, "herbal");

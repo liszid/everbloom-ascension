@@ -117,7 +117,8 @@ export function ResultView({ s, onCollect, onContinue }: { s: GameState; onColle
           </div>)}
         </details>}
         {r.died && <p className="mt-2 text-sm text-destructive">You lost your expedition loot and 10% of your gold, and woke up in the village.</p>}
-        <div className="mt-3 grid gap-2">
+        {/* Pinned to the bottom of the results so the next action never needs scrolling. */}
+        <div className="sticky -bottom-3 -mx-3 -mb-3 mt-3 grid gap-2 border-t border-border/60 bg-card p-3">
           {r.won && !r.collected && <button className="pixel-btn w-full py-3" onClick={onCollect}>🎒 Collect loot</button>}
           <button className="pixel-btn pixel-btn-primary w-full py-4" onClick={onContinue}>{r.died ? "Return to village" : r.won && !r.collected ? "Leave loot & continue" : "Continue crawling"}</button>
         </div>
