@@ -90,6 +90,8 @@ export function ResultView({ s, onCollect, onContinue }: { s: GameState; onColle
   const r = s.result!;
   const monsterKind = r.kind ?? BESTIARY.find((monster) => monster.icon === r.icon)?.id ?? "sovereign";
   const title = r.died ? "☠️ Defeated" : r.fled ? "🏃 Escaped" : "🏆 Victory!";
+  // Finished counters are hidden so only goals still in progress are listed.
+  const openPaths = (r.paths ?? []).filter((g) => g.cur < g.need);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/85 p-2 sm:items-center">
       <div className="pixel-panel max-h-[92dvh] w-full max-w-md overflow-y-auto p-3">
@@ -107,11 +109,13 @@ export function ResultView({ s, onCollect, onContinue }: { s: GameState; onColle
           <div className="grid grid-cols-2 gap-1">{r.loot.map((l) => { const m = getMat(l.id); return <div key={l.id} className={`text-sm ${m.tier >= 5 ? "grade-5" : m.tier >= 3 ? "grade-3" : ""}`}>{m.icon} {m.name} ×{l.qty} <span className="text-muted-foreground">T{m.tier}</span></div>; })}</div></>}
         {r.gains.length > 0 && <><h3 className="mt-2 text-accent">Skill progress</h3>
           {r.gains.slice(0, 6).map((g) => <div key={g.k} className="flex justify-between text-sm"><span>{SKILLS[g.k]?.icon} {SKILLS[g.k]?.name ?? g.k}</span><span>+{fmt(g.xp)} xp {g.to > g.from ? <b className="text-xp">Lv {g.from}→{g.to}</b> : `Lv ${g.to}`}</span></div>)}</>}
-        {!!r.paths?.length && <><h3 className="mt-2 text-accent">Race path progress</h3>
-          {r.paths.map((g) => <div key={g.icon + g.label} className="text-sm">
-            <div className="flex justify-between gap-2"><span>{g.icon} {g.label}</span><span className="shrink-0">+{fmt(g.add)} · {fmt(Math.floor(g.cur))}/{fmt(g.need)}</span></div>
-            <div className="bar bar-xp"><div style={{ width: `${Math.min(100, (g.cur / g.need) * 100)}%` }} /></div>
-          </div>)}</>}
+        {openPaths.length > 0 && <details className="mt-2">
+          <summary className="cursor-pointer text-accent">Class progress ({openPaths.length})</summary>
+          {openPaths.map((g) => <div key={g.icon + g.label} className="mt-1 text-sm">
+            <div className="flex justify-between gap-2"><span className="min-w-0 truncate">{g.icon} {g.label}</span><span className="shrink-0 text-xs text-xp">+{fmt(g.add)}</span></div>
+            <div className="bar bar-xp bar-labeled"><div style={{ width: `${Math.min(100, (g.cur / g.need) * 100)}%` }} /><span className="bar-label">{fmt(Math.floor(g.cur))}/{fmt(g.need)}</span></div>
+          </div>)}
+        </details>}
         {r.died && <p className="mt-2 text-sm text-destructive">You lost your expedition loot and 10% of your gold, and woke up in the village.</p>}
         <div className="mt-3 grid gap-2">
           {r.won && !r.collected && <button className="pixel-btn w-full py-3" onClick={onCollect}>🎒 Collect loot</button>}
