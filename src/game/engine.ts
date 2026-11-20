@@ -12,6 +12,7 @@ import { SCHOOL_AFF_W, SCHOOL_ASPECTS, SCHOOL_ASPECT_W, SCHOOL_TO_AFF, TRIAD, TR
 import { DRINKS_PER_FIGHT, OIL_BATTLES, POTION, TONIC_FLOORS } from "./alchemy";
 import { MON_DEF, isUndead, themePool } from "./bestiary";
 import { themeFor } from "./themes";
+import { ARENA_RUNS_PER_TRIP, ARENA_WAVES, MARKET_GEAR_MULT, MARKET_MAT_MULT, TRAIN_BLDG_BONUS, TRAIN_GAIN, affTrainCost, arenaBossKind, arenaFee, arenaFloors, arenaPrize, arenaWaveFloor, monsterMarketValue, nextBossFloor, type ListingKind } from "./town";
 import { OFFHAND_MAX, isHeldTool, offhandFx, offhandUpCost } from "./items";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
@@ -40,7 +41,7 @@ export interface Mon {
   atk: number; defn: number; weak: Element; element: Element; tier: number; boss: 0 | 1 | 2 | 3; magical: boolean;
   ability?: MonsterDef["ability"] | undefined; affix?: string | undefined; xp: number; drops: string[]; dodge: number;
 }
-export interface Dungeon { floor: number; w: number; h: number; tiles: string[]; monsters: Mon[]; stairs: { x: number; y: number }; down?: { x: number; y: number } | undefined; fromAbove?: boolean | undefined; bossAlive: boolean; traps?: { x: number; y: number; id: string }[] | undefined }
+export interface Dungeon { floor: number; w: number; h: number; tiles: string[]; monsters: Mon[]; stairs: { x: number; y: number }; down?: { x: number; y: number } | undefined; fromAbove?: boolean | undefined; bossAlive: boolean; traps?: { x: number; y: number; id: string }[] | undefined; /** Arena bout (no map; the hero stays in town). */ arena?: boolean | undefined }
 export interface Combat {
   mon: Mon; log: string[]; turn: number; dealt: number; taken: number; xp0: Record<string, number>; charXp0: number; gold0: number;
   stoneskin: number; guardT: number; roar: number; stun: number; monBurn: number; monBleed: number; pPoison: number;
@@ -90,6 +91,9 @@ export interface GameState {
   /** Weapon oil coating and battles left. */ oil?: { id: string; left: number } | undefined;
   /** Alchemy stat tonic and floors left. */ tonic?: { id: string; floors: number } | undefined;
   /** Chosen linear specialization path (specializations.ts). */ spec?: string | undefined;
+  /** Running Arena gauntlet: bracket floor, waves cleared and prizes held until you cash out. */
+  arena?: { floor: number; wave: number; prize: { mats: Record<string, number>; gear: Gear[]; gold: number } } | undefined;
+  /** Arena runs started since the last Tower expedition. */ arenaRuns?: number | undefined;
 }
 
 /** One-time save upgrades for older saves. Returns true when something changed. */
@@ -107,6 +111,8 @@ export function migrateSave(s: GameState): boolean {
     if (!g || Object.values(s.equip).includes(id)) { c.equip = { ...c.equip, [sl]: undefined }; changed = true; continue; }
     s.gear = s.gear.filter((x) => x.id !== id); c.held = [...(c.held ?? []), g]; changed = true;
   }
+  // The Training Ground took over guild training: keep the training bonus players already paid for.
+  if (s.bldg?.guild && s.bldg.guild > 1 && s.bldg.training === undefined) { s.bldg = { ...s.bldg, training: s.bldg.guild }; changed = true; }
   return changed;
 }
 /** Materials the player can gather at a spot right now. */
@@ -909,11 +915,22 @@ export function compTitle(s: GameState, cid: string, t: string | undefined) {
 export function trainSkill(s: GameState, k: string): boolean | null {
   const L = lvl(s, k); if (L >= MAX_SKILL) return null;
   if (!spend(s, trainCost(L))) { log(s, "❌ Not enough gold for training."); return null; }
-  if (Math.random() < trainChance(L) + (bldgLvl(s, "guild") - 1) * 0.03) {
+  if (Math.random() < trainChance(L) + (bldgLvl(s, "training") - 1) * TRAIN_BLDG_BONUS) {
     s.skills[k] = (s.skills[k] ?? 0) + (xpForLevel(L + 1) - xpForLevel(L)) * 0.5;
     log(s, `🏋️ Training paid off! ${k} ${L} → ${lvl(s, k)}`); return true;
   }
   log(s, `🏋️ Training went poorly — no progress on ${k}.`); return false;
+}
+/** Training Ground: pay for an affinity session; success grants half of the way to the next affinity level. */
+export function trainAffinity(s: GameState, aff: string): boolean | null {
+  if (!AFF_BY_ID[aff]) return null;
+  const pts = s.aff[aff] ?? 0; const L = affLevel(pts);
+  if (!spend(s, affTrainCost(L))) { log(s, "❌ Not enough gold for training."); return null; }
+  if (Math.random() < trainChance(L) + (bldgLvl(s, "training") - 1) * TRAIN_BLDG_BONUS) {
+    s.aff[aff] = pts + (8 * (L + 1) ** 2 - 8 * L * L) * TRAIN_GAIN; bump(s, "affTrained");
+    log(s, `🏋️ ${AFF_BY_ID[aff]!.name} training paid off! Lv ${L} → ${affLevel(s.aff[aff]!)}`); return true;
+  }
+  log(s, `🏋️ The drill went poorly — no ${AFF_BY_ID[aff]!.name} progress.`); return false;
 }
 export function specAffinities(s: GameState) { return Object.entries(s.aff).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([a]) => a).filter((a) => AFF_BY_ID[a]); }
 export function techLock(s: GameState, aff: string, kind: "passive" | "active"): string | null {
@@ -1111,6 +1128,7 @@ export function stepAilments(s: GameState) { bump(s, "dungeonSteps"); if (s.ailm
 
 export function churchHealCost(s: GameState) { return 10 + Math.floor(s.maxFloor * 2); }
 export function churchHeal(s: GameState): boolean {
+  if (s.arena) { log(s, "🏟️ Finish your Arena run before healing."); return false; }
   if (!spend(s, churchHealCost(s))) { log(s, "❌ Not enough gold for the offering."); return false; }
   const p = playerStats(s); s.hp = p.hp; s.mp = p.mp; log(s, "⛪ The priest's blessing restores you."); return true;
 }
@@ -1129,6 +1147,7 @@ export function harvest(s: GameState, x: number, y: number) {
   log(s, `🧺 Harvested ${q} ${getMat(p.crop).name}.`);
 }
 export function restAtHome(s: GameState) {
+  if (s.arena) { log(s, "🏟️ No resting mid-gauntlet — finish your Arena run first."); return; }
   const p = playerStats(s); const k = restPct(bldgLvl(s, "house")) / 100; bump(s, "rests");
   s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * k)); s.mp = Math.min(p.mp, s.mp + Math.round(p.mp * k)); s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * k)); s.step += 60;
   log(s, `🛌 You rest and recover ${Math.round(k * 100)}%. The village grows a little.`);
@@ -1239,6 +1258,7 @@ function besideTile(d: Dungeon, x: number, y: number) {
 }
 const bossNote = (f: number) => f === 1000 ? "the Eternal Warden waits!" : f % 100 === 0 ? "an Arch-Warden guards this floor!" : f % 10 === 0 ? "a Guardian awaits!" : "";
 export function enterDungeon(s: GameState, f: number) {
+  if (s.arena) arenaCashOut(s);
   const { d, start } = genDungeon(f);
   s.dungeon = d; s.loc = "dungeon"; s.pos = start; s.bag = {}; s.relentlessUsed = false;
   const bk = bossNote(f);
@@ -1285,7 +1305,7 @@ export function leaveDungeon(s: GameState, keepLoot: boolean) {
   if (s.dungeon) tickMeal(s);
   if (keepLoot) for (const [id, q] of Object.entries(s.bag)) addMat(s, id, q);
   s.bag = {}; s.dungeon = undefined; s.combat = undefined; s.loc = "village"; s.pos = { ...VILLAGE_START };
-  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.prayed = false; learnSpells(s); tickRentals(s); rerollQuestsIfDone(s);
+  s.step += 120; s.marketSeed = Date.now(); s.casinoPlays = 0; s.arenaRuns = 0; s.prayed = false; learnSpells(s); tickRentals(s); rerollQuestsIfDone(s);
 }
 function setTile(d: Dungeon, x: number, y: number, c: string) { const r = d.tiles[y]!; d.tiles[y] = r.slice(0, x) + c + r.slice(x + 1); }
 export function mineVein(s: GameState, x: number, y: number) {
@@ -1589,6 +1609,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
 
 function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "lose" | "fled" {
   const c = s.combat!; const m = c.mon; const d = s.dungeon!; const p = playerStats(s);
+  const inArena = !!d.arena && !!s.arena;
   const loot: Record<string, number> = {};
   let xp = 0, gold = 0, sold = 0;
   // durability wear
@@ -1633,7 +1654,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
     bump(s, "deaths"); s.stats["streak"] = 0; s.stats["floorStreak"] = 0; s.stats["noFleeStreak"] = 0;
     if (s.spells?.some((x) => x.startsWith("soul_"))) bump(s, "soulDeaths");
     if (s.ailments?.poisoned && s.spells?.some((x) => x.startsWith("plague_"))) bump(s, "poisonDeaths");
-    addAilment(s, "cursed");
+    if (!inArena) addAilment(s, "cursed");
   }
   const gains = Object.keys(s.skills).map((k) => ({ k, xp: (s.skills[k] ?? 0) - (c.xp0[k] ?? 0), from: levelOf(c.xp0[k] ?? 0), to: levelOf(s.skills[k] ?? 0) }))
     .filter((g) => g.xp > 0.01).sort((a, b) => b.xp - a.xp);
@@ -1645,6 +1666,7 @@ function finishCombat(s: GameState, outcome: "win" | "lose" | "fled"): "win" | "
   if (autoLootFlag || outcome !== "win") collectLoot(s);
   s.combat = undefined;
   if (outcome === "fled") s.stats["noFleeStreak"] = 0;
+  if (inArena) return arenaAfter(s, outcome, p.hp);
   if (outcome === "fled") { const r = s.dungeon!; const free = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: s.pos.x + dx!, y: s.pos.y + dy! })).find((q) => r.tiles[q.y]?.[q.x] === "." && !r.monsters.some((mm) => mm.x === q.x && mm.y === q.y)); if (free) s.pos = free; }
   if (outcome === "lose") {
     const lost = Math.floor(s.gold * 0.1); s.gold -= lost;
@@ -1658,7 +1680,7 @@ let autoSellFlag = false, autoLootFlag = true;
 export function setCombatPrefs(autoSell: boolean, autoLoot: boolean) { autoSellFlag = autoSell; autoLootFlag = autoLoot; }
 export function collectLoot(s: GameState) {
   const r = s.result; if (!r || r.collected) return;
-  for (const { id, qty } of r.loot) addMat(s, id, qty, true);
+  for (const { id, qty } of r.loot) addMat(s, id, qty, s.loc === "dungeon");
   r.collected = true;
 }
 // ======================= economy =======================
@@ -1791,6 +1813,120 @@ export function checkAchievements(s: GameState) {
     }
     s.ach[a.id] = got;
   }
+}
+
+// ======================= arena =======================
+/** Why the Arena is closed right now, or null when a run can start. */
+export function arenaLock(s: GameState): string | null {
+  if (s.arena) return null;
+  if (!arenaFloors(s.maxFloor).length) return "Clear Tower floor 10 to earn a place in the Arena.";
+  if ((s.arenaRuns ?? 0) >= ARENA_RUNS_PER_TRIP) return "The crowd wants fresh tales — climb the Tower before your next run.";
+  return null;
+}
+/** Pay the entry fee and face the first champion of the bracket. */
+export function startArena(s: GameState, floor: number): boolean {
+  if (s.arena || arenaLock(s) || !arenaFloors(s.maxFloor).includes(floor) || s.loc !== "village") return false;
+  if (!spend(s, arenaFee(floor))) { log(s, "❌ Not enough gold for the Arena fee."); return false; }
+  s.arena = { floor, wave: 0, prize: { mats: {}, gear: [], gold: 0 } }; s.arenaRuns = (s.arenaRuns ?? 0) + 1; bump(s, "arenaRuns");
+  log(s, `🏟️ You enter the Arena (floor ${floor} bracket).`);
+  return arenaFight(s);
+}
+/** Next wave: a boss fight with no map; HP, MP and stamina carry over between waves. */
+export function arenaFight(s: GameState): boolean {
+  const a = s.arena; if (!a || s.combat || a.wave >= ARENA_WAVES) return false;
+  const wave = a.wave + 1; const f = arenaWaveFloor(a.floor, wave);
+  const m = makeMonster(f, 1, 1, arenaBossKind(wave));
+  s.dungeon = { floor: f, w: 3, h: 3, tiles: ["###", "#.#", "###"], monsters: [m], stairs: { x: 1, y: 1 }, bossAlive: true, arena: true };
+  startCombat(s, m); s.combat!.log.unshift(`🏟️ Wave ${wave}/${ARENA_WAVES}: the crowd roars!`);
+  return true;
+}
+/** Material prize for an Arena wave: rare monster parts of the bracket's next tier. */
+function arenaMats(f: number, n: number) {
+  const t = Math.min(10, floorTier(f) + 1);
+  const pool = Object.values(MATERIALS).filter((x) => x.src === "monster" && x.tier >= t - 1 && x.tier <= t && !x.catalyst);
+  const out: Record<string, number> = {};
+  for (let i = 0; i < n && pool.length; i++) { const id = pool[ri(0, pool.length - 1)]!.id; out[id] = (out[id] ?? 0) + 1; }
+  return out;
+}
+/** Prize equipment forged from a rich mix of the bracket's materials (no smithing caps the Arena's own smiths). */
+export function arenaGear(s: GameState, f: number): Gear {
+  const t = Math.min(10, floorTier(f) + 1);
+  const pool = Object.values(MATERIALS).filter((x) => (x.src === "monster" || x.src === "mining") && x.tier >= Math.max(0, t - 1) && x.tier <= t && !x.catalyst);
+  const kinds = [...new Set(Array.from({ length: 5 }, () => pool[ri(0, pool.length - 1)]!.id))];
+  const mats = kinds.map((id) => ({ id, qty: ri(4, 8) }));
+  const slot = SLOTS[ri(0, SLOTS.length - 1)]!;
+  const pv = craftPreview(mats, slot, s);
+  const base = zeroStats(); for (const k of STAT_KEYS) base[k] = pv.base[k] * rand(0.95, 1.15);
+  return { id: uid(), name: `Champion's ${pv.name}`, slot, grade: pv.grade, base, element: pv.element, effects: pv.effects,
+    materials: mats, avgTier: pv.avgTier, dura: pv.maxDura, maxDura: pv.maxDura, enh: Math.min(10, 1 + Math.floor(f / 100)), crafted: Date.now(), arch: pv.arch };
+}
+function arenaAfter(s: GameState, outcome: "win" | "lose" | "fled", maxHp: number): "win" | "lose" | "fled" {
+  const a = s.arena!; s.dungeon = undefined;
+  if (outcome === "win") {
+    a.wave++; const pz = arenaPrize(a.floor, a.wave, bldgLvl(s, "arena"));
+    for (const [id, q] of Object.entries(arenaMats(arenaWaveFloor(a.floor, a.wave), pz.rare))) a.prize.mats[id] = (a.prize.mats[id] ?? 0) + q;
+    a.prize.gold += pz.gold; if (pz.gear) a.prize.gear.push(arenaGear(s, arenaWaveFloor(a.floor, a.wave)));
+    if (a.wave >= ARENA_WAVES) { bump(s, "arenaChampion"); note(s, "🏆 Arena champion! All prizes are yours."); arenaCashOut(s); }
+    else log(s, `🏟️ Wave ${a.wave} cleared! Fight on or take your prizes.`);
+  } else if (outcome === "fled") {
+    log(s, "🏟️ You bow out of the Arena."); arenaCashOut(s);
+  } else {
+    s.arena = undefined; s.hp = Math.max(1, Math.round(maxHp * 0.3));
+    log(s, "☠️ You fell in the Arena. The prizes you held are lost.");
+  }
+  return outcome;
+}
+/** Leave the Arena with every prize won so far; gear that does not fit the bag goes to storage. */
+export function arenaCashOut(s: GameState) {
+  const a = s.arena; if (!a) return;
+  for (const [id, q] of Object.entries(a.prize.mats)) addMat(s, id, q);
+  for (const g of a.prize.gear) (s.gear.length < GEAR_CAP ? s.gear : s.whGear).push(g);
+  if (a.prize.gold) earn(s, a.prize.gold);
+  const n = Object.values(a.prize.mats).reduce((x, y) => x + y, 0);
+  log(s, `🏆 Arena prizes: ${fmtN(a.prize.gold)}g, ${n} rare materials${a.prize.gear.length ? `, ${a.prize.gear.length} equipment` : ""}.`);
+  s.arena = undefined;
+}
+const fmtN = (n: number) => n.toLocaleString("en-US");
+/** Tower floor skipping: jump straight to the next Guardian floor. */
+export function skipToBoss(s: GameState): boolean {
+  const f = nextBossFloor(s.maxFloor); if (f <= s.maxFloor + 1) return false;
+  bump(s, "floorsSkipped", f - s.maxFloor - 1); enterDungeon(s, f); return true;
+}
+
+// ======================= player market =======================
+export interface ListingDraft { kind: ListingKind; item: unknown; qty: number; price: number; label: string }
+/** Fixed market value of what you want to list; players can never set it themselves. */
+export function marketValue(s: GameState, kind: ListingKind, ref: string, qty = 1): number {
+  if (kind === "mat") return Math.max(1, Math.round(getMat(ref).value * MARKET_MAT_MULT * qty));
+  if (kind === "gear") { const g = s.gear.find((x) => x.id === ref); return g ? Math.max(1, gearValue(g) * MARKET_GEAR_MULT) : 0; }
+  const c = s.companions?.find((x) => x.id === ref);
+  return c ? monsterMarketValue(compLevel(c.xp), c.base) : 0;
+}
+/** Takes an item out of the save for listing; returns what to publish, or null when it can't be listed. */
+export function takeForListing(s: GameState, kind: ListingKind, ref: string, qty = 1): ListingDraft | null {
+  if (s.loc !== "village") return null;
+  const price = marketValue(s, kind, ref, qty); if (price <= 0) return null;
+  if (kind === "mat") { if (qty < 1 || !takeMat(s, ref, qty)) return null; return { kind, item: { id: ref }, qty, price, label: `${getMat(ref).name} ×${qty}` }; }
+  if (kind === "gear") {
+    const g = freeGear(s).find((x) => x.id === ref); if (!g) return null;
+    s.gear = s.gear.filter((x) => x.id !== ref); return { kind, item: g, qty: 1, price, label: g.name };
+  }
+  const c = s.companions?.find((x) => x.id === ref && x.kind === "monster" && x.rentLeft === undefined); if (!c) return null;
+  dismissCompanion(s, ref);
+  const { held: _h, equip: _e, title: _t, titleTime: _tt, ...rest } = c;
+  return { kind, item: { ...rest, equip: {} }, qty: 1, price, label: `${c.name} (Lv ${compLevel(c.xp)})` };
+}
+/** Whether the save has room to receive a listing of this kind. */
+export function canReceive(s: GameState, kind: ListingKind): string | null {
+  if (kind === "monster" && (s.companions?.length ?? 0) >= MAX_COMPANIONS) return `Your party is full (${MAX_COMPANIONS}).`;
+  return null;
+}
+/** Puts a bought (or cancelled) listing's item into the save. */
+export function receiveListing(s: GameState, kind: ListingKind, item: unknown, qty: number) {
+  if (kind === "mat") { const id = (item as { id: string }).id; addMat(s, id, qty); return; }
+  if (kind === "gear") { const g = { ...(item as Gear), id: uid() }; (s.gear.length < GEAR_CAP ? s.gear : s.whGear).push(g); return; }
+  const c = { ...(item as Companion), id: uid(), equip: {}, held: [] };
+  if ((s.companions?.length ?? 0) < MAX_COMPANIONS) s.companions = [...(s.companions ?? []), c];
 }
 
 // ======================= class evolution check =======================

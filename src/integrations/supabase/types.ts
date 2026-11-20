@@ -32,12 +32,131 @@ export type Database = {
         }
         Relationships: []
       }
+      market_listings: {
+        Row: {
+          buyer_id: string | null
+          claimed: boolean
+          created_at: string
+          id: string
+          item: Json
+          kind: string
+          label: string
+          price: number
+          qty: number
+          seller_id: string
+          seller_name: string
+          sold_at: string | null
+          status: string
+        }
+        Insert: {
+          buyer_id?: string | null
+          claimed?: boolean
+          created_at?: string
+          id?: string
+          item: Json
+          kind: string
+          label?: string
+          price: number
+          qty?: number
+          seller_id: string
+          seller_name?: string
+          sold_at?: string | null
+          status?: string
+        }
+        Update: {
+          buyer_id?: string | null
+          claimed?: boolean
+          created_at?: string
+          id?: string
+          item?: Json
+          kind?: string
+          label?: string
+          price?: number
+          qty?: number
+          seller_id?: string
+          seller_name?: string
+          sold_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      market_buy: {
+        Args: { _id: string }
+        Returns: {
+          buyer_id: string | null
+          claimed: boolean
+          created_at: string
+          id: string
+          item: Json
+          kind: string
+          label: string
+          price: number
+          qty: number
+          seller_id: string
+          seller_name: string
+          sold_at: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "market_listings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      market_cancel: {
+        Args: { _id: string }
+        Returns: {
+          buyer_id: string | null
+          claimed: boolean
+          created_at: string
+          id: string
+          item: Json
+          kind: string
+          label: string
+          price: number
+          qty: number
+          seller_id: string
+          seller_name: string
+          sold_at: string | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "market_listings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      market_claim: {
+        Args: never
+        Returns: {
+          buyer_id: string | null
+          claimed: boolean
+          created_at: string
+          id: string
+          item: Json
+          kind: string
+          label: string
+          price: number
+          qty: number
+          seller_id: string
+          seller_name: string
+          sold_at: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "market_listings"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

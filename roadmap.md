@@ -31,3 +31,11 @@
 - [x] Companions shown holding their weapon/off-hand
 - [x] Gear given to a companion leaves the bag; removing it (or the companion leaving) returns it
 - [x] Clearer race-path counters: bars + how-to hints in Magic Tower, Profile › Classes, Journal, battle results
+
+# Town expansion, badges, arena, market, floor skip
+- [ ] Decorations become profile badges (all earned ones shown)
+- [ ] Profile title picker as a dropdown
+- [ ] Bigger town map with a Training Ground (affinity + skill training; removed from tavern)
+- [ ] Arena: consecutive boss fights for equipment and rare materials
+- [ ] Player market in the tavern (real players; game-set market prices)
+- [ ] Skip to the next Guardian floor with a warning
