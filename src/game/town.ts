@@ -30,8 +30,8 @@ export const ARENA_GEAR_WAVES = [3, 5];
 export const arenaPrize = (floor: number, wave: number, bldgLvl = 1) => {
   const boost = 1 + (bldgLvl - 1) * 0.05;
   return {
-    rare: Math.round((wave + 1) * boost),
-    gold: Math.round(40 * Math.pow(1.1, floor / 10) * wave * boost),
+    rare: Math.round((2 * wave + 1) * boost),
+    gold: Math.round(120 * Math.pow(1.1, floor / 10) * wave * boost),
     gear: ARENA_GEAR_WAVES.includes(wave),
   };
 };

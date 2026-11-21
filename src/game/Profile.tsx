@@ -173,7 +173,7 @@ function Badges({ s }: { s: GameState }) {
       <div className="flex items-center justify-between"><span className="text-sm">Badges <span className="text-xs text-muted-foreground">{got.length}/{BADGES.length}</span></span>
         <button className="pixel-btn px-2 py-0.5 text-xs" onClick={() => setAll(!all)}>{all ? "Earned only" : "Show all"}</button></div>
       {!list.length && <p className="text-sm text-muted-foreground">Reach achievement milestones to earn badges.</p>}
-      <div className="mt-1 grid grid-cols-4 gap-1 sm:grid-cols-6">
+      <div className="mt-1 grid grid-cols-3 gap-1 sm:grid-cols-5">
         {list.map((b) => { const on = badgeEarned(s.ach, b); const art = decoArt(b.emoji); return (
           <div key={`${b.ach}-${b.tier}`} className={`badge-tile flex flex-col items-center border-2 p-1 text-center ${on ? "border-primary" : "border-border/50 opacity-40 grayscale"}`} title={b.label}>
             {art ? <img src={art} alt="" width={256} height={256} className="h-9 w-9 object-contain" draggable={false} /> : <span className="text-2xl leading-9">{b.emoji}</span>}
