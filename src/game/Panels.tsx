@@ -1,3 +1,4 @@
+import { canSkipTo, nextBossFloor } from "./town";
 import { createContext, useContext, useMemo, useState, type Context, type ReactNode } from "react";
 import {
   ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat, matRole, ROLE_LABEL,
@@ -311,7 +312,7 @@ export function PlotPanel({ s, onClose, onPlant, onHarvest }: { s: GameState; on
     </Sheet>
   );
 }
-export function TowerPanel({ s, onClose, onEnter }: { s: GameState; onClose: () => void; onEnter: (f: number) => void }) {
+export function TowerPanel({ s, onClose, onEnter, onSkip }: { s: GameState; onClose: () => void; onEnter: (f: number) => void; onSkip?: () => void }) {
   const [f, setF] = useState(Math.min(1000, s.maxFloor + 1));
   const next = Math.min(1000, s.maxFloor + 1);
   const kind = (n: number) => (n === 1000 ? "👑 Final Floor" : n % 100 === 0 ? "☠️ Arch-Warden" : n % 10 === 0 ? "💀 Guardian" : "");
@@ -319,6 +320,7 @@ export function TowerPanel({ s, onClose, onEnter }: { s: GameState; onClose: () 
     <Sheet title="🗼 The Tower" onClose={onClose}>
       <p>Highest cleared: <b className="text-primary">{s.maxFloor}</b> / 1000 · Danger tier {floorTier(next)}</p>
       <button className="pixel-btn pixel-btn-primary my-2 w-full py-4 text-base" onClick={() => onEnter(next)}>Climb to Floor {next} {kind(next)}</button>
+      {onSkip && canSkipTo(s.maxFloor) && <button className="pixel-btn pixel-btn-danger mb-2 w-full py-3" onClick={onSkip}>⏩ Skip to Floor {nextBossFloor(s.maxFloor)} {kind(nextBossFloor(s.maxFloor))}</button>}
       {s.maxFloor > 0 && <div className="pixel-panel p-2">
         <p className="text-sm">Start from a cleared floor to farm materials:</p>
         <div className="my-2 flex items-center gap-1">
@@ -340,7 +342,6 @@ export function HousePanel({ s, onClose, onRest }: { s: GameState; onClose: () =
   return (
     <Sheet title="🏠 Home" onClose={onClose}>
       <button className="pixel-btn pixel-btn-primary mb-2 w-full py-3" onClick={onRest}>🛌 Rest (recover {restPct(bldgLvl(s, "house"))}%, time passes)</button>
-      {s.decos.length > 0 && <p className="mb-2 text-sm">Village decorations: {s.decos.join(" ")}</p>}
       <p className="text-sm text-muted-foreground">Use the Storage tab to keep items safe and the Kitchen tab to cook. Saving is in Settings.</p>
     </Sheet>
   );

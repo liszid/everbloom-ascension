@@ -41,7 +41,7 @@ export function CombatView({ s, onAct }: { s: GameState; onAct: (a: CombatAct) =
           <div className="mx-auto h-20 w-20"><MonsterSprite kind={m.def} name={m.name} boss={m.boss} /></div>
           {floats.filter((f) => !f.me).map((f) => <span key={f.id} className="float-num text-gold">{f.t}</span>)}
           <h2 className="mt-1 text-base text-accent">{m.name}</h2>
-          <div className="text-xs text-muted-foreground">Floor {s.dungeon!.floor} · {m.magical ? "Magic" : "Physical"} · weak {ELEMENT_ICON[m.weak]}{m.weak}{c.charging ? " · ⚠️ CHARGING" : ""}</div>
+          <div className="text-xs text-muted-foreground">{s.dungeon!.arena ? `🏟️ Arena wave ${(s.arena?.wave ?? 0) + 1}` : `Floor ${s.dungeon!.floor}`} · {m.magical ? "Magic" : "Physical"} · weak {ELEMENT_ICON[m.weak]}{m.weak}{c.charging ? " · ⚠️ CHARGING" : ""}</div>
           <div className="bar bar-hp mt-1"><div style={{ width: `${Math.max(0, (m.hp / m.maxHp) * 100)}%` }} /></div>
           <div className="text-sm">{fmt(Math.max(0, m.hp))}/{fmt(m.maxHp)}</div>
         </div>
@@ -120,7 +120,7 @@ export function ResultView({ s, onCollect, onContinue }: { s: GameState; onColle
         {/* Pinned to the bottom of the results so the next action never needs scrolling. */}
         <div className="sticky -bottom-3 -mx-3 -mb-3 mt-3 grid gap-2 border-t border-border/60 bg-card p-3">
           {r.won && !r.collected && <button className="pixel-btn w-full py-3" onClick={onCollect}>🎒 Collect loot</button>}
-          <button className="pixel-btn pixel-btn-primary w-full py-4" onClick={onContinue}>{r.died ? "Return to village" : r.won && !r.collected ? "Leave loot & continue" : "Continue crawling"}</button>
+          <button className="pixel-btn pixel-btn-primary w-full py-4" onClick={onContinue}>{r.died ? "Return to village" : r.won && !r.collected ? "Leave loot & continue" : s.arena ? "🏟️ Back to the Arena" : s.loc === "village" ? "Continue" : "Continue crawling"}</button>
         </div>
       </div>
     </div>

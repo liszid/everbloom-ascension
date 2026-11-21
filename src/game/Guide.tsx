@@ -53,9 +53,11 @@ const BLDG_ROWS: { icon: string; name: string; id?: BldgId; text: ReactNode }[] 
   { icon: "⛪", name: "Church", id: "church", text: <>Cures ailments, sells blessings that last a number of battles, lets you pray once per return for a free blessing, and enchants weapons and off-hands with an element.</> },
   { icon: "🔮", name: "Magic Tower", text: <>Learn magic schools, study them to raise their level, unlock spells, equip up to {MAX_SPELL_SLOTS} of them, level spells up, and perform race-changing rituals.</> },
   { icon: "🪤", name: "Craftery", id: "craftery", text: <>Makes single-use throwing items and traps, ammunition, ranged off-hand weapons and torches. Higher Craftery levels unlock stronger recipes.</> },
-  { icon: "🛡️", name: "Adventurers Guild", id: "guild", text: <><B>Missions</B> board, a <B>Merchant</B> paying more for monster parts, skill <B>Training</B> and specialist trainers, and <B>Hire</B> for companions.</> },
+  { icon: "🛡️", name: "Adventurers Guild", id: "guild", text: <><B>Missions</B> board, <B>Trade</B> (the player market: buy and sell materials, equipment and captured monsters with other players at fixed market value), a <B>Merchant</B> paying more for monster parts, and <B>Hire</B> for companions.</> },
+  { icon: "🏋️", name: "Training Ground", text: <>Pay gold to drill an <B>affinity</B> or a <B>skill</B> (success grants half a level), and learn specialist techniques for your top two affinities. Upgrading it raises the success chance.</> },
+  { icon: "🏟️", name: "Arena", text: <>Once per Tower expedition, pay a fee and fight 5 bosses in a row (4 Guardians, then an Arch-Warden) without resting. Each wave adds rare materials and gold, waves 3 and 5 add equipment. Leave any time to keep your prizes — fall and you lose them.</> },
   { icon: "🎰", name: "Casino", text: <>Dice, Slots and High-Low. Play as long as you have gold; the maximum bet grows with your best floor. Winnings give tokens for the token shop. The house always has a small edge.</> },
-  { icon: "🗼", name: "Tower", text: <>Enter the dungeon. You can start at any floor you have already reached, using the − / + buttons or the floor picker.</> },
+  { icon: "🗼", name: "Tower", text: <>Enter the dungeon. You can start at any floor you have already reached, using the − / + buttons or the floor picker, or skip straight to the next Guardian floor — but the shortest path doesn't lead to your goal: skipped floors give no monsters, materials or experience.</> },
 ];
 
 function Section({ id, icon, title, open, toggle, children }: { id: string; icon: string; title: string; open: boolean; toggle: (id: string) => void; children: ReactNode }) {
@@ -217,7 +219,7 @@ export function Guide({ onBack }: { onBack: () => void }) {
         <L items={[
           <><B>Missions:</B> slay, gather, forge or reach-a-floor tasks for gold and tokens. A new set appears when you finish them all.</>,
           <><B>Merchant:</B> buys monster parts at about {GUILD_BUY_MULT}× the shop price (more with Guild level).</>,
-          <><B>Training:</B> pay gold for a chance to raise a skill. Higher skills cost more and succeed less often.</>,
+          <><B>Training</B> moved to the <B>Training Ground</B>: pay gold for a chance to raise a skill or an affinity. Higher levels cost more and succeed less often.</>,
           <><B>Specialists:</B> only teach your top two affinities — a passive at affinity Lv {TECH_REQ.passive} ({techGold("passive")}g) and an active at Lv {TECH_REQ.active} ({techGold("active")}g).</>,
           <><B>Companions:</B> up to {MAX_COMPANIONS}. Rent one for {RENT_FLOORS} floors, or buy one to keep forever. Owned companions get their own Stats, Equipment and Title tabs. Gear you give a companion leaves your bag and they carry it (and are shown holding their weapon); removing it puts it back in your bag, and everything returns when they leave the party.</>,
           <><B>Capture:</B> a normal monster below {Math.round(CAPTURE_HP * 100)}% HP can be captured in battle and joins as a companion. Guardians cannot be captured.</>,

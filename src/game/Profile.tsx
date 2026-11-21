@@ -11,6 +11,8 @@ import { TOOL } from "./items";
 import { StartedPaths } from "./RacePaths";
 import { ClassCodex, PlaystyleBlock, SpecBlock, SynergyBlock } from "./ClassPaths";
 import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
+import { BADGES, badgeEarned } from "./town";
+import { decoArt } from "./art";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 
@@ -31,10 +33,11 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip, onSpec = () => {} }
         <Row k="Gold" v={s.gold.toLocaleString()} /><Row k="Tokens" v={s.tokens} /><Row k="Play time" v={time(s.playTime)} />
         <Row k="Race passive" v={race.passive.name} /><p className="text-xs text-muted-foreground">{race.passive.desc}</p>
         <Row k="Race active" v={race.active.name} /><p className="text-xs text-muted-foreground">{race.active.desc}</p>
-        <div className="mt-2"><div className="text-sm">Title</div><div className="flex flex-wrap gap-1">
-          <button className={`pixel-btn py-1 ${!s.title ? "pixel-btn-active" : ""}`} onClick={() => onTitle(undefined)}>None</button>
-          {s.titles.map((t) => <button key={t} className={`pixel-btn py-1 ${s.title === t ? "pixel-btn-active" : ""}`} onClick={() => onTitle(t)}>{t} <span className="text-gold">{"★".repeat(titleStars(t, s.titleTime?.[t] ?? 0))}</span></button>)}
-          {!s.titles.length && <span className="text-sm text-muted-foreground">Earn titles from achievements.</span>}</div>
+        <div className="mt-2"><label className="text-sm" htmlFor="title-pick">Title <span className="text-xs text-muted-foreground">({s.titles.length} earned)</span></label>
+          {s.titles.length ? <select id="title-pick" className="pixel-btn mt-1 w-full py-2 text-left" value={s.title ?? ""} onChange={(e) => onTitle(e.target.value || undefined)}>
+            <option value="">— No title —</option>
+            {s.titles.map((t) => <option key={t} value={t}>{t} {"★".repeat(titleStars(t, s.titleTime?.[t] ?? 0))}</option>)}
+          </select> : <p className="text-sm text-muted-foreground">Earn titles from achievements.</p>}
           {s.title && (() => { const secs = s.titleTime?.[s.title] ?? 0; const kit = titleKit(s.title, secs); const nx = nextStarAt(s.title, secs); return (
             <div className="pixel-panel mt-2 p-2 text-sm">
               <div className="flex justify-between"><span className="text-accent">{s.title}</span><span className="text-gold">{starStr(kit.stars)}</span></div>
@@ -42,6 +45,7 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip, onSpec = () => {} }
               {kit.skills.map((sk) => <div key={sk.name} className="border-b border-border/30 py-0.5"><b>{sk.type === "active" ? "⚔️" : "◆"} {sk.name}</b> <span className="text-xs text-muted-foreground">{sk.type === "active" ? `${sk.cost} ${sk.res === "mp" ? "MP" : "STA"} · ` : "passive · "}{sk.desc}{sk.type === "active" && sk.kind === "lock" ? ` (${lockTurns(kit.stars)} turns)` : ""}</span></div>)}
               {kit.locked.map((sk) => <div key={sk.name} className="py-0.5 text-muted-foreground">🔒 {sk.name} <span className="text-xs">· unlocks at more stars</span></div>)}
             </div>); })()}</div>
+        <Badges s={s} />
       </div>}
       {tab === "stats" && <div className="grid gap-x-6 sm:grid-cols-2">
         <div><h3 className="text-accent">Primary</h3>
@@ -155,6 +159,27 @@ function Journal({ s }: { s: GameState }) {
           <div className="flex justify-between"><span>{got === a.tiers.length ? "🏅" : "▫️"} {a.name} {"★".repeat(got)}{"☆".repeat(a.tiers.length - got)}</span><span className="text-sm text-muted-foreground">{next !== undefined ? `${fmt(val)}/${fmt(next)}` : "Complete"}</span></div>
           {next !== undefined && <div className="text-xs text-muted-foreground">Reward: {Object.entries(a.rewards[got] ?? {}).map(([k, r]) => k === "mat" ? `material` : k === "gold" ? `${r}g` : `${k} ${r}`).join(", ")}</div>}
         </div>); })}
+    </div>
+  );
+}
+
+/** Badges earned from achievement milestones (they used to be village decorations). */
+function Badges({ s }: { s: GameState }) {
+  const [all, setAll] = useState(false);
+  const got = BADGES.filter((b) => badgeEarned(s.ach, b));
+  const list = all ? BADGES : got;
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between"><span className="text-sm">Badges <span className="text-xs text-muted-foreground">{got.length}/{BADGES.length}</span></span>
+        <button className="pixel-btn px-2 py-0.5 text-xs" onClick={() => setAll(!all)}>{all ? "Earned only" : "Show all"}</button></div>
+      {!list.length && <p className="text-sm text-muted-foreground">Reach achievement milestones to earn badges.</p>}
+      <div className="mt-1 grid grid-cols-4 gap-1 sm:grid-cols-6">
+        {list.map((b) => { const on = badgeEarned(s.ach, b); const art = decoArt(b.emoji); return (
+          <div key={`${b.ach}-${b.tier}`} className={`badge-tile flex flex-col items-center border-2 p-1 text-center ${on ? "border-primary" : "border-border/50 opacity-40 grayscale"}`} title={b.label}>
+            {art ? <img src={art} alt="" width={256} height={256} className="h-9 w-9 object-contain" draggable={false} /> : <span className="text-2xl leading-9">{b.emoji}</span>}
+            <span className="w-full truncate text-[0.6rem] leading-tight">{b.label}</span>
+          </div>); })}
+      </div>
     </div>
   );
 }

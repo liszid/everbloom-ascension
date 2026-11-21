@@ -18,10 +18,12 @@ const NPCS: Record<string, Npc | null> = {
   craftery: { name: "Tink Fizzlebolt", race: "gnome", gender: "Male", classId: "crafting:1", prop: "🪤", lines: ["Traps, darts, bombs — one use, big boom!", "Careful, that one's armed."] },
   casino: { name: "Vex", race: "tiefling", gender: "Male", classId: "fortune:2", prop: "🎲", lines: ["Feeling lucky tonight?", "The house always... well, usually wins."] },
   warehouse: { name: "Hilda Stoutbarrel", race: "dwarf", gender: "Female", classId: "shield:0", prop: "📦", lines: ["Everything in its crate.", "Your goods are safe with me."] },
+  training: { name: "Drillmaster Korga", race: "halforc", gender: "Male", classId: "might:2", prop: "🎯", lines: ["Again! Sweat now, bleed less later.", "Pick a drill. Gold first, glory after."] },
+  arena: { name: "Arena Master Cassia", race: "human", gender: "Female", classId: "sword:2", prop: "🏟️", lines: ["The crowd wants champions. Are you one?", "Five bosses. No rest. Big prizes."] },
   tower: { name: "Warden Ilyra", race: "aasimar", gender: "Non-binary", classId: "light:2", prop: "🗼", lines: ["The tower waits. Choose your floor.", "May the light guide your climb."] },
 };
 // Merged buildings share one keeper across their tabs.
-const ALIAS: Record<string, string> = { carve: "forge", smelt: "forge", tan: "forge", market: "shop", warehouse: "house", kitchen: "house", guildshop: "tavern", training: "tavern", companions: "tavern" };
+const ALIAS: Record<string, string> = { carve: "forge", smelt: "forge", tan: "forge", market: "shop", warehouse: "house", kitchen: "house", guildshop: "tavern", companions: "tavern", pmarket: "tavern" };
 export const INTERIOR_PANELS = new Set([...Object.keys(NPCS), ...Object.keys(ALIAS)]);
 
 export function Interior({ panel, hero }: { panel: string; hero: { race: string; gender: string; classId: string } }) {

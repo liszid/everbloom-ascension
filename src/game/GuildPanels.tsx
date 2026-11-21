@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AFFINITIES, GRADES, SKILLS, SLOTS, SLOT_INFO, getMat, type Slot } from "./data";
-import { guildSellMult, compGear, compStats, freeGear, GEAR_CAP, lvl, techLock, specAffinities, type GameState } from "./engine";
+import { guildSellMult, compGear, compStats, freeGear, GEAR_CAP, lvl, techLock, specAffinities, affLevel, bldgLvl, type GameState } from "./engine";
+import { TRAIN_BLDG_BONUS, affTrainCost } from "./town";
 import { HIRELINGS, MAX_COMPANIONS, RENT_FLOORS, TECH_REQ, buyPrice, rentPrice, techGold, trainChance, trainCost, type CompRole, type Companion } from "./guild";
 import { Sheet, fmt } from "./Panels";
 import { Avatar } from "./Avatar";
@@ -28,20 +29,30 @@ export function GuildShopPanel({ s, onClose, onSell }: { s: GameState; onClose: 
   );
 }
 
-export function TrainingPanel({ s, onClose, onTrain, onTech }: { s: GameState; onClose: () => void; onTrain: (k: string) => void; onTech: (aff: string, kind: "passive" | "active") => void }) {
-  const [tab, setTab] = useState<"skills" | "spec">("skills");
+export function TrainingPanel({ s, onClose, onTrain, onTech, onAff }: { s: GameState; onClose: () => void; onTrain: (k: string) => void; onTech: (aff: string, kind: "passive" | "active") => void; onAff: (aff: string) => void }) {
+  const [tab, setTab] = useState<"aff" | "skills" | "spec">("aff");
+  const bonus = (bldgLvl(s, "training") - 1) * TRAIN_BLDG_BONUS;
   const spec = specAffinities(s);
   return (
     <Sheet title="🏋️ Training Grounds" onClose={onClose}>
       <div className="mb-2 flex gap-1">
-        <button className={`pixel-btn flex-1 py-2 text-xs ${tab === "skills" ? "pixel-btn-active" : ""}`} onClick={() => setTab("skills")}>Skill training</button>
+        <button className={`pixel-btn flex-1 py-2 text-xs ${tab === "aff" ? "pixel-btn-active" : ""}`} onClick={() => setTab("aff")}>Affinities</button>
+        <button className={`pixel-btn flex-1 py-2 text-xs ${tab === "skills" ? "pixel-btn-active" : ""}`} onClick={() => setTab("skills")}>Skills</button>
         <button className={`pixel-btn flex-1 py-2 text-xs ${tab === "spec" ? "pixel-btn-active" : ""}`} onClick={() => setTab("spec")}>Specialists</button>
       </div>
+      {tab === "aff" && <>
+        <p className="mb-2 text-xs text-muted-foreground">Drill one affinity: success grants half an affinity level. Higher levels cost more and succeed less often.</p>
+        {AFFINITIES.map((a) => { const L = affLevel(s.aff[a.id] ?? 0); const c = affTrainCost(L); return (
+          <div key={a.id} className="mb-1 flex items-center gap-2 border-b border-border py-1 text-sm">
+            <span>{a.icon}</span><span className="min-w-0 flex-1">{a.name} <span className="text-xs text-muted-foreground">Lv {L} · {Math.round(Math.min(1, trainChance(L) + bonus) * 100)}%</span></span>
+            <button className="pixel-btn px-2 py-1 text-xs" disabled={s.gold < c} onClick={() => onAff(a.id)}>{fmt(c)}g</button>
+          </div>); })}
+      </>}
       {tab === "skills" && <>
         <p className="mb-2 text-xs text-muted-foreground">Pay for a session: success grants half a level. Higher levels cost more and succeed less often.</p>
         {Object.entries(SKILLS).map(([k, d]) => { const L = lvl(s, k); const c = trainCost(L); return (
           <div key={k} className="mb-1 flex items-center gap-2 border-b border-border py-1 text-sm">
-            <span>{d.icon}</span><span className="min-w-0 flex-1">{d.name} <span className="text-xs text-muted-foreground">Lv {L} · {Math.round(trainChance(L) * 100)}%</span></span>
+            <span>{d.icon}</span><span className="min-w-0 flex-1">{d.name} <span className="text-xs text-muted-foreground">Lv {L} · {Math.round(Math.min(1, trainChance(L) + bonus) * 100)}%</span></span>
             <button className="pixel-btn px-2 py-1 text-xs" disabled={s.gold < c} onClick={() => onTrain(k)}>{fmt(c)}g</button>
           </div>); })}
       </>}

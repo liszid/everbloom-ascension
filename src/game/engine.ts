@@ -134,7 +134,7 @@ export function pickWeighted<T>(items: [T, number][]): T {
 }
 function seeded(seed: number) { let x = seed % 2147483647 || 1; return () => (x = (x * 16807) % 2147483647) / 2147483647; }
 export const VILLAGE = VILLAGE_MAP;
-export const VW_ = 20, VH_ = 15;
+export const VW_ = VILLAGE_MAP[0]!.length, VH_ = VILLAGE_MAP.length;
 export const VILLAGE_START = { x: 12, y: 12 };
 export const villageTile = (x: number, y: number) => VILLAGE[y]?.[x] ?? "#";
 export const WALKABLE_V = new Set([".", ",", "o"]);

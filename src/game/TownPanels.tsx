@@ -1,11 +1,10 @@
 // Arena and Player Market panels. Rules live in town.ts / engine.ts; this file is presentation plus the market's network calls.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { GRADES, SLOT_INFO, getMat } from "./data";
-import { canReceive, compStats, freeGear, marketValue, type GameState, type Gear } from "./engine";
+import { arenaLock, canReceive, compStats, freeGear, marketValue, type GameState, type Gear } from "./engine";
 import { compLevel, type Companion } from "./guild";
 import { ARENA_GEAR_WAVES, ARENA_WAVES, arenaBossKind, arenaFee, arenaFloors, arenaPrize, type ListingKind } from "./town";
-import { arenaLock } from "./engine";
 import { Sheet, Tabs, fmt } from "./Panels";
 import { MonsterSprite } from "./MonsterSprite";
 
@@ -126,7 +125,7 @@ export function PlayerMarketPanel({ s, userId, onClose, ops }: { s: GameState; u
   );
 }
 
-function ListingRow({ r, right, mine }: { r: Row; right: React.ReactNode; mine?: boolean }) {
+function ListingRow({ r, right, mine }: { r: Row; right: ReactNode; mine?: boolean }) {
   const g = r.kind === "gear" ? (r.item as Gear) : null;
   const c = r.kind === "monster" ? (r.item as Companion) : null;
   return (
