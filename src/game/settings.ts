@@ -48,9 +48,16 @@ export function useSettings(): Settings {
   useEffect(() => { subs.add(set); return () => { subs.delete(set); }; }, []);
   return s;
 }
+/** UI scale presets: base text size (px) and how many map tiles the camera shows across (more tiles = smaller hero and buildings). */
+export const UI_SCALES: Record<Settings["uiScale"], { font: number; view: number; hint: string }> = {
+  small: { font: 13, view: 15, hint: "Compact: smaller buttons and text, wider map view" },
+  medium: { font: 15, view: 13, hint: "Balanced: comfortable on most phones" },
+  large: { font: 18, view: 11, hint: "Big buttons, text and characters" },
+};
+export const viewTiles = (s: Settings) => UI_SCALES[s.uiScale]?.view ?? 13;
 function applySettings(s: Settings) {
   if (typeof document === "undefined") return;
-  const base = { small: 16, medium: 19, large: 22 }[s.uiScale] + (s.largeText ? 3 : 0);
+  const base = (UI_SCALES[s.uiScale]?.font ?? 15) + (s.largeText ? 3 : 0);
   const r = document.documentElement;
   r.style.fontSize = `${base}px`;
   r.style.setProperty("--tile-scale", String(s.resScale / 100));

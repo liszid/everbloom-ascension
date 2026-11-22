@@ -139,11 +139,11 @@
   .bar-hp > div { background: var(--hp); }
   .bar-xp > div { background: var(--xp); }
   /* one-line resource bar with its values printed inside the fill */
-  .bar-labeled { position: relative; height: 17px; }
+  .bar-labeled { position: relative; height: max(15px, 1.1rem); }
   .bar-labeled > .bar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1px; font-family: var(--font-display); font-size: 0.6rem; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; color: var(--foreground); text-shadow: 0 1px 0 var(--ink), 0 0 3px var(--ink), 0 0 6px color-mix(in oklab, var(--ink) 70%, transparent); pointer-events: none; }
 
   .map-grid { display: grid; gap: 0; border: 3px solid var(--ink); border-radius: 1rem; overflow: hidden; box-shadow: var(--shadow-pixel); }
-  .tile { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 5vw, 26px); line-height: 1; position: relative; }
+  .tile { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(10px, calc(min(100vw, 32rem) * 0.55 / var(--view, 11)), 26px); line-height: 1; position: relative; }
   .tile-grass { background: var(--tile-grass); }
   .tile-grass-2 { background: var(--tile-grass-2); }
   .tile-path { background: var(--tile-path); }

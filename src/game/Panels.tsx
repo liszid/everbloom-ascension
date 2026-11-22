@@ -17,7 +17,7 @@ import { useGameConfirm } from "./Confirm";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "./Avatar";
 import { Guide } from "./Guide";
-import { useSettings, updateSettings, type Settings, type Speed } from "./settings";
+import { useSettings, updateSettings, UI_SCALES, type Settings, type Speed } from "./settings";
 
 export const fmt = (n: number) => {
   const a = Math.abs(n);
@@ -526,7 +526,8 @@ export function SettingsPanel({ onClose, chars, saving, onSave, onSignOut }: { o
         <S k="resScale" label="Resolution scaling (map) %" min={70} max={130} />
         <T k="shake" label="Screen shake" /><T k="dmgNumbers" label="Damage numbers" /><T k="lootToasts" label="Floating loot notifications" /><T k="detailedLog" label="Detailed combat log" />
         <div className="py-2"><div>UI scale</div><div className="mt-1 grid grid-cols-3 gap-1">{(["small", "medium", "large"] as const).map((v) =>
-          <button key={v} className={`pixel-btn py-2 capitalize ${st.uiScale === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ uiScale: v })}>{v}</button>)}</div></div>
+          <button key={v} className={`pixel-btn py-2 capitalize ${st.uiScale === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ uiScale: v })}>{v}</button>)}</div>
+          <p className="mt-1 text-xs text-muted-foreground">{UI_SCALES[st.uiScale]?.hint}</p></div>
       </>}
       {tab === "audio" && <>
         <T k="musicOn" label="Enable music" /><T k="sfxOn" label="Enable sound effects" />

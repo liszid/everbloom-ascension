@@ -30,7 +30,7 @@ import { Avatar, type Facing } from "./Avatar";
 import { heldGearOf } from "./HeldGear";
 import { GameAgentTools } from "./AgentTools";
 import { Interior, INTERIOR_PANELS } from "./Interior";
-import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings } from "./settings";
+import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings, viewTiles } from "./settings";
 import { ArenaPanel, PlayerMarketPanel } from "./TownPanels";
 import { SKIP_WARNING, nextBossFloor } from "./town";
 
@@ -46,7 +46,6 @@ const GROUPS: [string, string][][] = [
 const BLDG_OF: Partial<Record<string, BldgId>> = { house: "house", warehouse: "house", kitchen: "house", craftery: "craftery", church: "church", tavern: "guild", guildshop: "guild", pmarket: "guild", training: "training", arena: "arena", companions: "guild", shop: "market", market: "market" };
 type PanelS = { t: PanelT; x?: number; y?: number; spot?: SpotId; cid?: string };
 const tileOpen = (t: string): PanelS | null => STATIONS[t] ? { t: STATIONS[t]! } : SPOT_TILES[t] ? { t: "gather", spot: SPOT_TILES[t] } : t === "G" ? { t: "plot" } : null;
-const VW = 11, VH = 11;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 export const MAX_CHARS = 5;
@@ -68,6 +67,7 @@ function GameSession({ userId }: { userId: string }) {
   const [trapAt, setTrapAt] = useState<{ x: number; y: number } | null>(null);
   const pushToast = (t: string) => { const it = { id: Math.random(), t }; setToasts((x) => [...x, it].slice(-4)); setTimeout(() => setToasts((x) => x.filter((y) => y !== it)), 1800); };
   const st = useSettings();
+  const VW = viewTiles(st), VH = VW;
   const [face, setFace] = useState<Facing>("d");
   const [walkF, setWalkF] = useState<0 | 1 | undefined>(undefined);
   const walkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -296,7 +296,7 @@ function GameSession({ userId }: { userId: string }) {
   const prevView = useRef<{ loc: string; floor: number; x: number; y: number; cx: number; cy: number; step: number; t: number } | null>(null);
   useLayoutEffect(() => {
     if (!s) return;
-    const { cx, cy } = camera(s);
+    const { cx, cy } = camera(s, VW, VH);
     const now = performance.now(); const pv = prevView.current;
     const floor = s.dungeon?.floor ?? 0;
     prevView.current = { loc: s.loc, floor, x: s.pos.x, y: s.pos.y, cx, cy, step: s.step, t: now };
@@ -315,14 +315,14 @@ function GameSession({ userId }: { userId: string }) {
       const f = m.dataset["slide"]; const [mx, my] = f === "r" ? [1, 0] : f === "l" ? [-1, 0] : f === "u" ? [0, -1] : [0, 1];
       m.animate([{ transform: `translate(${-mx * 100}%, ${-my * 100}%)` }, { transform: "translate(0, 0)" }], opts);
     });
-  }, [s]);
+  }, [s, VW, VH]);
 
   if (needChar) return <CreateCharacter hadOld={needChar.hadOld} onCancel={slots.current.length ? () => { setNeedChar(null); } : undefined} onDone={(c) => { const g = newGame(c); if (ref.current) slots.current[active.current] = ref.current; slots.current.push(g); active.current = slots.current.length - 1; ref.current = g; setPanel(null); dirty.current = true; setS(g); setNeedChar(null); setTimeout(() => void save(), 50); }} />;
   if (!s) return <div className="flex min-h-dvh items-center justify-center font-display text-primary">Loading your adventure…</div>;
 
   const p = playerStats(s);
   const inV = s.loc === "village";
-  const { cx, cy } = camera(s);
+  const { cx, cy } = camera(s, VW, VH);
   const avatar = <Avatar race={s.char.race} gender={s.char.gender} classId={s.classId} dir={face} frame={walkF} held={heldGearOf(s)} />;
   const cells = [];
   // one extra ring of tiles around the view so the camera can slide smoothly
@@ -349,7 +349,7 @@ function GameSession({ userId }: { userId: string }) {
 
       <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
-          <div className={`map-grid ${inV ? "map-village" : "map-dungeon"}`}>
+          <div className={`map-grid ${inV ? "map-village" : "map-dungeon"}`} style={{ ["--view" as string]: VW }}>
             <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}</div>
             {!inV && <div aria-hidden className={`torchlight amb-${ambience(themeIndex(s.dungeon!.floor)) ?? "none"}`} style={{ background: `radial-gradient(circle at ${((s.pos.x - cx + 0.5) / VW) * 100}% ${((s.pos.y - cy + 0.5) / VH) * 100}%, transparent 22%, rgba(8,6,12,.16) 48%, rgba(8,6,12,.42) 90%)` }} />}
           </div>
@@ -485,7 +485,7 @@ const OBJ_ART = import.meta.glob("../assets/art/o_*.webp", { eager: true, import
 const obj = (id: string) => OBJ_ART[`../assets/art/o_${id}.webp`];
 
 /** Camera origin: keeps the hero centred, clamped to the map edges. */
-function camera(s: GameState) {
+function camera(s: GameState, VW: number, VH: number) {
   const W = s.loc === "village" ? VILLAGE[0]!.length : s.dungeon!.w, H = s.loc === "village" ? VILLAGE.length : s.dungeon!.h;
   return { cx: Math.max(0, Math.min(W - VW, s.pos.x - Math.floor(VW / 2))), cy: Math.max(0, Math.min(H - VH, s.pos.y - Math.floor(VH / 2))) };
 }
