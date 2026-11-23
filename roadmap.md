@@ -39,3 +39,21 @@
 - [x] Arena: consecutive boss fights for equipment and rare materials
 - [x] Player market in the tavern (real players; game-set market prices)
 - [x] Skip to the next Guardian floor with a warning
+
+# Prison, profile codex, living world (Nov 23)
+- [ ] Movement: held arrow keys walk at a steady pace (no superspeed)
+- [ ] Rename Tavern → Adventurers Guild
+- [ ] Player Market moves into the Market building
+- [ ] Town tiles around the Fishing Pond aligned
+- [ ] Prison building: cell-block view, deposit/withdraw, level up and skill upgrades for companions
+- [ ] Captures with a full party go to the Prison
+- [ ] Journal: each achievement shows how to earn it + progress
+- [ ] Classes: collapsible Evolution History
+- [ ] Class Codex lists discovered classes; non-ascended heroes can pick their class; playstyle suggestion
+- [ ] Slower affinity from mass actions (gathering/refining/crafting) unless higher-tier materials
+- [ ] More specializations (miner, farmer, angler, tamer…) and synergies for all races; collapsible lists
+- [ ] Town look follows the hero's race family
+- [ ] Tower info: map type, monsters, loot per level; picker shows "Level - Map"
+- [ ] Tutorial NPC with yellow "!" — building guide, starter tips, missions
+- [ ] Step and idle animations for hero and monsters (bats flap)
+- [ ] Monsters move by habit (patrol, wander, ambush) instead of always chasing
