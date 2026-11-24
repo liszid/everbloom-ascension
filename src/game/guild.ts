@@ -1,6 +1,7 @@
 // Adventurers Guild: companions, trainers and pricing — pure data, no engine imports.
 import type { Slot } from "./data";
 import type { Gear } from "./engine";
+import type { CompSkillId } from "./prison";
 
 export const MAX_COMPANIONS = 4;
 export const RENT_FLOORS = 5;
@@ -12,6 +13,7 @@ export interface Companion {
   /** Gear objects this companion carries (taken out of the hero's bag while held). */ held?: Gear[] | undefined;
   title?: string | undefined; titleTime?: Record<string, number> | undefined;
   rentLeft?: number | undefined; // undefined = owned permanently
+  /** Prison-trained skill levels (prison.ts). */ skills?: Partial<Record<CompSkillId, number>> | undefined;
 }
 export const HIRELINGS: { role: CompRole; name: string; icon: string; race: string; gender: string; desc: string; hp: number; atk: number; def: number; magic: boolean }[] = [
   { role: "warrior", name: "Brom", icon: "🛡️", race: "dwarf", gender: "Male", desc: "Sturdy fighter — steady physical blows.", hp: 1.3, atk: 1, def: 1.3, magic: false },

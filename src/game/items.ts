@@ -83,16 +83,17 @@ export const TRAP_RANGE = 3;
 export const BASE_SIGHT = 4;
 
 // ---- village building levels ----
-export type BldgId = "house" | "craftery" | "church" | "guild" | "market" | "training" | "arena";
+export type BldgId = "house" | "craftery" | "church" | "guild" | "market" | "training" | "arena" | "prison";
 export const BLDG_MAX = 10;
 export const BLDG_INFO: Record<BldgId, { name: string; perk: (l: number) => string }> = {
   house: { name: "Home", perk: (l) => `Storage ${storageCap(l)} slots · Rest heals ${restPct(l)}%` },
   craftery: { name: "Craftery", perk: (l) => `Unlocks recipes up to Lv ${l}` },
   church: { name: "Church", perk: (l) => `Blessings last ${blessBattles(l)} battles · services ${Math.round((1 - churchDisc(l)) * 100)}% cheaper` },
-  guild: { name: "Guild", perk: (l) => `Merchant pays ${guildMult(l).toFixed(2)}×` },
+  guild: { name: "Adventurers Guild", perk: (l) => `Merchant pays ${guildMult(l).toFixed(2)}×` },
   market: { name: "Market", perk: (l) => `Shop sells for +${(l - 1) * 4}%` },
   training: { name: "Training Ground", perk: (l) => `Training +${(l - 1) * 3}% success` },
   arena: { name: "Arena", perk: (l) => `Arena prizes +${(l - 1) * 5}%` },
+  prison: { name: "Prison", perk: (l) => `${6 + (l - 1) * 3} cells` },
 };
 export const bldgCost = (l: number) => Math.round(300 * l * l);
 export const storageCap = (l: number) => 20 + (l - 1) * 10;

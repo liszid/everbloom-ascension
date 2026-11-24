@@ -405,13 +405,14 @@ export const SKILLS: Record<string, { name: string; icon: string; desc: string; 
 
 // ---------- village ----------
 // # fence , path . grass | T B I E trees | R rock | F flower | W water | G plot | c s w animals
-// Buildings occupy 2x2 tiles: H home M market A forge J church Z magic tower V craftery N guild X casino D tower K training ground U arena
+// Buildings occupy 2x2 tiles: H home M market A forge J church Z magic tower V craftery N guild X casino D tower K training ground U arena C prison
+// @ Elder Rowan (the village guide NPC; not walkable)
 // Gathering spots (2x2): L forest O mine P pond Y animal farm; G crop field plots
 export const BUILDINGS: Record<string, { name: string; icon: string }> = {
   H: { name: "Home", icon: "🏠" }, M: { name: "Market", icon: "⚖️" }, A: { name: "Forge", icon: "⚒️" },
   J: { name: "Church", icon: "⛪" }, Z: { name: "Magic Tower", icon: "🔮" }, V: { name: "Craftery", icon: "🪤" },
   N: { name: "Adventurers Guild", icon: "🛡️" }, X: { name: "Casino", icon: "🎰" }, D: { name: "Tower", icon: "🗼" },
-  K: { name: "Training Ground", icon: "🏋️" }, U: { name: "Arena", icon: "🏟️" },
+  K: { name: "Training Ground", icon: "🏋️" }, U: { name: "Arena", icon: "🏟️" }, C: { name: "Prison", icon: "⛓️" },
   L: { name: "Forest", icon: "🌲" }, O: { name: "Mine", icon: "⛏️" }, P: { name: "Pond", icon: "🎣" }, Y: { name: "Animal Farm", icon: "🐄" },
 };
 export const VILLAGE_MAP = [
@@ -421,18 +422,18 @@ export const VILLAGE_MAP = [
   "#T.,,,,,,,,,,,,,,,.#",
   "#..,MM.AA.ZZ.VV,F..#",
   "#F.,MM.AA.ZZ.VV,.F.#",
-  "#...,,,,,,,,,,,,,,.#",
+  "#..,,,,,,,,,,,,,,,.#",
   "#GGG,.NN.XX....,YY.#",
   "#GGG,.NN.XX....,YYc#",
   "#GGG,,,,,,,,,,,,,.s#",
-  "#WPP.F.....DD..,...#",
-  "#WPP....F..DD..,.F.#",
-  "#WW.,,,,,,,,,,,,,..#",
+  "#WPP,F.....DD..,...#",
+  "#WPP,...F..DD.@,.F.#",
+  "#WWW,,,,,,,,,,,,,..#",
   "#.F.,.KK....UU.,.F.#",
   "#...,.KK....UU.,...#",
   "#.F.,,,,,,,,,,,,,..#",
-  "#T....F..R....F..B.#",
-  "#..E......F.....T..#",
+  "#T....FCCR....F..B.#",
+  "#..E...CC.F.....T..#",
   "####################",
 ];
 

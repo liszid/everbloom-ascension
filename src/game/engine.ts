@@ -14,6 +14,10 @@ import { MON_DEF, isUndead, themePool } from "./bestiary";
 import { themeFor } from "./themes";
 import { ARENA_RUNS_PER_TRIP, ARENA_WAVES, MARKET_GEAR_MULT, MARKET_MAT_MULT, TRAIN_BLDG_BONUS, TRAIN_GAIN, affTrainCost, arenaBossKind, arenaFee, arenaFloors, arenaPrize, arenaWaveFloor, monsterMarketValue, nextBossFloor, type ListingKind } from "./town";
 import { OFFHAND_MAX, isHeldTool, offhandFx, offhandUpCost } from "./items";
+import { COMP_SKILL_MAX, compLevelCost, compSkillCost, compSkillList, prisonCap, type CompSkillId } from "./prison";
+import { HOME_RANGE, IDLE, NOTICE, habitOf } from "./habits";
+import { TUTOR_MISSIONS } from "./tutorial";
+import { MASS_AFF, massGain } from "./pacing";
 import {
   ACHIEVEMENTS, AFFINITIES, AFF_BY_ID, ANIMALS, BACKGROUNDS, ELITE_AFFIX, FLOWERS, FLOWER_SEEDS, GRADES, GRADE_GATES, GRADE_MULT,
   MONSTERS, ORES, PCT_STATS, POND, PROPS, RACES, SKILLS, SLOTS, SLOT_INFO, STAT_KEYS, TREES, VEINS, VILLAGE_MAP, MATERIALS,
@@ -36,7 +40,7 @@ export interface Gear {
 }
 export interface Food { name: string; icon: string; heal: number; qty: number; tier: number }
 export interface Mon {
-  face?: "l" | "r" | "u" | "d" | undefined; movedAt?: number | undefined; rooted?: number | undefined; trapStun?: number | undefined; trapBurn?: number | undefined;
+  face?: "l" | "r" | "u" | "d" | undefined; movedAt?: number | undefined; /** Spawn point (home) and patrol heading for movement habits. */ hx?: number | undefined; hy?: number | undefined; pd?: number | undefined; rooted?: number | undefined; trapStun?: number | undefined; trapBurn?: number | undefined;
   uid: string; def: string; name: string; icon: string; x: number; y: number; hp: number; maxHp: number;
   atk: number; defn: number; weak: Element; element: Element; tier: number; boss: 0 | 1 | 2 | 3; magical: boolean;
   ability?: MonsterDef["ability"] | undefined; affix?: string | undefined; xp: number; drops: string[]; dodge: number;
@@ -94,6 +98,9 @@ export interface GameState {
   /** Running Arena gauntlet: bracket floor, waves cleared and prizes held until you cash out. */
   arena?: { floor: number; wave: number; prize: { mats: Record<string, number>; gear: Gear[]; gold: number } } | undefined;
   /** Arena runs started since the last Tower expedition. */ arenaRuns?: number | undefined;
+  /** Companions waiting in Prison cells (captured monsters and bought recruits). */ prison?: Companion[] | undefined;
+  /** Class chosen from the Class Codex (class id); undefined = follow your playstyle. */ classPick?: string | undefined;
+  /** Index of the Elder's current mission (tutorial.ts). */ tutor?: number | undefined;
 }
 
 /** One-time save upgrades for older saves. Returns true when something changed. */
@@ -168,7 +175,7 @@ function growth(s: GameState, aff: string) {
 // Agility is fed by constant walking, so it grows on a much stricter curve than other affinities.
 export function addAff(s: GameState, a: string, pts: number) { s.aff[a] = (s.aff[a] ?? 0) + pts * growth(s, a) * (a === "agility" ? 0.4 : 1); }
 const AFF_RATE: Record<string, number> = { mobility: 0.03, gambling: 1.5 };
-export function addXp(s: GameState, k: string, amt: number) {
+export function addXp(s: GameState, k: string, amt: number, affScale = 1) {
   const info = SKILLS[k];
   const aff = info?.aff ?? "agility";
   const mult = growth(s, aff) * (1 + affLevel(s.aff[aff] ?? 0) / 40);
@@ -176,10 +183,15 @@ export function addXp(s: GameState, k: string, amt: number) {
   const oldL = levelOf(before ?? 0);
   s.skills[k] = (before ?? 0) + amt * mult;
   const newL = levelOf(s.skills[k]!);
-  addAff(s, aff, amt * (AFF_RATE[k] ?? 0.35));
+  addAff(s, aff, amt * (AFF_RATE[k] ?? 0.35) * affScale);
   if (before === undefined && info) { log(s, `✨ New skill learned: ${info.name}!`); note(s, `✨ Learned ${info.name}`); }
   else if (newL > oldL && info) log(s, `⬆️ ${info.name} → Lv ${newL}`);
 }
+/** Mass actions (gathering, refining, crafting, cooking): low-tier work teaches a skilled hero little. Returns the gain factor. */
+export function massXp(s: GameState, k: string, amt: number, tier: number) {
+  const f = massGain(lvl(s, k), tier); addXp(s, k, amt * f, MASS_AFF); return f;
+}
+const maxTier = (rec: [string, number][]) => Math.max(0, ...rec.map(([m]) => getMat(m).tier));
 export function addCharXp(s: GameState, n: number) {
   const before = charLevel(s.xp); s.xp += n; const after = charLevel(s.xp);
   if (after > before) { log(s, `🌟 Character level ${after}!`); note(s, `🌟 Level ${after}!`); }
@@ -235,6 +247,8 @@ export function computeClass(s: GameState): ClassInfo {
   const rc = raceClassProgress(s);
   // Ascended races are lore-locked: the class follows the race ladder, ranking up with race mastery only.
   if (rc) { const [p, q] = rc.line.affs; return { id: `${p}+${q}:${rc.rank}:${rc.line.race}`, name: rc.line.ranks[rc.rank]!, tier: rc.rank, primary: p, secondary: q, race: rc.line.race }; }
+  // Non-ascended heroes may wear any class they have discovered (Class Codex).
+  if (s.classPick && s.classesSeen.includes(classNameOf(s.classPick))) return { ...parseClassId(s.classPick), name: classNameOf(s.classPick) };
   const { aff: score, aspect } = classScores(s);
   const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
   const [pId, pS] = ranked[0] ?? ["", 0]; const q = ranked[1];
@@ -565,8 +579,8 @@ export function craftGear(s: GameState, mats: { id: string; qty: number }[], slo
     materials: list.map((x) => ({ ...x })), avgTier: pv.avgTier, dura: pv.maxDura, maxDura: pv.maxDura, enh: 0, crafted: Date.now(), arch: pv.arch };
   s.gear.push(g);
   bump(s, "crafted"); if (slot !== "one_hand" && slot !== "two_hand") bump(s, "armorCrafted"); if (g.grade >= 4) bump(s, "craftedLegendary"); if (g.grade >= 6) bump(s, "craftedRelic"); if (g.grade >= 7) bump(s, "craftedEX");
-  addXp(s, "smithing", (4 + pv.qty) * (1 + g.grade * 0.6) * (1 + pv.avgTier * 0.3));
-  addAff(s, "crafting", 3 + pv.qty);
+  const mf = massXp(s, "smithing", (4 + pv.qty) * (1 + g.grade * 0.6) * (1 + pv.avgTier * 0.3), Math.round(pv.avgTier));
+  addAff(s, "crafting", (3 + pv.qty) * MASS_AFF * mf);
   if (pv.element !== "none") { const a = pv.element === "wind" ? "wind" : pv.element; if (AFF_BY_ID[a]) addAff(s, a, 2); }
   log(s, `⚒️ Forged ${GRADES[g.grade]} ${g.name}!`);
   if (g.grade >= 4) note(s, `🌟 ${GRADES[g.grade]} item forged: ${g.name}!`);
@@ -654,7 +668,7 @@ export function cook(s: GameState, mats: { id: string; qty: number }[]) {
   for (const { id, qty } of mats) if (qty > 0) takeMat(s, id, qty);
   const ex = s.foods.find((f) => f.name === pv.name && f.heal === pv.heal);
   if (ex) ex.qty += pv.servings; else s.foods.push({ name: pv.name, icon: pv.icon, heal: pv.heal, qty: pv.servings, tier: pv.tier });
-  bump(s, "foodCooked", pv.servings); addXp(s, "cooking", 4 + pv.qty * 2); addAff(s, "culinary", 2 + pv.kinds);
+  bump(s, "foodCooked", pv.servings); { const mf = massXp(s, "cooking", 4 + pv.qty * 2, pv.tier); addAff(s, "culinary", (2 + pv.kinds) * MASS_AFF * mf); }
   log(s, `🍳 Cooked ${pv.servings}× ${pv.name} (+${pv.heal} HP).`);
 }
 /** Cook a Kitchen recipe and eat it straight away: its buff replaces any current meal and lasts its number of floors. */
@@ -666,7 +680,7 @@ export function cookRecipe(s: GameState, id: string): boolean {
   s.meal = { id, floors: r.floors };
   const p = playerStats(s); s.hp = Math.min(p.hp, s.hp + Math.round(p.hp * 0.3)); s.sta = Math.min(p.sta, s.sta + Math.round(p.sta * 0.3));
   const n = r.ing.reduce((a, [, q]) => a + q, 0);
-  bump(s, "foodCooked"); addXp(s, "cooking", 6 + n * 2); addAff(s, "culinary", 3 + r.ing.length);
+  bump(s, "foodCooked"); { const mf = massXp(s, "cooking", 6 + n * 2, maxTier(r.ing)); addAff(s, "culinary", (3 + r.ing.length) * MASS_AFF * mf); }
   log(s, `${r.icon} You cook and eat ${r.name} — ${r.desc} for ${r.floors} floors.`); return true;
 }
 /** A floor of the Tower has passed: meal buffs count down. */
@@ -691,7 +705,7 @@ export function refine(s: GameState, id: string, times: number, station: RefineS
   const n = Math.min(times, Math.floor((s.inv[id] ?? 0) / 2)); if (n <= 0) return;
   takeMat(s, id, n * 2); addMat(s, mt.refine.to, n); if (station === "smelt") bump(s, "ingotsSmelted", n);
   const [skill, ico] = STATION_SKILL[station];
-  addXp(s, skill, n * (3 + mt.tier * 2)); addAff(s, "crafting", n);
+  { const mf = massXp(s, skill, n * (3 + mt.tier * 2), mt.tier); addAff(s, "crafting", n * MASS_AFF * mf); }
   log(s, `${ico} Made ${n}× ${getMat(mt.refine.to).name}.`);
 }
 
@@ -711,30 +725,30 @@ export function gather(s: GameState, x: number, y: number): boolean {
   if (TREES[t]) {
     const tr = TREES[t]!; const L = lvl(s, "woodcutting");
     if (L < tr.lvl) { log(s, `🪓 Need Woodcutting ${tr.lvl} for ${tr.name}.`); s.sta += 2; return false; }
-    const q = yieldN(L); addMat(s, tr.mat, q); addXp(s, "woodcutting", 4 + getMat(tr.mat).tier * 4); bump(s, "treesCut"); bump(s, "g:" + tr.mat, q);
+    const q = yieldN(L); addMat(s, tr.mat, q); massXp(s, "woodcutting", 4 + getMat(tr.mat).tier * 4, getMat(tr.mat).tier); bump(s, "treesCut"); bump(s, "g:" + tr.mat, q);
     s.village.nodes[k] = s.step + REGROW; log(s, `🪓 +${q} ${getMat(tr.mat).name}`); return true;
   }
   if (t === "R") {
     const L = lvl(s, "mining"); const id = pickWeighted(ORES.filter(([, l]) => L >= l).map(([i, , w]) => [i, w] as [string, number]));
-    const q = Math.ceil(yieldN(L) * (s.char.race === "dwarf" ? 1.25 : 1)); addMat(s, id, q); addXp(s, "mining", 4 + getMat(id).tier * 4); bump(s, "oresMined"); bump(s, "g:" + id, q);
+    const q = Math.ceil(yieldN(L) * (s.char.race === "dwarf" ? 1.25 : 1)); addMat(s, id, q); massXp(s, "mining", 4 + getMat(id).tier * 4, getMat(id).tier); bump(s, "oresMined"); bump(s, "g:" + id, q);
     s.village.nodes[k] = s.step + REGROW; log(s, `⛏️ +${q} ${getMat(id).name}`); return true;
   }
   if (t === "F") {
     const L = lvl(s, "herbalism"); const id = pickWeighted(FLOWERS.filter(([, l]) => L >= l).map(([i, , w]) => [i, w] as [string, number]));
     addMat(s, id, 1); let msg = `🌼 +1 ${getMat(id).name}`;
     if (Math.random() < 0.3 + L * 0.01) { const sd = pickWeighted(FLOWER_SEEDS); addMat(s, sd, 1); msg += `, +1 ${getMat(sd).name}`; }
-    addXp(s, "herbalism", 4 + getMat(id).tier * 4); bump(s, "plantsHarvested"); bump(s, "g:" + id);
+    massXp(s, "herbalism", 4 + getMat(id).tier * 4, getMat(id).tier); bump(s, "plantsHarvested"); bump(s, "g:" + id);
     s.village.nodes[k] = s.step + REGROW; log(s, msg); return true;
   }
   if (t === "W") {
     const L = lvl(s, "fishing"); const id = pickWeighted(POND.filter(([, l]) => L >= l).map(([i, , w]) => [i, w] as [string, number]));
-    addMat(s, id, 1); addXp(s, "fishing", 5 + getMat(id).tier * 4); addAff(s, "water", 1); bump(s, "fishCaught"); bump(s, "g:" + id);
+    addMat(s, id, 1); { const mf = massXp(s, "fishing", 5 + getMat(id).tier * 4, getMat(id).tier); addAff(s, "water", MASS_AFF * mf); } bump(s, "fishCaught"); bump(s, "g:" + id);
     s.village.nodes[k] = s.step + 12; log(s, `🎣 Caught ${getMat(id).name}!`); return true;
   }
   if (ANIMALS[t]) {
     const a = ANIMALS[t]!; const L = lvl(s, "husbandry"); const [id, n] = a.drops[ri(0, a.drops.length - 1)]!;
     const q = Math.max(1, Math.round(n * (1 + L / 25) * Math.random() + 0.5)); addMat(s, id, q);
-    addXp(s, "husbandry", 5); bump(s, "animalsTended"); bump(s, "g:" + id, q);
+    massXp(s, "husbandry", 5, getMat(id).tier); bump(s, "animalsTended"); bump(s, "g:" + id, q);
     s.village.animals[k] = s.step + 40; log(s, `${a.icon} +${q} ${getMat(id).name}`); return true;
   }
   return false;
@@ -748,8 +762,8 @@ export function gatherSpot(s: GameState, id: SpotId, mat: string): boolean {
   const def = SPOTS[id]; const sk = lvl(s, def.skill); const tier = getMat(mat).tier;
   const base = Math.max(1, Math.floor((1 + Math.random() * (1 + sk / 15)) * playerStats(s).gatherEff * (1 + L / 40)));
   const q = id === "mine" && s.char.race === "dwarf" ? Math.ceil(base * 1.25) : base;
-  addMat(s, mat, q); addXp(s, def.skill, 4 + tier * 4); bump(s, def.stat); bump(s, "g:" + mat, q);
-  if (id === "pond") addAff(s, "water", 1);
+  addMat(s, mat, q); const mf = massXp(s, def.skill, 4 + tier * 4, tier); bump(s, def.stat); bump(s, "g:" + mat, q);
+  if (id === "pond") addAff(s, "water", MASS_AFF * mf);
   if (id === "field" && Math.random() < 0.25 + sk * 0.01) { const sd = pickWeighted(FLOWER_SEEDS); addMat(s, sd, 1); }
   log(s, `${def.icon} +${q} ${getMat(mat).name}`); return true;
 }
@@ -831,7 +845,7 @@ const d0 = (s: GameState) => s.dungeon?.floor ?? Math.max(1, s.maxFloor);
 export function captureBlock(s: GameState): string | null {
   const m = s.combat?.mon; if (!m) return "No target";
   if (m.boss) return "Guardians cannot be captured.";
-  if ((s.companions?.length ?? 0) >= MAX_COMPANIONS) return `Party full (${MAX_COMPANIONS}).`;
+  if ((s.companions?.length ?? 0) >= MAX_COMPANIONS && (s.prison?.length ?? 0) >= prisonMax(s)) return `Party and Prison are full (${MAX_COMPANIONS} + ${prisonMax(s)} cells).`;
   if (m.hp > m.maxHp * CAPTURE_HP) return `Weaken it below ${CAPTURE_HP * 100}% HP first.`;
   return null;
 }
@@ -845,7 +859,8 @@ function returnCompGear(s: GameState, c: Companion) {
 }
 export function compStats(s: GameState, c: Companion) {
   const L = compLevel(c.xp);
-  let hp = (60 + L * 12) * c.base.hp, atk = (5 + L * 1.3) * c.base.atk, def = (3 + L * 0.9) * c.base.def;
+  const sk = c.skills ?? {};
+  let hp = (60 + L * 12) * c.base.hp * (1 + (sk.vigor ?? 0) * 0.06), atk = (5 + L * 1.3) * c.base.atk * (1 + (sk.power ?? 0) * 0.06), def = (3 + L * 0.9) * c.base.def * (1 + (sk.guard ?? 0) * 0.06);
   for (const sl of SLOTS) { const g = compGear(c, sl); if (!g) continue; const gs = gearStats(g); hp += gs.hp; atk += c.base.magic ? gs.matk : gs.patk; def += c.base.magic ? gs.mdef : gs.pdef; }
   const kit = titleKit(c.title, c.titleTime?.[c.title ?? ""] ?? 0);
   hp *= 1 + (kit.mods.hp ?? 0); atk *= 1 + (c.base.magic ? kit.mods.matk ?? 0 : kit.mods.patk ?? 0); def *= 1 + (kit.mods.pdef ?? 0);
@@ -855,10 +870,12 @@ function companionsAct(s: GameState, c: Combat, p: PStats) {
   for (const cp of s.companions ?? []) {
     if (c.mon.hp <= 0) return;
     const st = compStats(s, cp);
-    if (cp.role === "cleric" && c.turn % 2 === 0) { const h = Math.min(p.hp - s.hp, Math.round(st.atk * 2 + p.hp * 0.05)); if (h > 0) { s.hp += h; c.healed += h; clog(c, `✨ ${cp.name} heals you for ${h}.`); continue; } }
-    const hits = cp.role === "archer" && Math.random() < 0.3 ? 2 : 1;
+    const sk = cp.skills ?? {};
+    if (cp.role === "cleric" && c.turn % 2 === 0) { const h = Math.min(p.hp - s.hp, Math.round((st.atk * 2 + p.hp * 0.05) * (1 + (sk.mend ?? 0) * 0.1))); if (h > 0) { s.hp += h; c.healed += h; clog(c, `✨ ${cp.name} heals you for ${h}.`); continue; } }
+    const dbl = (cp.role === "archer" ? 0.3 + (sk.volley ?? 0) * 0.03 : 0) + ((sk.cleave ?? 0) + (sk.frenzy ?? 0)) * 0.04;
+    const hits = Math.random() < dbl ? 2 : 1; const pierce = 1 - (sk.arcana ?? 0) * 0.04;
     for (let i = 0; i < hits; i++) {
-      const dmg = Math.max(1, Math.round(dmgFormula(st.atk, c.mon.defn * (cp.base.magic ? 0.75 : 1)) * rand(0.85, 1.15)));
+      const dmg = Math.max(1, Math.round(dmgFormula(st.atk, c.mon.defn * (cp.base.magic ? 0.75 : 1) * pierce) * rand(0.85, 1.15)));
       c.mon.hp -= dmg; c.dealt += dmg; clog(c, `🤝 ${cp.name} hits for ${dmg}`);
     }
     if (cp.title) cp.titleTime = { ...cp.titleTime, [cp.title]: (cp.titleTime?.[cp.title] ?? 0) + 6 };
@@ -911,6 +928,44 @@ export function compEquip(s: GameState, cid: string, gid: string | undefined, sl
 export function compTitle(s: GameState, cid: string, t: string | undefined) {
   const c = s.companions?.find((x) => x.id === cid); if (!c) return;
   if (t && !s.titles.includes(t)) return; c.title = t;
+}
+// ---- prison ----
+export const prisonMax = (s: GameState) => prisonCap(bldgLvl(s, "prison"));
+/** Move a permanent party member (captured or bought) into a Prison cell. Rented hires can't be locked up. */
+export function depositComp(s: GameState, id: string): boolean {
+  const c = s.companions?.find((x) => x.id === id); if (!c || s.loc !== "village") return false;
+  if (c.rentLeft !== undefined) { log(s, `❌ ${c.name} is only rented — the Guild wants them back.`); return false; }
+  if ((s.prison?.length ?? 0) >= prisonMax(s)) { log(s, "⛓️ Every cell is taken. Upgrade the Prison for more."); return false; }
+  s.companions = s.companions!.filter((x) => x.id !== id); s.prison = [...(s.prison ?? []), c];
+  log(s, `⛓️ ${c.name} waits in the Prison.`); return true;
+}
+/** Bring a companion out of the Prison into the active party. */
+export function withdrawComp(s: GameState, id: string): boolean {
+  const c = s.prison?.find((x) => x.id === id); if (!c || s.loc !== "village") return false;
+  if ((s.companions?.length ?? 0) >= MAX_COMPANIONS) { log(s, `❌ Your party is full (${MAX_COMPANIONS}).`); return false; }
+  s.prison = s.prison!.filter((x) => x.id !== id); s.companions = [...(s.companions ?? []), c];
+  log(s, `🤝 ${c.name} rejoins your party.`); return true;
+}
+/** Release a prisoner for good; any gear they carry comes back to your bag. */
+export function releasePrisoner(s: GameState, id: string) {
+  const c = s.prison?.find((x) => x.id === id); if (!c) return;
+  returnCompGear(s, c); s.prison = s.prison!.filter((x) => x.id !== id);
+  log(s, `👋 ${c.name} ${c.kind === "monster" ? "was released into the wild" : "left your service"}.`);
+}
+const anyComp = (s: GameState, id: string) => s.prison?.find((x) => x.id === id) ?? s.companions?.find((x) => x.id === id);
+/** Drill a companion one level; they can't pass your character level. */
+export function drillComp(s: GameState, id: string): boolean {
+  const c = anyComp(s, id); if (!c) return false;
+  const L = compLevel(c.xp); if (L >= charLevel(s.xp)) { log(s, `❌ ${c.name} can't out-level you (Lv ${charLevel(s.xp)}).`); return false; }
+  if (!spend(s, compLevelCost(L))) { log(s, "❌ Not enough gold."); return false; }
+  c.xp = Math.max(c.xp, 15 * L ** 2); bump(s, "compDrills"); log(s, `🏋️ ${c.name} reached Lv ${compLevel(c.xp)}.`); return true;
+}
+/** Raise one of a companion's skills (three basics plus their role's signature skill). */
+export function upgradeCompSkill(s: GameState, id: string, sk: CompSkillId): boolean {
+  const c = anyComp(s, id); if (!c || !compSkillList(c.role).includes(sk)) return false;
+  const lv = c.skills?.[sk] ?? 0; if (lv >= COMP_SKILL_MAX) return false;
+  if (!spend(s, compSkillCost(lv, compLevel(c.xp)))) { log(s, "❌ Not enough gold."); return false; }
+  c.skills = { ...c.skills, [sk]: lv + 1 }; log(s, `⭐ ${c.name}'s ${sk} rose to ${lv + 1}.`); return true;
 }
 export function trainSkill(s: GameState, k: string): boolean | null {
   const L = lvl(s, k); if (L >= MAX_SKILL) return null;
@@ -1038,7 +1093,7 @@ export function craftTool(s: GameState, id: string, times = 1): boolean {
     if (s.gold < t.gold || t.recipe.some(([m, q]) => (s.inv[m] ?? 0) < q)) break;
     spend(s, t.gold); for (const [m, q] of t.recipe) takeMat(s, m, q);
     s.tools = { ...s.tools, [id]: (s.tools?.[id] ?? 0) + t.makes }; made++;
-    addXp(s, "smithing", 2); addAff(s, "crafting", 0.5);
+    { const mf = massXp(s, "smithing", 2, maxTier(t.recipe)); addAff(s, "crafting", 0.5 * MASS_AFF * mf); }
   }
   if (!made) { log(s, `❌ Missing materials or gold for ${t.name}.`); return false; }
   log(s, `🪤 Crafted ${t.makes * made}× ${t.name}.`); return true;
@@ -1053,7 +1108,7 @@ export function brewPotion(s: GameState, id: string, times = 1): boolean {
     if (s.gold < pt.gold || pt.recipe.some(([m, q]) => (s.inv[m] ?? 0) < q)) break;
     spend(s, pt.gold); for (const [m, q] of pt.recipe) takeMat(s, m, q);
     s.potions = { ...s.potions, [id]: (s.potions?.[id] ?? 0) + pt.makes }; made++;
-    bump(s, "potionsBrewed", pt.makes); addXp(s, "smithing", 2); addAff(s, "crafting", 0.6); addAff(s, "nature", 0.3);
+    bump(s, "potionsBrewed", pt.makes); { const mf = massXp(s, "smithing", 2, maxTier(pt.recipe)); addAff(s, "crafting", 0.6 * MASS_AFF * mf); addAff(s, "nature", 0.3 * MASS_AFF * mf); }
   }
   if (!made) { log(s, `❌ Missing materials or gold for ${pt.name}.`); return false; }
   log(s, `⚗️ Brewed ${pt.makes * made}× ${pt.name}.`); return true;
@@ -1325,21 +1380,42 @@ export function openChest(s: GameState, x: number, y: number) {
   setTile(d, x, y, "."); bump(s, "treasures");
   log(s, `🧰 Treasure! +${gold}g${mt ? ` and ${mt.name}` : ""}`);
 }
+const STEPS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+/** Monsters follow their habits (habits.ts): chasers hunt, prowlers roam home, patrols pace, wanderers drift, ambushers wait, skittish ones flutter. */
 export function moveMonsters(s: GameState): Mon | null {
   const d = s.dungeon!; let attacker: Mon | null = null;
+  const free = (x: number, y: number) => d.tiles[y]?.[x] === "." && !d.monsters.some((o) => o.x === x && o.y === y) && !(x === s.pos.x && y === s.pos.y);
+  const go = (m: Mon, ox: number, oy: number) => { m.face = ox > 0 ? "r" : ox < 0 ? "l" : oy > 0 ? "d" : "u"; m.movedAt = s.step; m.x += ox; m.y += oy; triggerTrap(s, m); };
   for (const m of d.monsters) {
     if (m.boss) continue;
     const dx = s.pos.x - m.x, dy = s.pos.y - m.y, dist = Math.abs(dx) + Math.abs(dy);
-    if (dist === 1) { attacker = attacker ?? m; continue; }
+    const h = habitOf(m.def);
+    if (dist === 1) { if (h !== "skittish" || Math.random() < 0.5) attacker = attacker ?? m; continue; }
     if (m.rooted) { m.rooted--; continue; }
-    if (dist > 6 || Math.random() < 0.35) continue;
-    const opts = Math.abs(dx) > Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
-    for (const [ox, oy] of opts) {
-      if (!ox && !oy) continue;
-      const nx = m.x + ox!, ny = m.y + oy!;
-      const tt = d.tiles[ny]?.[nx];
-      if (tt === "." && !d.monsters.some((o) => o.x === nx && o.y === ny) && !(nx === s.pos.x && ny === s.pos.y)) { m.face = ox! > 0 ? "r" : ox! < 0 ? "l" : oy! > 0 ? "d" : "u"; m.movedAt = s.step; m.x = nx; m.y = ny; triggerTrap(s, m); break; }
+    m.hx ??= m.x; m.hy ??= m.y;
+    // noticed the hero: close in (a skittish flyer only when cornered)
+    if (dist <= NOTICE[h] && h !== "wander" && h !== "skittish") {
+      if (Math.random() < 0.3) continue;
+      const opts = Math.abs(dx) > Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+      for (const [ox, oy] of opts) { if ((ox || oy) && free(m.x + ox!, m.y + oy!)) { go(m, ox!, oy!); break; } }
+      continue;
     }
+    if (Math.random() < IDLE[h]) continue;
+    if (h === "patrol") {
+      // pace along a line, turning around at walls
+      m.pd ??= Math.random() < 0.5 ? 0 : 2;
+      let [ox, oy] = STEPS[m.pd]!;
+      if (!free(m.x + ox, m.y + oy)) { m.pd = m.pd ^ 1; [ox, oy] = STEPS[m.pd]!; }
+      if (free(m.x + ox, m.y + oy)) go(m, ox, oy);
+      continue;
+    }
+    // prowl / wander / skittish: a random step; prowlers stay near home, skittish ones keep their distance
+    const cand = STEPS.filter(([ox, oy]) => free(m.x + ox, m.y + oy)).filter(([ox, oy]) => {
+      if (h === "prowl") return Math.abs(m.x + ox - m.hx!) + Math.abs(m.y + oy - m.hy!) <= HOME_RANGE;
+      if (h === "skittish") return Math.abs(s.pos.x - m.x - ox) + Math.abs(s.pos.y - m.y - oy) >= Math.min(dist, 3);
+      return true;
+    });
+    const pick = cand[ri(0, cand.length - 1)]; if (pick) go(m, pick[0], pick[1]);
   }
   return attacker && d.monsters.includes(attacker) ? attacker : null;
 }
@@ -1496,9 +1572,11 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       const def = MON_DEF[m.def];
       const L = Math.max(1, Math.round(d0(s) * 0.8));
       const name = m.name.replace(/^(Guardian|Arch-Warden) /, "").replace(new RegExp(`^(${ELITE_AFFIX.join("|")}) `), "");
-      s.companions = [...(s.companions ?? []), { id: uid(), name, kind: "monster", role: "beast", race: "", gender: "", monDef: m.def, xp: 15 * (L - 1) ** 2,
-        base: { hp: def?.hp ?? 1, atk: def?.atk ?? 1, def: def?.def ?? 1, magic: m.magical }, equip: {} }];
-      bump(s, "captures"); clog(c, `🪢 ${name} was captured and joins your party!`); note(s, `🪢 Captured ${name}!`);
+      const cap: Companion = { id: uid(), name, kind: "monster", role: "beast", race: "", gender: "", monDef: m.def, xp: 15 * (L - 1) ** 2,
+        base: { hp: def?.hp ?? 1, atk: def?.atk ?? 1, def: def?.def ?? 1, magic: m.magical }, equip: {} };
+      bump(s, "captures");
+      if ((s.companions?.length ?? 0) < MAX_COMPANIONS) { s.companions = [...(s.companions ?? []), cap]; clog(c, `🪢 ${name} was captured and joins your party!`); note(s, `🪢 Captured ${name}!`); }
+      else { s.prison = [...(s.prison ?? []), cap]; clog(c, `🪢 ${name} was captured and escorted to the Prison cells!`); note(s, `🪢 ${name} was sent to the Prison`); }
       return finishCombat(s, "win");
     }
     clog(c, `🪢 ${m.name} breaks free!`);
@@ -1797,6 +1875,9 @@ export function statValue(s: GameState, k: string): number {
   if (k === "maxFloor") return s.maxFloor;
   if (k === "skillsLearned") return Object.keys(s.skills).length;
   if (k === "classesDiscovered") return s.classesSeen.length;
+  if (k === "equipped") return Object.values(s.equip).filter(Boolean).length;
+  if (k === "spotLevels") return Object.values(s.spots ?? {}).reduce((a, l) => a + Math.max(0, l - 1), 0);
+  if (k === "bldgLevels") return Object.values(s.bldg ?? {}).reduce((a, l) => a + Math.max(0, (l ?? 1) - 1), 0);
   return s.stats[k] ?? 0;
 }
 export function checkAchievements(s: GameState) {
@@ -1899,7 +1980,7 @@ export interface ListingDraft { kind: ListingKind; item: unknown; qty: number; p
 export function marketValue(s: GameState, kind: ListingKind, ref: string, qty = 1): number {
   if (kind === "mat") return Math.max(1, Math.round(getMat(ref).value * MARKET_MAT_MULT * qty));
   if (kind === "gear") { const g = s.gear.find((x) => x.id === ref); return g ? Math.max(1, gearValue(g) * MARKET_GEAR_MULT) : 0; }
-  const c = s.companions?.find((x) => x.id === ref);
+  const c = anyComp(s, ref);
   return c ? monsterMarketValue(compLevel(c.xp), c.base) : 0;
 }
 /** Takes an item out of the save for listing; returns what to publish, or null when it can't be listed. */
@@ -1911,14 +1992,14 @@ export function takeForListing(s: GameState, kind: ListingKind, ref: string, qty
     const g = freeGear(s).find((x) => x.id === ref); if (!g) return null;
     s.gear = s.gear.filter((x) => x.id !== ref); return { kind, item: g, qty: 1, price, label: g.name };
   }
-  const c = s.companions?.find((x) => x.id === ref && x.kind === "monster" && x.rentLeft === undefined); if (!c) return null;
-  dismissCompanion(s, ref);
+  const c = anyComp(s, ref); if (!c || c.kind !== "monster" || c.rentLeft !== undefined) return null;
+  if (s.prison?.some((x) => x.id === ref)) releasePrisoner(s, ref); else dismissCompanion(s, ref);
   const { held: _h, equip: _e, title: _t, titleTime: _tt, ...rest } = c;
   return { kind, item: { ...rest, equip: {} }, qty: 1, price, label: `${c.name} (Lv ${compLevel(c.xp)})` };
 }
 /** Whether the save has room to receive a listing of this kind. */
 export function canReceive(s: GameState, kind: ListingKind): string | null {
-  if (kind === "monster" && (s.companions?.length ?? 0) >= MAX_COMPANIONS) return `Your party is full (${MAX_COMPANIONS}).`;
+  if (kind === "monster" && (s.companions?.length ?? 0) >= MAX_COMPANIONS && (s.prison?.length ?? 0) >= prisonMax(s)) return `Your party and Prison are full.`;
   return null;
 }
 /** Puts a bought (or cancelled) listing's item into the save. */
@@ -1927,6 +2008,7 @@ export function receiveListing(s: GameState, kind: ListingKind, item: unknown, q
   if (kind === "gear") { const g = { ...(item as Gear), id: uid() }; (s.gear.length < GEAR_CAP ? s.gear : s.whGear).push(g); return; }
   const c = { ...(item as Companion), id: uid(), equip: {}, held: [] };
   if ((s.companions?.length ?? 0) < MAX_COMPANIONS) s.companions = [...(s.companions ?? []), c];
+  else s.prison = [...(s.prison ?? []), c];
 }
 
 // ======================= class evolution check =======================
@@ -1949,6 +2031,49 @@ export function checkClass(s: GameState) {
 function parseClassId(id: string): ClassInfo {
   const [affs, t, extra] = id.split(":"); const [p, q] = (affs ?? "").split("+");
   return { id, name: "", tier: Number(t), primary: p, secondary: q, triad: extra?.startsWith("~") ? extra.slice(1) : undefined };
+}
+
+/** Display name for a playstyle class id (affinity, hybrid or triad); "" when unknown. */
+export function classNameOf(id: string): string {
+  const c = parseClassId(id); const t = c.tier;
+  if (c.triad) { const tri = TRIAD[c.triad]; return tri ? triadName(tri, t) : ""; }
+  const base = AFF_BY_ID[c.primary ?? ""]?.titles[t]; if (!base) return "";
+  return c.secondary && HYBRID_PREFIX[c.secondary] ? `${HYBRID_PREFIX[c.secondary]} ${base}` : base;
+}
+let NAME_TO_ID: Map<string, string> | null = null;
+/** Class id for a discovered class name (built once from every affinity, hybrid and triad class). */
+export function classIdByName(name: string): string | undefined {
+  if (!NAME_TO_ID) {
+    NAME_TO_ID = new Map();
+    for (let t = 0; t < 4; t++) for (const a of AFFINITIES) {
+      NAME_TO_ID.set(`${a.titles[t]}`, `${a.id}:${t}`);
+      for (const b of AFFINITIES) if (b.id !== a.id && HYBRID_PREFIX[b.id]) NAME_TO_ID.set(`${HYBRID_PREFIX[b.id]} ${a.titles[t]}`, `${a.id}+${b.id}:${t}`);
+    }
+    for (let t = 1; t < 4; t++) for (const tri of Object.values(TRIAD)) {
+      const [p, q] = tri.triad.filter((x) => AFF_BY_ID[x]);
+      NAME_TO_ID.set(triadName(tri, t), `${p ?? tri.triad[0]}${q ? `+${q}` : ""}:${t}:~${tri.id}`);
+    }
+  }
+  return NAME_TO_ID.get(name);
+}
+/** Choose a discovered class (or undefined to follow your playstyle again). Ascended races stay on their ladder. */
+export function pickClass(s: GameState, id: string | undefined): boolean {
+  if (raceClassProgress(s)) return false;
+  if (id && !s.classesSeen.includes(classNameOf(id))) return false;
+  s.classPick = id; return true;
+}
+
+// ======================= Elder's missions =======================
+export const tutorMission = (s: GameState) => TUTOR_MISSIONS[s.tutor ?? 0];
+export function tutorProgress(s: GameState) {
+  const m = tutorMission(s); if (!m) return null;
+  const cur = statValue(s, m.stat); return { m, cur: Math.min(cur, m.need), done: cur >= m.need };
+}
+/** Hand in the current mission for its gold and move on to the next one. */
+export function claimTutor(s: GameState): boolean {
+  const p = tutorProgress(s); if (!p?.done) return false;
+  earn(s, p.m.gold); s.tutor = (s.tutor ?? 0) + 1;
+  log(s, `📜 Mission complete: ${p.m.text}! +${p.m.gold.toLocaleString()}g`); note(s, `📜 ${p.m.text} — +${p.m.gold.toLocaleString()}g`); return true;
 }
 
 export function favorite(m: Record<string, number>) { const e = Object.entries(m).sort((a, b) => b[1] - a[1])[0]; return e ? e[0] : "—"; }

@@ -7,7 +7,7 @@ import {
   addMat, addXp, note, buyShop, buyToken, checkAchievements, checkClass, claimQuest, clampVitals, climbDown, climbUp, collectLoot, combatTurn, cook,
   craftGear, eatFood, enhance, enterDungeon, equipGear, gather, harvest, key, leaveDungeon, log, marketBuy, mineVein, moveMonsters,
   newGame, openChest, plant, playDice, playHighLow, playSlots, playerStats, refine, repair, rerollQuests, restAtHome, sellGear, sellMat,
-  setCombatPrefs, spend, migrateSave, upgradeOffhand, cookRecipe, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, setSpec, brewPotion, usePotion, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, trainAffinity, startArena, arenaFight, arenaCashOut, skipToBoss, takeForListing, receiveListing, earn, takeMat, upgradeForge, villageTile, WALKABLE_V, VILLAGE, VILLAGE_START,
+  setCombatPrefs, spend, migrateSave, upgradeOffhand, cookRecipe, gatherSpot, upgradeSpot, churchHeal, startCombat, cureAilment, buyBlessing, pray, enchantGear, craftTool, setSpec, brewPotion, usePotion, equipRanged, placeTrap, stepAilments, learnSchool, studySchool, ascend, upgradeBldg, storeGear, storeAll, marketMult, guildSellMult, toggleSpell, levelSpell, hireCompanion, dismissCompanion, compEquip, compTitle, trainSkill, learnTech, trainAffinity, startArena, arenaFight, arenaCashOut, skipToBoss, takeForListing, receiveListing, earn, takeMat, upgradeForge, villageTile, depositComp, withdrawComp, releasePrisoner, drillComp, upgradeCompSkill, claimTutor, tutorProgress, pickClass, WALKABLE_V, VILLAGE, VILLAGE_START,
   type CombatAct, type GameState, type Mon, sightRadius,
 } from "./engine";
 import {
@@ -33,19 +33,22 @@ import { Interior, INTERIOR_PANELS } from "./Interior";
 import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings, viewTiles } from "./settings";
 import { ArenaPanel, PlayerMarketPanel } from "./TownPanels";
 import { SKIP_WARNING, nextBossFloor } from "./town";
+import { PrisonPanel } from "./PrisonPanel";
+import { ELDER, ElderPanel } from "./ElderPanel";
+import { townThemeOf } from "./townTheme";
 
-type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "tan" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party" | "arena" | "pmarket";
-const STATIONS: Record<string, PanelT> = { H: "house", M: "shop", A: "forge", J: "church", Z: "magic", V: "craftery", N: "tavern", X: "casino", D: "tower", K: "training", U: "arena" };
+type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "tan" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party" | "arena" | "pmarket" | "prison" | "elder";
+const STATIONS: Record<string, PanelT> = { H: "house", M: "shop", A: "forge", J: "church", Z: "magic", V: "craftery", N: "tavern", X: "casino", D: "tower", K: "training", U: "arena", C: "prison" };
 // Merged buildings: each panel in a group shows the same tab strip.
 const GROUPS: [string, string][][] = [
   [["house", "🛏️ Rest"], ["warehouse", "📦 Storage"], ["kitchen", "🍳 Kitchen"]],
-  [["shop", "🏪 Shop"], ["market", "⚖️ Market"]],
-  [["tavern", "📜 Missions"], ["pmarket", "🏛️ Trade"], ["guildshop", "🦴 Merchant"], ["companions", "🤝 Hire"]],
+  [["shop", "🏪 Shop"], ["market", "⚖️ Market"], ["pmarket", "🏛️ Player Market"]],
+  [["tavern", "📜 Missions"], ["guildshop", "🦴 Merchant"], ["companions", "🤝 Hire"]],
   [["forge", "⚒️ Smithy"], ["carve", "🪚 Sawmill"], ["smelt", "🔥 Smelter"], ["tan", "🧵 Tannery"]],
 ];
-const BLDG_OF: Partial<Record<string, BldgId>> = { house: "house", warehouse: "house", kitchen: "house", craftery: "craftery", church: "church", tavern: "guild", guildshop: "guild", pmarket: "guild", training: "training", arena: "arena", companions: "guild", shop: "market", market: "market" };
+const BLDG_OF: Partial<Record<string, BldgId>> = { house: "house", warehouse: "house", kitchen: "house", craftery: "craftery", church: "church", tavern: "guild", guildshop: "guild", pmarket: "market", prison: "prison", training: "training", arena: "arena", companions: "guild", shop: "market", market: "market" };
 type PanelS = { t: PanelT; x?: number; y?: number; spot?: SpotId; cid?: string };
-const tileOpen = (t: string): PanelS | null => STATIONS[t] ? { t: STATIONS[t]! } : SPOT_TILES[t] ? { t: "gather", spot: SPOT_TILES[t] } : t === "G" ? { t: "plot" } : null;
+const tileOpen = (t: string): PanelS | null => t === "@" ? { t: "elder" } : STATIONS[t] ? { t: STATIONS[t]! } : SPOT_TILES[t] ? { t: "gather", spot: SPOT_TILES[t] } : t === "G" ? { t: "plot" } : null;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 export const MAX_CHARS = 5;
@@ -234,6 +237,8 @@ function GameSession({ userId }: { userId: string }) {
   // ---- joystick ----
   const joy = useRef<{ dir: [number, number] | null; last: number }>({ dir: null, last: 0 });
   const [stick, setStick] = useState<{ ox: number; oy: number; dx: number; dy: number } | null>(null);
+  const stickRef = useRef(false); stickRef.current = !!stick;
+  const keyDir = useRef<string | null>(null);
   useEffect(() => {
     const ms = Math.round(170 * 100 / Math.max(60, playerSpd()));
     const id = setInterval(() => { const d = joy.current.dir; if (d && Date.now() - joy.current.last >= ms - 20) { joy.current.last = Date.now(); pathRef.current = []; move(d[0], d[1]); } }, 40);
@@ -284,11 +289,18 @@ function GameSession({ userId }: { userId: string }) {
     const h = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       const d: Record<string, [number, number]> = { arrowup: [0, -1], w: [0, -1], arrowdown: [0, 1], s: [0, 1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] };
-      if (d[k] && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); move(...d[k]!); }
+      if (d[k] && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) {
+        e.preventDefault();
+        // Holding a key walks at the hero's normal pace (the joystick timer), never at the OS key-repeat rate.
+        if (e.repeat) return;
+        keyDir.current = k; joy.current.dir = d[k]!; joy.current.last = Date.now(); pathRef.current = []; move(...d[k]!);
+      }
       if (k === "escape") setPanel(null);
     };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
+    const up = (e: KeyboardEvent) => { if (e.key.toLowerCase() === keyDir.current) { keyDir.current = null; if (!stickRef.current) joy.current.dir = null; } };
+    const blur = () => { keyDir.current = null; if (!stickRef.current) joy.current.dir = null; };
+    window.addEventListener("keydown", h); window.addEventListener("keyup", up); window.addEventListener("blur", blur);
+    return () => { window.removeEventListener("keydown", h); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
   }, [move]);
 
   // ---- smooth movement: slide the hero, moved monsters and the camera between tiles ----
@@ -349,13 +361,16 @@ function GameSession({ userId }: { userId: string }) {
 
       <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
-          <div className={`map-grid ${inV ? "map-village" : "map-dungeon"}`} style={{ ["--view" as string]: VW }}>
-            <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}</div>
+          <div className={`map-grid ${inV ? `map-village town-${townThemeOf(s.char.race)}` : "map-dungeon"}`} style={{ ["--view" as string]: VW }}>
+            <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}{inV && <div aria-hidden className="town-tint" />}</div>
+            {inV && <div aria-hidden className="town-air" />}
             {!inV && <div aria-hidden className={`torchlight amb-${ambience(themeIndex(s.dungeon!.floor)) ?? "none"}`} style={{ background: `radial-gradient(circle at ${((s.pos.x - cx + 0.5) / VW) * 100}% ${((s.pos.y - cy + 0.5) / VH) * 100}%, transparent 22%, rgba(8,6,12,.16) 48%, rgba(8,6,12,.42) 90%)` }} />}
           </div>
           {stick && <div className="joy-base" style={{ left: stick.ox - 50, top: stick.oy - 50 }}><div className="joy-knob" style={{ transform: `translate(${stick.dx}px, ${stick.dy}px)` }} /></div>}
           {!stick && <div className="joy-hint">Drag to walk · tap to interact</div>}
         </div>
+        {(() => { const tp = tutorProgress(s); return tp && <button className={`mission-pill ${tp.done ? "mission-done" : ""}`} onClick={() => setPanel({ t: "elder" })} aria-label="Open Elder Rowan's mission">
+          <span>{tp.done ? "❗" : "📜"}</span><span className="truncate">{tp.m.text}</span><span className="shrink-0">{tp.done ? "Claim!" : `${fmt(tp.cur)}/${fmt(tp.m.need)}`}</span></button>; })()}
         <div className="pointer-events-none absolute inset-x-0 top-1 z-30 flex flex-col items-center gap-1">
           {toasts.map((t) => <div key={t.id} className="pixel-panel toast px-2 py-1 text-sm">{t.t}</div>)}
         </div>
@@ -398,6 +413,14 @@ function GameSession({ userId }: { userId: string }) {
         pay: (g) => act((n) => spend(n, g)), earn: (g) => act((n) => earn(n, g)),
         save: () => setTimeout(() => void save(), 50),
       }} />}
+      {panel?.t === "prison" && <PrisonPanel s={s} onClose={close} ops={{
+        deposit: (id) => { if (act((n) => depositComp(n, id))) sfx("ui"); else sfx("fail"); },
+        withdraw: (id) => { if (act((n) => withdrawComp(n, id))) sfx("ui"); else sfx("fail"); },
+        release: (id) => confirmation.ask({ title: "Release for good?", text: "They leave forever. Any gear they carry goes back to your bag.", label: "Release", action: () => act((n) => releasePrisoner(n, id)) }),
+        drill: (id) => { if (act((n) => drillComp(n, id))) sfx("level"); else sfx("fail"); },
+        skill: (id, sk) => { if (act((n) => upgradeCompSkill(n, id, sk))) sfx("level"); else sfx("fail"); },
+      }} />}
+      {panel?.t === "elder" && <ElderPanel s={s} onClose={close} onClaim={() => { if (act(claimTutor)) sfx("coin"); }} />}
       {panel?.t === "training" && <TrainingPanel s={s} onClose={close} onAff={(a) => { const r = act((n) => trainAffinity(n, a)); sfx(r ? "level" : "fail"); }} onTrain={(k) => { const r = act((n) => trainSkill(n, k)); sfx(r ? "level" : "fail"); }} onTech={(a, k) => { if (act((n) => learnTech(n, a, k))) sfx("level"); }} />}
       {panel?.t === "companions" && <HirePanel s={s} onClose={close} onHire={(r, b) => { if (act((n) => hireCompanion(n, r, b))) sfx("level"); }} onParty={() => setPanel({ t: "party" })} />}
       {panel?.t === "party" && <PartyPanel s={s} start={panel.cid} onClose={close} onEquip={(c, g, sl) => act((n) => compEquip(n, c, g, sl))} onTitle={(c, t) => act((n) => compTitle(n, c, t))}
@@ -414,7 +437,7 @@ function GameSession({ userId }: { userId: string }) {
       {panel?.t === "forge" && <ForgePanel s={s} onClose={close} onCraft={(m, sl) => { const g = act((n) => craftGear(n, m, sl)); sfx(g ? "loot" : "fail"); }}
         onEnhance={(id) => act((n) => enhance(n, id))} onRepair={(id) => act((n) => repair(n, id))} onUpgrade={() => act(upgradeForge)} />}
       {panel?.t === "bag" && <BagPanel s={s} onClose={close} onEat={(i) => act((n) => { eatFood(n, i); })} onEquip={(id) => act((n) => equipGear(n, id))} onSell={(id) => { act((n) => sellGear(n, id)); sfx("coin"); }} />}
-      {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} onSpec={(id) => act((n) => setSpec(n, id))} />}
+      {panel?.t === "profile" && <ProfilePanel s={s} onClose={close} onTitle={(t) => act((n) => { n.title = t; checkClass(n); })} onEquip={(id) => act((n) => equipGear(n, id))} onSpec={(id) => act((n) => setSpec(n, id))} onPickClass={(id) => act((n) => { if (pickClass(n, id)) checkClass(n); })} />}
       {panel?.t === "settings" && <SettingsPanel onClose={close} saving={saving} onSave={() => void save()} onSignOut={async () => { await save(); await supabase.auth.signOut(); }} chars={{
         list: slots.current.map((x, i) => i === active.current && ref.current ? ref.current : x), active: active.current, max: MAX_CHARS,
         onSwitch: (i) => { if (ref.current) slots.current[active.current] = ref.current; active.current = i; const g = slots.current[i]!; g.notes = []; ref.current = g; setS(g); close(); void save(); },
@@ -494,6 +517,7 @@ function camera(s: GameState, VW: number, VH: number) {
 function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" | null {
   const t = VILLAGE[y]?.[x];
   if (t === undefined) return null;
+  if (SPOT_TILES[t]) return "grass";
   return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
 }
 const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
@@ -515,6 +539,7 @@ function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
 function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode, cx: number, cy: number, walking: boolean) {
   const k = `${x},${y}`;
   const isP = s.pos.x === x && s.pos.y === y;
+  let elder = false;
   let cls = "tile-grass", glyph = "", dim = false, boss = false, label = "", bldg: React.ReactNode = null, mon: Mon | undefined, art: string | undefined, tileBg: React.CSSProperties | undefined;
   if (s.loc === "village") {
     const t = VILLAGE[y]?.[x] ?? "#";
@@ -523,6 +548,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     tileBg = roundedCorners(x, y);
     if (tileBg && (tileBg as Record<string, string>)["--under"]) { cls += ` tile-cvx under-${(tileBg as Record<string, string>)["--under"]}`; }
     if (t === "#") { cls = "tile-fence"; art = obj("fence"); }
+    else if (t === "@") { elder = true; cls += " tap"; }
     else if (t === ",") cls = "tile-path";
     else if (TREES[t]) { glyph = TREES[t]!.icon; art = obj(t); dim = depleted; cls += " tap"; }
     else if (t === "R") { glyph = "🪨"; art = obj("R"); dim = depleted; cls += " tap"; }
@@ -531,7 +557,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     else if (t === "G") { cls = "tile-soil tap"; const p = s.village.plots[k]; glyph = p ? (p.readyAt <= s.step ? getMat(p.crop).icon : "🌱") : ""; if (p) art = p.readyAt <= s.step ? (icon(p.crop) ?? undefined) : icon("sprout"); }
     else if (ANIMALS[t]) { glyph = ANIMALS[t]!.icon; art = obj(t); dim = (s.village.animals[k] ?? 0) > s.step; cls += " tap"; }
     else if (BUILDINGS[t]) {
-      cls = "tile-station-part tap";
+      cls = SPOT_TILES[t] ? `${(x + y) % 2 ? "tile-grass" : "tile-grass-2"} tap` : "tile-station-part tap";
       // 2x2 building: draw it once, anchored on its first visible tile
       let bx = x, by = y;
       while (VILLAGE[y]?.[bx - 1] === t) bx--;
@@ -564,6 +590,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`} style={tileBg}>
       {bldg}
+      {elder && <span className="tile-mover tile-elder"><span className="elder-sprite"><Avatar race={ELDER.race} gender={ELDER.gender} classId={ELDER.classId} /></span><span className="elder-mark" aria-label="Elder Rowan has advice">!</span></span>}
       {isP ? <span className="tile-mover tile-mover-p"><span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span></span>
         : mon ? <span className="tile-mover tile-mover-m" data-slide={mon.movedAt === s.step ? mon.face ?? "d" : undefined}><MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} /></span>
         : art ? <img src={art} alt={glyph || "fence"} draggable={false} loading="lazy" width={256} height={256} className={`tile-obj ${dim ? (mon ? "" : "tile-dim") : ""} ${cls.includes("tile-water") ? "tile-fish" : ""}`} />

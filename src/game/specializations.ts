@@ -49,6 +49,57 @@ export const SPEC_TRACKS: SpecTrack[] = [
     { name: "Philosopher's Adept", need: 300, desc: "Holds the secret to the Magnum Opus: turning lead into gold and base blood into elixir.", mods: { hp: 0.2, mp: 0.35, matk: 0.3, mdef: 0.25, luck: 0.35 }, traits: ["Elixir of Immortality", "Universal Solvent", "Homunculus Ward"] },
   ] },
 ];
+// ---- Building and fighting-style paths (life skills, taming, duelling…) ----
+/** Compact track builder: five rank names with descriptions, thresholds, and the rank-5 bonus (lower ranks get 20/40/60/80% of it). */
+function track(id: string, name: string, icon: string, desc: string, stat: string, how: string, needs: number[], ranks: [string, string][], top: Partial<Record<StatKey, number>>, traits: string[]): SpecTrack {
+  return { id, name, icon, desc, stat, how, ranks: ranks.map(([n, d], i) => ({ name: n, need: needs[i]!, desc: d,
+    mods: Object.fromEntries(Object.entries(top).map(([k, v]) => [k, Math.round((v as number) * (i + 1) * 0.2 * 1000) / 1000])) as Partial<Record<StatKey, number>>,
+    traits: [traits[Math.min(i, traits.length - 1)]!] })) };
+}
+SPEC_TRACKS.push(
+  track("miner", "The Deep Delvers", "⛏️", "Hardened by endless shafts and stubborn ore.", "oresMined", "Mine ore in the village, the Mine or Tower veins", [100, 500, 2000, 6000, 15000],
+    [["Rock Breaker", "Knows which stone hides metal."], ["Prospector", "Hears veins humming in the walls."], ["Shaft Foreman", "Leads crews through the deepest tunnels."], ["Vein Master", "Ore practically leaps into the cart."], ["Mountain Heart", "The mountain itself yields to them."]],
+    { pdef: 0.2, hp: 0.15, sta: 0.25 }, ["Sturdy Back", "Ore Sense", "Tunnel Grit", "Bedrock Skin", "Mountain's Blessing"]),
+  track("lumberjack", "The Timber Lords", "🪓", "Swingers of the axe who fell giants of the forest.", "treesCut", "Chop wood in the village or the Forest", [100, 500, 2000, 6000, 15000],
+    [["Woodcutter", "Clean, steady swings."], ["Feller", "Trees fall exactly where intended."], ["Timber Boss", "Runs the sawmill like clockwork."], ["Forest Warden", "Takes only what the wood can spare."], ["Lord of the Grove", "Ancient trees bow to their axe."]],
+    { patk: 0.18, sta: 0.25, hp: 0.1 }, ["Axe Rhythm", "Heartwood Strike", "Timber!", "Deep Roots", "Grove Lord"]),
+  track("farmer", "The Harvest Guild", "🌾", "Patient growers of fields and gardens.", "plantsHarvested", "Harvest crops and flowers", [100, 500, 2000, 6000, 15000],
+    [["Field Hand", "Knows the turn of the seasons."], ["Grower", "Every seed sprouts."], ["Master Farmer", "Fields burst with plenty."], ["Harvest Sage", "Soil and rain obey."], ["Green Patriarch", "Life blooms wherever they walk."]],
+    { hp: 0.2, mp: 0.12, luck: 0.1 }, ["Green Thumb", "Bountiful Rows", "Fertile Soil", "Rain Caller", "Endless Harvest"]),
+  track("angler", "The Tidecallers", "🎣", "Calm masters of line, lure and water.", "fishCaught", "Catch fish at the Pond", [80, 400, 1500, 5000, 12000],
+    [["Fisher", "Patient as a heron."], ["Netcaster", "Reads the ripples."], ["Master Angler", "Fish bite on command."], ["Lake Warden", "Knows every hidden pool."], ["Tide Sovereign", "Even legends take the hook."]],
+    { mp: 0.15, luck: 0.15, dodge: 0.05 }, ["Still Water", "Lucky Lure", "Deep Cast", "Current Read", "Leviathan's Line"]),
+  track("rancher", "The Herdkeepers", "🐄", "Gentle hands that raise strong beasts.", "animalsTended", "Tend animals at the Animal Farm", [80, 400, 1500, 5000, 12000],
+    [["Stablehand", "Animals trust them."], ["Herder", "Flocks follow without a word."], ["Ranch Master", "Healthiest herds in the realm."], ["Beast Friend", "Even wild creatures calm down."], ["Lord of Herds", "The whole countryside thrives."]],
+    { hp: 0.2, sta: 0.2, pdef: 0.08 }, ["Calm Hands", "Herd Instinct", "Thick Hide", "Beast Bond", "Pastoral Peace"]),
+  track("chef", "The Hearth Masters", "🍳", "Cooks whose meals win wars.", "foodCooked", "Cook food in the Kitchen", [50, 250, 1000, 3000, 8000],
+    [["Kitchen Hand", "Never burns the stew."], ["Cook", "Knows every spice."], ["Chef", "Meals restore body and spirit."], ["Head Chef", "Feeds whole armies."], ["Culinary Legend", "Their feasts are told in songs."]],
+    { hp: 0.15, sta: 0.2, mp: 0.1, luck: 0.08 }, ["Hearty Meal", "Secret Spice", "Feast Craft", "Banquet Lord", "Legendary Feast"]),
+  track("smith", "The Anvil Brotherhood", "⚒️", "Forgers who turn any material into a masterpiece.", "crafted", "Craft gear at the Smithy", [10, 50, 200, 600, 1500],
+    [["Apprentice Smith", "Sparks and sore arms."], ["Journeyman", "Steady, clean welds."], ["Master Smith", "Blades that hold their edge."], ["Grand Smith", "Weapons kings fight over."], ["Forge Saint", "The anvil sings at their touch."]],
+    { patk: 0.12, pdef: 0.15, crit: 0.05 }, ["Tempered Edge", "Balanced Steel", "Masterwork", "Rune Forge", "Saint's Hammer"]),
+  track("tamer", "The Beast Tamers", "🪢", "Captors and friends of the Tower's monsters.", "captures", "Capture monsters in battle", [3, 12, 35, 80, 200],
+    [["Trapper", "Knows how to hold a rope."], ["Tamer", "Monsters calm in their presence."], ["Beast Master", "Leads a pack of wild allies."], ["Monster Lord", "Even dragons answer the call."], ["Sovereign of Beasts", "Every creature kneels."]],
+    { hp: 0.12, patk: 0.1, luck: 0.12, acc: 0.05 }, ["Firm Grip", "Soothing Voice", "Pack Leader", "Alpha Presence", "Beast Sovereign"]),
+  track("slayer", "The Slayer's Oath", "⚔️", "Warriors measured by the monsters they fell.", "kills", "Defeat monsters", [200, 1000, 4000, 12000, 30000],
+    [["Monster Hunter", "Knows where to strike."], ["Slayer", "A blur of steel."], ["Butcher of the Deep", "Floors fall silent behind them."], ["Doom Bringer", "Monsters flee their name."], ["Death Incarnate", "The Tower trembles."]],
+    { patk: 0.2, crit: 0.06, critDmg: 0.2 }, ["Hunter's Mark", "Relentless", "Carnage", "Doom Strike", "Reaper's Toll"]),
+  track("duelist", "The Duelist's Code", "🤺", "Precise fighters who live for the perfect strike.", "criticalHits", "Land critical hits", [100, 500, 2000, 6000, 15000],
+    [["Fencer", "Footwork first."], ["Duelist", "Finds every gap in armor."], ["Blademaster", "Strikes twice before you blink."], ["Sword Saint", "Every cut is fatal."], ["Untouchable", "None can lay a hand on them."]],
+    { crit: 0.12, critDmg: 0.35, dodge: 0.08, acc: 0.08 }, ["Riposte", "Precision", "Flurry", "Perfect Cut", "Untouchable"]),
+  track("spellblade", "The Arcane Path", "🔮", "Casters who solve every fight with a spell.", "spellsCast", "Cast spells in battle", [100, 500, 2000, 6000, 15000],
+    [["Spark Caster", "Little sparks, big dreams."], ["Battle Mage", "Spells woven mid-swing."], ["War Wizard", "Fireballs on demand."], ["Archmagus", "Reality bends to their words."], ["Spell Sovereign", "Magic answers before they ask."]],
+    { matk: 0.25, mp: 0.25, mdef: 0.1 }, ["Quick Cast", "Mana Weave", "Overchannel", "Arcane Torrent", "Sovereign's Word"]),
+  track("treasure", "The Treasure Seekers", "🧰", "Explorers who never miss a chest.", "treasures", "Open treasure chests in the Tower", [20, 100, 350, 1000, 2500],
+    [["Scavenger", "Pockets full of trinkets."], ["Treasure Hunter", "Smells gold through walls."], ["Vault Raider", "No lock holds them."], ["Relic Seeker", "Finds what legends hid."], ["Fortune's Chosen", "Gold finds them."]],
+    { luck: 0.3, dodge: 0.06, spd: 0.08 }, ["Keen Eye", "Lockpick", "Hidden Stash", "Relic Sense", "Midas Touch"]),
+  track("champion", "The Arena Champions", "🏆", "Crowd favourites of the Arena sands.", "arenaRuns", "Fight Arena gauntlets", [3, 10, 30, 70, 150],
+    [["Contender", "First blood in the sand."], ["Gladiator", "The crowd learns their name."], ["Arena Star", "Sold-out every fight."], ["Grand Gladiator", "Bosses fear the gate."], ["Eternal Champion", "A living legend of the Arena."]],
+    { hp: 0.2, patk: 0.15, pdef: 0.12, sta: 0.15 }, ["Crowd Roar", "Showboat", "Second Wind", "Champion's Pride", "Immortal Glory"]),
+  track("climber", "The Skyward Order", "🗼", "Climbers sworn to reach the 1000th floor.", "floorsCleared", "Clear Tower floors", [25, 100, 300, 600, 1000],
+    [["Stair Runner", "Lungs of iron."], ["Climber", "Floors fly by."], ["Spire Walker", "Fearless at any height."], ["Tower Breaker", "Wardens fall one after another."], ["Skyward Sovereign", "The summit awaits."]],
+    { hp: 0.15, sta: 0.2, spd: 0.1, mdef: 0.1 }, ["Second Breath", "Sure Footing", "High Air", "Warden's Bane", "Summit Will"]),
+);
 export const SPEC: Record<string, SpecTrack> = Object.fromEntries(SPEC_TRACKS.map((t) => [t.id, t]));
 /** Highest rank reached on a path (−1 = not unlocked yet). */
 export function specRank(t: SpecTrack, stats: Record<string, number>) {
