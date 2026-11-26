@@ -521,16 +521,16 @@ function camera(s: GameState, VW: number, VH: number) {
 function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" | null {
   const t = VILLAGE[y]?.[x];
   if (t === undefined) return null;
-  // The pond counts as water so its shoreline meets the stream cleanly; crop fields keep straight edges (no rounding against grass);
+  // The pond counts as water so its shoreline meets the stream cleanly; 
   // the Prison stands in the meadow, so it is grass-backed instead of a stray path island.
   if (t === "P") return "water";
-  if (SPOT_TILES[t] || t === "G" || t === "C") return "grass";
-  return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : "grass";
+  if (SPOT_TILES[t] || t === "C") return "grass";
+  return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
 }
 const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 /** Rounds grass where it meets paths, water and soil: grass bulges get round tips, inner bends get soft fillets. */
 function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
-  const t = VILLAGE[y]?.[x]; if (t === undefined || BUILDINGS[t]) return undefined;
+  const t = VILLAGE[y]?.[x]; if (t === undefined || (BUILDINGS[t] && t !== "P")) return undefined;
   const me = groundKind(x, y); if (!me) return undefined;
   const isG = me === "grass"; let under: string | null = null; let any = false;
   const r = CORNERS.map(([sx, sy]) => {
@@ -564,7 +564,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
     else if (t === "G") { cls = "tile-soil tap"; const p = s.village.plots[k]; glyph = p ? (p.readyAt <= s.step ? getMat(p.crop).icon : "🌱") : ""; if (p) art = p.readyAt <= s.step ? (icon(p.crop) ?? undefined) : icon("sprout"); }
     else if (ANIMALS[t]) { glyph = ANIMALS[t]!.icon; art = obj(t); dim = (s.village.animals[k] ?? 0) > s.step; cls += " tap"; }
     else if (BUILDINGS[t]) {
-      cls = SPOT_TILES[t] ? `${(x + y) % 2 ? "tile-grass" : "tile-grass-2"} tap` : "tile-station-part tap";
+      cls = t === "P" ? "tile-water tap" : SPOT_TILES[t] || t === "C" ? `${(x + y) % 2 ? "tile-grass" : "tile-grass-2"} tap` : "tile-station-part tap";
       // 2x2 building: draw it once, anchored on its first visible tile
       let bx = x, by = y;
       while (VILLAGE[y]?.[bx - 1] === t) bx--;
