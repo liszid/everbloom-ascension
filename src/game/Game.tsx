@@ -535,7 +535,9 @@ function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
   const isG = me === "grass"; let under: string | null = null; let any = false;
   const r = CORNERS.map(([sx, sy]) => {
     const ks = [groundKind(x + sx, y), groundKind(x, y + sy), groundKind(x + sx, y + sy)];
-    const opp = ks.every((k) => k !== null && (isG ? k !== "grass" : k === "grass"));
+    // Crop field soil rounds wherever its corner leaves the field; grass never bulges into the field (no soil cutouts).
+    const opp = me === "soil" ? ks.every((k) => k !== null && k !== "soil")
+      : ks.every((k) => k !== null && (isG ? k !== "grass" && k !== "soil" : k === "grass"));
     if (opp) { any = true; if (isG && !under) under = ks[2] ?? null; }
     return opp ? "45%" : "0";
   }).join(" ");
