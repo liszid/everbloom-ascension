@@ -81,6 +81,7 @@
 
   --shadow-pixel: 0 4px 0 0 var(--ink), 0 8px 18px -6px color-mix(in oklab, var(--ink) 70%, transparent);
   --sprite-ink: #171820;
+  --bat-wing: #14111a; --bat-edge: #3a2a44;
   --sprite-stone: #67777e;
   --sprite-silver: #b4c4cc;
   --sprite-bone: #e1dfbc;
@@ -418,6 +419,7 @@
 .town-ground { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; filter: var(--town-filter, none); }
 .map-village .bldg { filter: var(--town-filter, none); }
 .town-decor { position: absolute; inset: 5%; width: 90%; height: 90%; pointer-events: none; z-index: 1; opacity: .8; }
+.town-bats .bat-body path { fill: var(--bat-wing) !important; stroke: var(--bat-edge) !important; }
 .town-bats { animation: town-bat-flight 3s ease-in-out infinite alternate; }
 .town-bats path { transform-origin: center; animation: town-wingbeat .35s ease-in-out infinite alternate; }
 @keyframes town-bat-flight { to { translate: 8% -15%; } }
