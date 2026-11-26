@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 export interface Settings {
-  fullscreen: boolean; resScale: number; shake: boolean; dmgNumbers: boolean; lootToasts: boolean; detailedLog: boolean; uiScale: "small" | "medium" | "large";
+  fullscreen: boolean; resScale: number; shake: boolean; dmgNumbers: boolean; lootToasts: boolean; detailedLog: boolean; uiScale: "small" | "medium" | "large"; camera: "classic" | "iso";
   master: number; music: number; sfx: number; ambient: number; ui: number; musicOn: boolean; sfxOn: boolean;
   promptSpeed: Speed; dialogueSpeed: Speed; combatSpeed: Speed;
   autoLoot: boolean; autoSellCommon: boolean; confirmRareSell: boolean; confirmNextFloor: boolean;
@@ -10,7 +10,7 @@ export interface Settings {
 export type Speed = "slow" | "normal" | "fast" | "instant";
 export const SPEED_MS: Record<Speed, number> = { slow: 4500, normal: 3000, fast: 1600, instant: 700 };
 export const DEFAULT_SETTINGS: Settings = {
-  fullscreen: false, resScale: 100, shake: true, dmgNumbers: true, lootToasts: true, detailedLog: true, uiScale: "medium",
+  fullscreen: false, resScale: 100, shake: true, dmgNumbers: true, lootToasts: true, detailedLog: true, uiScale: "medium", camera: "classic",
   master: 70, music: 40, sfx: 70, ambient: 40, ui: 60, musicOn: false, sfxOn: true,
   promptSpeed: "normal", dialogueSpeed: "normal", combatSpeed: "normal",
   autoLoot: true, autoSellCommon: false, confirmRareSell: true, confirmNextFloor: true,

@@ -72,6 +72,7 @@ function GameSession({ userId }: { userId: string }) {
   const [trapAt, setTrapAt] = useState<{ x: number; y: number } | null>(null);
   const pushToast = (t: string) => { const it = { id: Math.random(), t }; setToasts((x) => [...x, it].slice(-4)); setTimeout(() => setToasts((x) => x.filter((y) => y !== it)), 1800); };
   const st = useSettings();
+  const isoRef = useRef(false); isoRef.current = st.camera === "iso" && s?.loc === "village";
   const VW = viewTiles(st), VH = VW;
   const [face, setFace] = useState<Facing>("d");
   const [walkF, setWalkF] = useState<0 | 1 | undefined>(undefined);
@@ -268,7 +269,8 @@ function GameSession({ userId }: { userId: string }) {
       if (dist > 18 || (start.moved && dist > 8)) {
         start.moved = true; clearTimeout(lp);
         const cl = Math.min(dist, 44); setStick({ ox: start.ox, oy: start.oy, dx: (dx / dist) * cl, dy: (dy / dist) * cl });
-        const nd: [number, number] = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+        const iso = isoRef.current; const ux = iso ? (dx - dy) : dx, uy = iso ? (dx + dy) : dy;
+        const nd: [number, number] = Math.abs(ux) > Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
         const od = joy.current.dir;
         joy.current.dir = nd;
         // step immediately on a new direction so short flicks and bumps register on the first try
@@ -364,8 +366,8 @@ function GameSession({ userId }: { userId: string }) {
 
       <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
-          <div className={`map-grid ${inV ? `map-village town-${townThemeOf(s.char.race)}` : "map-dungeon"}`} style={{ ["--view" as string]: VW }}>
-            <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}</div>
+          <div className={`map-grid ${inV ? `map-village town-${townThemeOf(s.char.race)}` : "map-dungeon"} ${inV && st.camera === "iso" ? "map-iso" : ""}`} style={{ ["--view" as string]: VW }}>
+            <div className="iso-plane"><div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}</div></div>
             {inV && <div aria-hidden className="town-air" />}
             {!inV && <div aria-hidden className={`torchlight amb-${ambience(themeIndex(s.dungeon!.floor)) ?? "none"}`} style={{ background: `radial-gradient(circle at ${((s.pos.x - cx + 0.5) / VW) * 100}% ${((s.pos.y - cy + 0.5) / VH) * 100}%, transparent 22%, rgba(8,6,12,.16) 48%, rgba(8,6,12,.42) 90%)` }} />}
           </div>

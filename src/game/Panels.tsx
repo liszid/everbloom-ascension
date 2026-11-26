@@ -536,6 +536,9 @@ export function SettingsPanel({ onClose, chars, saving, onSave, onSignOut }: { o
         <div className="py-2"><div>UI scale</div><div className="mt-1 grid grid-cols-3 gap-1">{(["small", "medium", "large"] as const).map((v) =>
           <button key={v} className={`pixel-btn py-2 capitalize ${st.uiScale === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ uiScale: v })}>{v}</button>)}</div>
           <p className="mt-1 text-xs text-muted-foreground">{UI_SCALES[st.uiScale]?.hint}</p></div>
+        <div className="py-2"><div>Camera</div><div className="mt-1 grid grid-cols-2 gap-1">{([["classic", "Classic 2D"], ["iso", "Isometric 2.5D"]] as const).map(([v, l]) =>
+          <button key={v} className={`pixel-btn py-2 ${st.camera === v ? "pixel-btn-active" : ""}`} onClick={() => updateSettings({ camera: v })}>{l}</button>)}</div>
+          <p className="mt-1 text-xs text-muted-foreground">Isometric view applies to the village for now.</p></div>
       </>}
       {tab === "audio" && <>
         <T k="musicOn" label="Enable music" /><T k="sfxOn" label="Enable sound effects" />
