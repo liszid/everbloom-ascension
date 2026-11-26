@@ -41,6 +41,8 @@
 - [x] Skip to the next Guardian floor with a warning
 
 # Prison, profile codex, living world (Nov 23)
+- [x] Match character ground to town theme, scatter race decorations and vary building adornments.
+- [x] All monsters chase within three tiles while retaining distant habits.
 - [x] Movement: held arrow keys walk at a steady pace (no superspeed)
 - [x] Rename Tavern → Adventurers Guild
 - [x] Player Market moves into the Market building

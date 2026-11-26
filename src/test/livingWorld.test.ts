@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { newGame, hireCompanion, depositComp, withdrawComp, drillComp, upgradeCompSkill, pickClass, computeClass, classIdByName, massXp, addXp, xpForLevel, claimTutor, enterDungeon, startCombat, combatTurn, captureBlock } from "@/game/engine";
+import { newGame, hireCompanion, depositComp, withdrawComp, drillComp, upgradeCompSkill, pickClass, computeClass, classIdByName, massXp, addXp, xpForLevel, claimTutor, enterDungeon, startCombat, combatTurn, captureBlock, makeMonster, moveMonsters } from "@/game/engine";
 import { compLevel } from "@/game/guild";
 import { massGain } from "@/game/pacing";
 import { habitOf, isFlyer } from "@/game/habits";
@@ -7,6 +7,23 @@ import { townThemeOf } from "@/game/townTheme";
 import { VILLAGE_MAP } from "@/game/data";
 const fresh = () => { const s = newGame({ name: "Tester", race: "human", gender: "Male", bg: "farmer" }); s.gold = 1e8; return s; };
 describe("living world rules", () => {
+ it.each(["naga", "mimic", "bat", "slime"])("%s chases at exactly three tiles, even when randomness would previously idle it", (id) => {
+  const s = fresh(); enterDungeon(s, 1); const d = s.dungeon; if (!d) throw Error("Missing dungeon");
+  d.tiles = Array.from({ length: 8 }, () => "........");
+  const m = makeMonster(1, 2, 2); m.def = id; m.boss = 0; d.monsters = [m]; s.pos = { x: 5, y: 2 }; s.step = 10;
+  const random = vi.spyOn(Math, "random").mockReturnValue(0);
+  try { moveMonsters(s); expect(m.x).toBe(3); expect(m.y).toBe(2); expect(m.movedAt).toBe(10); } finally { random.mockRestore(); }
+ });
+ it("monsters attack when adjacent after approaching", () => {
+  const s = fresh(); enterDungeon(s, 1); const d = s.dungeon; if (!d) throw Error("Missing dungeon");
+  const m = makeMonster(1, 2, 2); m.def = "bat"; d.monsters = [m]; s.pos = { x: 3, y: 2 };
+  expect(moveMonsters(s)).toBe(m);
+ });
+ it("distant ambushers remain stationary instead of chasing across the floor", () => {
+  const s = fresh(); enterDungeon(s, 1); const d = s.dungeon; if (!d) throw Error("Missing dungeon");
+  const m = makeMonster(1, 2, 2); m.def = "mimic"; m.boss = 0; d.monsters = [m]; s.pos = { x: 6, y: 2 };
+  moveMonsters(s); expect(m.x).toBe(2); expect(m.y).toBe(2);
+ });
  it("captures go into Prison even with an empty party", () => {
   const s = fresh(); enterDungeon(s, 1); const m = s.dungeon?.monsters.find((x) => !x.boss); if (!m) throw Error("Missing foe");
   startCombat(s, m); if (!s.combat) throw Error("Missing combat"); s.combat.mon.hp = 1; expect(captureBlock(s)).toBeNull();

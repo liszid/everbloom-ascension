@@ -2,19 +2,20 @@
 import { MON_DEF } from "./bestiary";
 
 /**
- * chase:   hunts the hero from afar (fiends, hungry undead).
+ * Every habit chases within three tiles; these behaviors apply outside that range.
+ * chase:   prowls until the hero enters detection range (fiends, hungry undead).
  * prowl:   wanders its home room and charges only when the hero comes within 3 steps (beasts, dragons, giants).
  * patrol:  walks back and forth along a line, turning at walls; notices the hero within 3 steps (humanoids, constructs on guard).
- * wander:  drifts around at random and never really hunts (oozes, elementals, fey).
- * ambush:  stays perfectly still until the hero is right next to it (aberrations, monstrosities, mimics).
- * skittish: flutters erratically and only fights when cornered or touched (bats and other small flyers).
+ * wander:  drifts around at random (oozes, elementals, fey).
+ * ambush:  waits until the hero enters detection range (aberrations, monstrosities, mimics).
+ * skittish: flutters erratically (bats and other small flyers).
  */
 export type Habit = "chase" | "prowl" | "patrol" | "wander" | "ambush" | "skittish";
 const BY_ID: Record<string, Habit> = {
   bat: "skittish", swarm_bats: "skittish", rat: "skittish", harpy: "skittish", imp: "skittish", stirge: "skittish", pixie: "skittish", sprite: "skittish",
   mimic: "ambush", spider: "ambush", gelatinous_cube: "ambush", rust_monster: "prowl", gargoyle: "ambush", piercer: "ambush", roper: "ambush", trapper: "ambush",
   wolf: "prowl", skeleton: "patrol", wraith: "chase", vampire: "chase", ghoul: "chase", zombie: "wander", golem: "patrol", lich: "patrol",
-  slime: "wander", frost: "wander", phoenix: "wander",
+  slime: "wander", frost: "wander", phoenix: "wander", naga: "prowl",
   swarm_rats: "skittish", swarm_insects: "skittish", giant_rat: "skittish", quasit: "skittish", devil_imp: "skittish", cockatrice: "skittish", blink_dog: "skittish",
   rug_of_smothering: "ambush", animated_armor: "patrol", ankheg: "ambush", bulette: "ambush", umber_hulk: "ambush", basilisk: "ambush", medusa: "ambush", kraken: "ambush",
   owlbear: "prowl", griffin: "prowl", hippogriff: "prowl", manticore: "prowl", chimera: "prowl", worg: "prowl", winter_wolf: "prowl", displacer_beast: "prowl", hydra: "prowl",
@@ -26,7 +27,7 @@ const BY_CAT: Record<string, Habit> = {
 };
 export const habitOf = (id: string): Habit => BY_ID[id] ?? BY_CAT[MON_DEF[id]?.cat ?? ""] ?? "prowl";
 /** Steps within which each habit notices (and goes after) the hero. */
-export const NOTICE: Record<Habit, number> = { chase: 6, prowl: 3, patrol: 3, wander: 0, ambush: 1, skittish: 0 };
+export const NOTICE: Record<Habit, number> = { chase: 3, prowl: 3, patrol: 3, wander: 3, ambush: 3, skittish: 3 };
 /** How far a prowler strays from where it spawned. */
 export const HOME_RANGE = 3;
 /** Chance to idle in place on a turn (lazier monsters stand around more). */

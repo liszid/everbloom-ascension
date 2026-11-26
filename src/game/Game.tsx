@@ -37,6 +37,7 @@ import { PrisonPanel } from "./PrisonPanel";
 import { ElderPanel } from "./ElderPanel";
 import { ElderSprite } from "./ElderSprite";
 import { townThemeOf } from "./townTheme";
+import { TownDecor, adornBuilding } from "./TownDecor";
 
 type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "tan" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party" | "arena" | "pmarket" | "prison" | "elder";
 const STATIONS: Record<string, PanelT> = { H: "house", M: "shop", A: "forge", J: "church", Z: "magic", V: "craftery", N: "tavern", X: "casino", D: "tower", K: "training", U: "arena", C: "prison" };
@@ -567,7 +568,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
       if (x === Math.max(bx, cx) && y === Math.max(by, cy)) {
         bldg = (
           <span className="bldg" style={{ left: `${-(x - bx) * 100}%`, top: `${-(y - by) * 100}%` }}>
-            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} townTheme={townThemeOf(s.char.race)} stage={SPOT_TILES[t] ? spotStage(spotLevel(s.spots, SPOT_TILES[t]!)) : 0} />
+            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} townTheme={townThemeOf(s.char.race)} adorned={adornBuilding(bx, by)} stage={SPOT_TILES[t] ? spotStage(spotLevel(s.spots, SPOT_TILES[t]!)) : 0} />
           </span>
         );
       }
@@ -591,6 +592,8 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
   }
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`} style={tileBg}>
+      {s.loc === "village" && <span className={`town-ground ${cls}`} style={tileBg} aria-hidden />}
+      {s.loc === "village" && !isP && !elder && [".", ","].includes(VILLAGE[y]?.[x] ?? "") && <TownDecor race={s.char.race} x={x} y={y} />}
       {bldg}
       {elder && <span className="tile-mover tile-elder"><span className="elder-sprite"><ElderSprite /></span><span className="elder-mark" aria-label="Elder Rowan has advice">!</span></span>}
       {isP ? <span className="tile-mover tile-mover-p"><span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span></span>

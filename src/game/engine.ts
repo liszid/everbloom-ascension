@@ -1387,19 +1387,18 @@ export function moveMonsters(s: GameState): Mon | null {
   const free = (x: number, y: number) => d.tiles[y]?.[x] === "." && !d.monsters.some((o) => o.x === x && o.y === y) && !(x === s.pos.x && y === s.pos.y);
   const go = (m: Mon, ox: number, oy: number) => { m.face = ox > 0 ? "r" : ox < 0 ? "l" : oy > 0 ? "d" : "u"; m.movedAt = s.step; m.x += ox; m.y += oy; triggerTrap(s, m); };
   for (const m of d.monsters) {
-    if (m.boss) continue;
     const dx = s.pos.x - m.x, dy = s.pos.y - m.y, dist = Math.abs(dx) + Math.abs(dy);
     const h = habitOf(m.def);
-    if (dist === 1) { if (h !== "skittish" || Math.random() < 0.5) attacker = attacker ?? m; continue; }
+    if (dist === 1) { attacker = attacker ?? m; continue; }
     if (m.rooted) { m.rooted--; continue; }
     m.hx ??= m.x; m.hy ??= m.y;
-    // noticed the hero: close in (a skittish flyer only when cornered)
-    if (dist <= NOTICE[h] && h !== "wander" && h !== "skittish") {
-      if (Math.random() < 0.3) continue;
+    // Every species becomes aggressive within three tiles, including ambushers and bosses.
+    if (dist <= NOTICE[h]) {
       const opts: [number, number][] = Math.abs(dx) > Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
       for (const [ox, oy] of opts) { if ((ox || oy) && free(m.x + ox, m.y + oy)) { go(m, ox, oy); break; } }
       continue;
     }
+    if (m.boss) continue;
     if (Math.random() < IDLE[h]) continue;
     if (h === "patrol") {
       // pace along a line, turning around at walls

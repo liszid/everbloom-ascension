@@ -362,7 +362,7 @@
 /* Rounded grass: grass tiles at a corner of path/water/soil paint their grass on a rounded layer above that ground */
 .tile-cvx::before { content: ""; position: absolute; inset: 0; border-radius: var(--br); pointer-events: none; background: url("./assets/art/g_grass.webp") 0 0 / 300% 300%; }
 .tile-cvx.tile-grass-2::before { background-position: 50% 50%; }
-.tile-cvx > :not(.tile-mover):not(.tile-label):not(.bldg) { position: relative; }
+.tile-cvx > :not(.tile-mover):not(.tile-label):not(.bldg):not(.town-ground):not(.town-decor) { position: relative; }
 .tile-cvx.under-path { background: url("./assets/art/g_path.webp") 0 0 / 300% 300%; }
 .tile-cvx.under-water { background: url("./assets/art/g_water.webp") 0 0 / 300% 300%; animation: water-drift 6s linear infinite; }
 .tile-cvx.under-soil { background: url("./assets/art/g_soil.webp") 0 0 / 200% 200%; }
@@ -413,7 +413,16 @@
 .town-forge { --town-filter: grayscale(.5) contrast(1.15); --town-wash: var(--sprite-stone); }
 .town-tide { --town-filter: hue-rotate(35deg) saturate(.8); --town-wash: var(--sprite-ice); }
 .town-arcane { --town-filter: hue-rotate(115deg) saturate(.9); --town-wash: var(--grade-high); }
-.map-village .tile:not(:has(.tile-player)):not(:has(.tile-elder)) { filter: var(--town-filter, none); }
+.map-village .tile { background: none; box-shadow: none; filter: none; }
+.map-village .tile::before { background: none; }
+.town-ground { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; filter: var(--town-filter, none); }
+.map-village .bldg { filter: var(--town-filter, none); }
+.town-decor { position: absolute; inset: 5%; width: 90%; height: 90%; pointer-events: none; z-index: 1; opacity: .8; }
+.town-bats { animation: town-bat-flight 3s ease-in-out infinite alternate; }
+.town-bats path { transform-origin: center; animation: town-wingbeat .35s ease-in-out infinite alternate; }
+@keyframes town-bat-flight { to { translate: 8% -15%; } }
+@keyframes town-wingbeat { to { scale: 1 .7; } }
+@media (prefers-reduced-motion: reduce) { .town-bats, .town-bats path { animation: none; } }
 .map-village .tile:has(> .bldg) { z-index: 2; }
 .map-village .tile:has(> .tile-mover-p), .map-village .tile:has(> .tile-elder) { z-index: 6; }
 .town-air { position: absolute; inset: 0; background: color-mix(in oklab, var(--town-wash, transparent) 12%, transparent); pointer-events: none; z-index: 7; }
