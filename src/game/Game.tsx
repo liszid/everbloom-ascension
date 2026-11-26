@@ -523,7 +523,7 @@ function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" |
   if (t === undefined) return null;
   // The pond counts as water so its shoreline meets the stream cleanly; 
   // the Prison stands in the meadow, so it is grass-backed instead of a stray path island.
-  if (t === "P") return "water";
+  if (t === "P" || t === "W") return "water";
   if (SPOT_TILES[t] || t === "C") return "grass";
   return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
 }
@@ -535,9 +535,9 @@ function roundedCorners(x: number, y: number): React.CSSProperties | undefined {
   const isG = me === "grass"; let under: string | null = null; let any = false;
   const r = CORNERS.map(([sx, sy]) => {
     const ks = [groundKind(x + sx, y), groundKind(x, y + sy), groundKind(x + sx, y + sy)];
-    // Crop field soil rounds wherever its corner leaves the field; grass never bulges into the field (no soil cutouts).
-    const opp = me === "soil" ? ks.every((k) => k !== null && k !== "soil")
-      : ks.every((k) => k !== null && (isG ? k !== "grass" && k !== "soil" : k === "grass"));
+    // Crop field soil and pond water round wherever their corner leaves them; grass never bulges into them (no cutouts).
+    const opp = me === "soil" || me === "water" ? ks.every((k) => k !== null && k !== me)
+      : ks.every((k) => k !== null && (isG ? k !== "grass" && k !== "soil" && k !== "water" : k === "grass"));
     if (opp) { any = true; if (isG && !under) under = ks[2] ?? null; }
     return opp ? "45%" : "0";
   }).join(" ");
