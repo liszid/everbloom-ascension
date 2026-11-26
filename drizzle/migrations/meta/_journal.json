@@ -15,6 +15,13 @@
       "when": 1795210414710,
       "tag": "0001_player_market_listings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795681145781,
+      "tag": "0002_migration",
+      "breakpoints": true
     }
   ]
 }

@@ -416,7 +416,7 @@ function GameSession({ userId }: { userId: string }) {
         take: (k, ref, q) => act((n) => takeForListing(n, k, ref, q)),
         give: (k, item, q) => act((n) => receiveListing(n, k, item, q)),
         pay: (g) => act((n) => spend(n, g)), earn: (g) => act((n) => earn(n, g)),
-        save: () => setTimeout(() => void save(), 50),
+        save: () => new Promise<void>((res) => setTimeout(() => { void save().then(() => res()); }, 50)),
       }} />}
       {panel?.t === "prison" && <PrisonPanel s={s} onClose={close} ops={{
         deposit: (id) => { if (act((n) => depositComp(n, id))) sfx("ui"); else sfx("fail"); },

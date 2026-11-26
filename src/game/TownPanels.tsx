@@ -47,7 +47,7 @@ type Row = { id: string; seller_id: string; seller_name: string; kind: ListingKi
 export interface MarketOps {
   /** Takes the item out of the save; returns the listing draft or null. */ take: (kind: ListingKind, ref: string, qty: number) => { item: unknown; qty: number; price: number; label: string } | null;
   give: (kind: ListingKind, item: unknown, qty: number) => void;
-  pay: (n: number) => boolean; earn: (n: number) => void; save: () => void;
+  pay: (n: number) => boolean; earn: (n: number) => void; save: () => void | Promise<void>;
 }
 
 function itemIcon(r: { kind: ListingKind; item: unknown }) {
@@ -84,10 +84,11 @@ export function PlayerMarketPanel({ s, userId, onClose, ops }: { s: GameState; u
   });
   const buy = (r: Row) => run(async () => {
     const room = canReceive(s, r.kind); if (room) { setMsg(room); return; }
-    if (!ops.pay(r.price)) { setMsg("Not enough gold."); return; }
+    if (s.gold < r.price) { setMsg("Not enough gold."); return; }
+    await ops.save();
     const { error } = await supabase.rpc("market_buy", { _id: r.id });
-    if (error) { ops.earn(r.price); setMsg("Someone was faster — your gold is back."); return; }
-    ops.give(r.kind, r.item, r.qty); ops.save(); setMsg(`Bought ${r.label}.`);
+    if (error) { setMsg(error.message.includes("gold") ? "Not enough gold." : "Someone was faster — try another listing."); return; }
+    ops.pay(r.price); ops.give(r.kind, r.item, r.qty); ops.save(); setMsg(`Bought ${r.label}.`);
   });
   const cancel = (r: Row) => run(async () => {
     if (canReceive(s, r.kind)) { setMsg(canReceive(s, r.kind)!); return; }
