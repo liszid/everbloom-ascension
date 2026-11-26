@@ -7,4 +7,3 @@
 - Village filtering belongs on separate ground layers and building artwork, never character tiles; building anchors sit above ground and hero/Elder anchors sit above buildings.
 - Town decorations and building adornments use stable coordinate seeds, so camera movement never reshuffles decorations or changes gameplay.
 - ElderSprite shares dedicated NPC artwork between the map and mission portrait; it must not change human player avatars.
-- The isometric camera is presentation-only: an .iso-plane wrapper tilts the grid and sprites billboard via CSS rotate/scale, while joystick drags rotate 45° into grid steps.
