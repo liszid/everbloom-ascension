@@ -112,7 +112,7 @@ export function migrateSave(s: GameState): boolean {
     s.spotKeep = keep; changed = true;
   }
   // Companion gear used to stay in the hero's bag; move it onto the companion who holds it.
-  for (const c of s.companions ?? []) for (const sl of SLOTS) {
+  for (const c of [...(s.companions ?? []), ...(s.prison ?? [])]) for (const sl of SLOTS) {
     const id = c.equip[sl]; if (!id || c.held?.some((g) => g.id === id)) continue;
     const g = s.gear.find((x) => x.id === id);
     if (!g || Object.values(s.equip).includes(id)) { c.equip = { ...c.equip, [sl]: undefined }; changed = true; continue; }
@@ -845,7 +845,7 @@ const d0 = (s: GameState) => s.dungeon?.floor ?? Math.max(1, s.maxFloor);
 export function captureBlock(s: GameState): string | null {
   const m = s.combat?.mon; if (!m) return "No target";
   if (m.boss) return "Guardians cannot be captured.";
-  if ((s.companions?.length ?? 0) >= MAX_COMPANIONS && (s.prison?.length ?? 0) >= prisonMax(s)) return `Party and Prison are full (${MAX_COMPANIONS} + ${prisonMax(s)} cells).`;
+  if ((s.prison?.length ?? 0) >= prisonMax(s)) return `Prison is full (${prisonMax(s)} cells).`;
   if (m.hp > m.maxHp * CAPTURE_HP) return `Weaken it below ${CAPTURE_HP * 100}% HP first.`;
   return null;
 }
@@ -936,20 +936,20 @@ export function depositComp(s: GameState, id: string): boolean {
   const c = s.companions?.find((x) => x.id === id); if (!c || s.loc !== "village") return false;
   if (c.rentLeft !== undefined) { log(s, `❌ ${c.name} is only rented — the Guild wants them back.`); return false; }
   if ((s.prison?.length ?? 0) >= prisonMax(s)) { log(s, "⛓️ Every cell is taken. Upgrade the Prison for more."); return false; }
-  s.companions = s.companions!.filter((x) => x.id !== id); s.prison = [...(s.prison ?? []), c];
+  s.companions = (s.companions ?? []).filter((x) => x.id !== id); s.prison = [...(s.prison ?? []), c];
   log(s, `⛓️ ${c.name} waits in the Prison.`); return true;
 }
 /** Bring a companion out of the Prison into the active party. */
 export function withdrawComp(s: GameState, id: string): boolean {
   const c = s.prison?.find((x) => x.id === id); if (!c || s.loc !== "village") return false;
   if ((s.companions?.length ?? 0) >= MAX_COMPANIONS) { log(s, `❌ Your party is full (${MAX_COMPANIONS}).`); return false; }
-  s.prison = s.prison!.filter((x) => x.id !== id); s.companions = [...(s.companions ?? []), c];
+  s.prison = (s.prison ?? []).filter((x) => x.id !== id); s.companions = [...(s.companions ?? []), c];
   log(s, `🤝 ${c.name} rejoins your party.`); return true;
 }
 /** Release a prisoner for good; any gear they carry comes back to your bag. */
 export function releasePrisoner(s: GameState, id: string) {
   const c = s.prison?.find((x) => x.id === id); if (!c) return;
-  returnCompGear(s, c); s.prison = s.prison!.filter((x) => x.id !== id);
+  returnCompGear(s, c); s.prison = (s.prison ?? []).filter((x) => x.id !== id);
   log(s, `👋 ${c.name} ${c.kind === "monster" ? "was released into the wild" : "left your service"}.`);
 }
 const anyComp = (s: GameState, id: string) => s.prison?.find((x) => x.id === id) ?? s.companions?.find((x) => x.id === id);
@@ -1191,14 +1191,14 @@ export function plant(s: GameState, x: number, y: number, seed: string) {
   const mt = getMat(seed); if (!mt.seedOf || !takeMat(s, seed, 1)) return;
   const L = lvl(s, "farming");
   s.village.plots[key(x, y)] = { crop: mt.seedOf, readyAt: s.step + Math.max(12, 40 - L) };
-  addXp(s, "farming", 3); bump(s, "seedsPlanted"); log(s, `🌱 Planted ${getMat(mt.seedOf).name}.`);
+  massXp(s, "farming", 3, mt.tier); bump(s, "seedsPlanted"); log(s, `🌱 Planted ${getMat(mt.seedOf).name}.`);
 }
 export function harvest(s: GameState, x: number, y: number) {
   const k = key(x, y); const p = s.village.plots[k]; if (!p || p.readyAt > s.step) return;
   const L = lvl(s, "farming"); const q = 2 + Math.floor(Math.random() * (2 + L / 8));
   addMat(s, p.crop, q); const seed = Object.values(MATERIALS).find((m) => m.seedOf === p.crop)?.id;
   if (seed && Math.random() < 0.7) addMat(s, seed, 1 + (Math.random() < L / 50 ? 1 : 0));
-  delete s.village.plots[k]; addXp(s, "farming", 8 + q); addAff(s, "nature", 2); bump(s, "plantsHarvested", q); bump(s, "g:" + p.crop, q);
+  delete s.village.plots[k]; const mf = massXp(s, "farming", 8 + q, getMat(p.crop).tier); addAff(s, "nature", 2 * MASS_AFF * mf); bump(s, "plantsHarvested", q); bump(s, "g:" + p.crop, q);
   log(s, `🧺 Harvested ${q} ${getMat(p.crop).name}.`);
 }
 export function restAtHome(s: GameState) {
@@ -1383,7 +1383,7 @@ export function openChest(s: GameState, x: number, y: number) {
 const STEPS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 /** Monsters follow their habits (habits.ts): chasers hunt, prowlers roam home, patrols pace, wanderers drift, ambushers wait, skittish ones flutter. */
 export function moveMonsters(s: GameState): Mon | null {
-  const d = s.dungeon!; let attacker: Mon | null = null;
+  const d = s.dungeon; if (!d) return null; let attacker: Mon | null = null;
   const free = (x: number, y: number) => d.tiles[y]?.[x] === "." && !d.monsters.some((o) => o.x === x && o.y === y) && !(x === s.pos.x && y === s.pos.y);
   const go = (m: Mon, ox: number, oy: number) => { m.face = ox > 0 ? "r" : ox < 0 ? "l" : oy > 0 ? "d" : "u"; m.movedAt = s.step; m.x += ox; m.y += oy; triggerTrap(s, m); };
   for (const m of d.monsters) {
@@ -1396,22 +1396,22 @@ export function moveMonsters(s: GameState): Mon | null {
     // noticed the hero: close in (a skittish flyer only when cornered)
     if (dist <= NOTICE[h] && h !== "wander" && h !== "skittish") {
       if (Math.random() < 0.3) continue;
-      const opts = Math.abs(dx) > Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
-      for (const [ox, oy] of opts) { if ((ox || oy) && free(m.x + ox!, m.y + oy!)) { go(m, ox!, oy!); break; } }
+      const opts: [number, number][] = Math.abs(dx) > Math.abs(dy) ? [[Math.sign(dx), 0], [0, Math.sign(dy)]] : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+      for (const [ox, oy] of opts) { if ((ox || oy) && free(m.x + ox, m.y + oy)) { go(m, ox, oy); break; } }
       continue;
     }
     if (Math.random() < IDLE[h]) continue;
     if (h === "patrol") {
       // pace along a line, turning around at walls
       m.pd ??= Math.random() < 0.5 ? 0 : 2;
-      let [ox, oy] = STEPS[m.pd]!;
-      if (!free(m.x + ox, m.y + oy)) { m.pd = m.pd ^ 1; [ox, oy] = STEPS[m.pd]!; }
+      let [ox, oy] = STEPS[m.pd] ?? [1, 0];
+      if (!free(m.x + ox, m.y + oy)) { m.pd = m.pd ^ 1; [ox, oy] = STEPS[m.pd] ?? [1, 0]; }
       if (free(m.x + ox, m.y + oy)) go(m, ox, oy);
       continue;
     }
     // prowl / wander / skittish: a random step; prowlers stay near home, skittish ones keep their distance
     const cand = STEPS.filter(([ox, oy]) => free(m.x + ox, m.y + oy)).filter(([ox, oy]) => {
-      if (h === "prowl") return Math.abs(m.x + ox - m.hx!) + Math.abs(m.y + oy - m.hy!) <= HOME_RANGE;
+      if (h === "prowl") return Math.abs(m.x + ox - (m.hx ?? m.x)) + Math.abs(m.y + oy - (m.hy ?? m.y)) <= HOME_RANGE;
       if (h === "skittish") return Math.abs(s.pos.x - m.x - ox) + Math.abs(s.pos.y - m.y - oy) >= Math.min(dist, 3);
       return true;
     });
@@ -1575,8 +1575,7 @@ export function combatTurn(s: GameState, a: CombatAct): "win" | "lose" | "fled" 
       const cap: Companion = { id: uid(), name, kind: "monster", role: "beast", race: "", gender: "", monDef: m.def, xp: 15 * (L - 1) ** 2,
         base: { hp: def?.hp ?? 1, atk: def?.atk ?? 1, def: def?.def ?? 1, magic: m.magical }, equip: {} };
       bump(s, "captures");
-      if ((s.companions?.length ?? 0) < MAX_COMPANIONS) { s.companions = [...(s.companions ?? []), cap]; clog(c, `🪢 ${name} was captured and joins your party!`); note(s, `🪢 Captured ${name}!`); }
-      else { s.prison = [...(s.prison ?? []), cap]; clog(c, `🪢 ${name} was captured and escorted to the Prison cells!`); note(s, `🪢 ${name} was sent to the Prison`); }
+      s.prison = [...(s.prison ?? []), cap]; clog(c, `🪢 ${name} was captured and escorted to the Prison cells!`); note(s, `🪢 ${name} was sent to the Prison`);
       return finishCombat(s, "win");
     }
     clog(c, `🪢 ${m.name} breaks free!`);
@@ -2043,6 +2042,7 @@ export function classNameOf(id: string): string {
 let NAME_TO_ID: Map<string, string> | null = null;
 /** Class id for a discovered class name (built once from every affinity, hybrid and triad class). */
 export function classIdByName(name: string): string | undefined {
+  if (name === "Adventurer") return "adventurer";
   if (!NAME_TO_ID) {
     NAME_TO_ID = new Map();
     for (let t = 0; t < 4; t++) for (const a of AFFINITIES) {

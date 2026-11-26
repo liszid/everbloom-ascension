@@ -1,6 +1,7 @@
 // Build synergies: race + class + title + weapon archetype + off-hand + specialization combinations — pure data.
 // engine.activeSynergies builds the input; playerStats applies mods and per-element damage bonuses.
 import type { Element, StatKey } from "./data";
+import { townThemeOf, type TownTheme } from "./townTheme";
 
 export interface BuildInput {
   race: string; className: string; triad?: string | undefined; title?: string | undefined;
@@ -86,4 +87,20 @@ export const SYNERGIES: Synergy[] = [
   { id: "arcane_conduit", name: "Arcane Conduit", icon: "🪄", desc: "Your staff is a lightning rod for mana.", hint: "Any race: the Arcane path + a staff",
     check: (b) => b.spec === "spellblade" && b.arch === "staff", mods: { matk: 0.18, mp: 0.2 } },
 ];
+// Family combinations ensure every race has a race/class/equipment path without removing universal synergies.
+const FAMILY_COMBOS: [TownTheme, string, RegExp, BuildInput["arch"], Partial<Record<StatKey, number>>][] = [
+  ["citadel", "Citadel Defender", /guard|knight|warden|adventurer/i, "sword", { hp: .08, pdef: .08 }],
+  ["undead", "Gravebound Reaper", /vampire|lich|ghost|ghoul|zombie|grave|death|reaper/i, "scythe", { matk: .1, hp: .08 }],
+  ["sylvan", "Wildwood Guardian", /druid|fey|dryad|satyr|centaur|firbolg|beast|forest|hunter|ranger/i, "staff", { mp: .1, matk: .08 }],
+  ["celestial", "Dawn Vanguard", /angel|seraph|valkyrie|sky|githzerai|cleric|paladin|light/i, "sword", { mdef: .1, patk: .08 }],
+  ["infernal", "Cinderblade", /demon|dragon|scale|drow|yuan|gith|fire|shadow/i, "sword", { patk: .1, crit: .03 }],
+  ["forge", "Ironborn Sentinel", /orc|goliath|colossus|warforged|hobgoblin|dwarf|gnome|minotaur|guard|smith/i, "hammer", { pdef: .1, hp: .08 }],
+  ["tide", "Deepwater Lancer", /triton|sahuagin|tortle|abyss|siren|water|tide|mystic/i, "spear", { patk: .08, mdef: .08 }],
+  ["arcane", "Starweave Conduit", /archmage|transmut|chrono|mind|psion|djinn|kenku|changeling|mage|arcane/i, "staff", { mp: .1, matk: .08 }],
+];
+SYNERGIES.push(...FAMILY_COMBOS.map(([family, name, pattern, arch, mods]) => ({
+  id: `family_${family}`, name, icon: "✦", desc: "Lineage and practiced style strengthen your chosen weapon.",
+  hint: `${family} race family + a matching lore or playstyle class + ${arch}`,
+  check: (b: BuildInput) => townThemeOf(b.race) === family && pattern.test(b.className) && b.arch === arch, mods,
+})));
 export const evaluateSynergies = (b: BuildInput) => SYNERGIES.filter((x) => x.check(b));

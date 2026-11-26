@@ -1,4 +1,6 @@
 import { canSkipTo, nextBossFloor } from "./town";
+import { themeFor } from "./themes";
+import { themePool } from "./bestiary";
 import { createContext, useContext, useMemo, useState, type Context, type ReactNode } from "react";
 import {
   ELEMENT_ICON, GRADES, PCT_STATS, PROPS, PROP_LABEL, SLOTS, SLOT_INFO, STAT_KEYS, STAT_LABEL, getMat, matRole, ROLE_LABEL,
@@ -327,16 +329,22 @@ export function TowerPanel({ s, onClose, onEnter, onSkip }: { s: GameState; onCl
           <button className="pixel-btn min-w-11 py-3" aria-label="Down 10 floors" onClick={() => setF(Math.max(1, f - 10))}>−10</button>
           <button className="pixel-btn min-w-11 py-3" aria-label="Down 1 floor" onClick={() => setF(Math.max(1, f - 1))}>−</button>
           <select aria-label="Choose floor" className="pixel-btn min-w-0 flex-1 py-3 text-center" value={f} onChange={(e) => setF(Number(e.target.value))}>
-            {Array.from({ length: next }, (_, i) => next - i).map((n) => <option key={n} value={n}>Floor {n}{n % 100 === 0 ? " ☠️" : n % 10 === 0 ? " 💀" : ""}</option>)}
+            {Array.from({ length: next }, (_, i) => next - i).map((n) => <option key={n} value={n}>Level {n} - {themeFor(n).name}{n % 100 === 0 ? " ☠️" : n % 10 === 0 ? " 💀" : ""}</option>)}
           </select>
           <button className="pixel-btn min-w-11 py-3" aria-label="Up 1 floor" onClick={() => setF(Math.min(next, f + 1))}>+</button>
           <button className="pixel-btn min-w-11 py-3" aria-label="Up 10 floors" onClick={() => setF(Math.min(next, f + 10))}>+10</button>
         </div>
         <button className="pixel-btn w-full py-3" onClick={() => onEnter(f)}>Enter Floor {f} {kind(f)}</button>
       </div>}
+      <FloorDossier floor={f} />
       <p className="mt-2 text-xs text-muted-foreground">Inside the Tower, take the stairs up 🪜 to climb and the stairs down 🕳️ to go back a floor — you only return to the village when you retreat or fall. Monsters grow stronger every floor. HP doesn't regenerate in the Tower and you may eat at most twice per fight. Bosses telegraph heavy blows — Defend!</p>
     </Sheet>
   );
+}
+function FloorDossier({ floor }: { floor: number }) {
+  const theme = themeFor(floor); const monsters = themePool(theme.name, floorTier(floor));
+  const loot = [...new Set(monsters.flatMap((m) => m.drops))];
+  return <section className="mt-2 text-sm"><h3 className="text-accent">Level {floor} - {theme.name}</h3><p className="text-xs text-muted-foreground">{theme.desc}</p><h4 className="mt-1">Monsters</h4><p className="text-xs">{monsters.map((m) => m.name).join(" · ")}</p><h4 className="mt-1">Possible monster loot</h4><p className="text-xs">{loot.map((id) => getMat(id).name).join(" · ")}</p></section>;
 }
 export function HousePanel({ s, onClose, onRest }: { s: GameState; onClose: () => void; onRest: () => void }) {
   return (
@@ -393,7 +401,7 @@ export function TavernPanel({ s, onClose, onClaim, onReroll }: { s: GameState; o
     "Mixing many materials gives finer gear — but only high-tier ones break the Legendary ceiling.", "Elves find more loot; dwarves pull more ore. Choose your path wisely.",
     "Neglect your gear and the Tower will outgrow you."];
   return (
-    <Sheet title="🍺 Tavern" onClose={onClose}>
+    <Sheet title="📜 Adventurers Guild" onClose={onClose}>
       <p className="mb-2 italic text-muted-foreground">“{rumors[s.step % rumors.length]}”</p>
       <h3 className="text-accent">Quest board</h3>
       {s.quests.map((q) => { const p = questProgress(s, q); return (

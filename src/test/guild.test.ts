@@ -21,7 +21,7 @@ describe("guild", () => {
     expect(captureBlock(s)).toMatch(/30%/);
     s.combat!.mon.hp = 1; expect(captureBlock(s)).toBeNull();
     for (let i = 0; i < 40 && s.combat; i++) combatTurn(s, "capture");
-    expect(s.companions?.some((c) => c.kind === "monster")).toBe(true);
+    expect(s.prison?.some((c) => c.kind === "monster")).toBe(true);
   });
   it("training costs gold; specialists need top-2 affinity", () => {
     const s = fresh(); const g = s.gold; trainSkill(s, "mining"); expect(s.gold).toBeLessThan(g);

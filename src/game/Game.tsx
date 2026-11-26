@@ -270,7 +270,7 @@ function GameSession({ userId }: { userId: string }) {
         const od = joy.current.dir;
         joy.current.dir = nd;
         // step immediately on a new direction so short flicks and bumps register on the first try
-        if (!od || od[0] !== nd[0] || od[1] !== nd[1]) { pathRef.current = []; joy.current.last = Date.now(); move(nd[0], nd[1]); }
+        if ((!od || od[0] !== nd[0] || od[1] !== nd[1]) && Date.now() - joy.current.last >= Math.round(170 * 100 / Math.max(60, playerSpd()))) { pathRef.current = []; joy.current.last = Date.now(); move(nd[0], nd[1]); }
       }
     };
     const onUp = (ev: PointerEvent) => {
@@ -292,8 +292,9 @@ function GameSession({ userId }: { userId: string }) {
       if (d[k] && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) {
         e.preventDefault();
         // Holding a key walks at the hero's normal pace (the joystick timer), never at the OS key-repeat rate.
-        if (e.repeat) return;
-        keyDir.current = k; joy.current.dir = d[k]!; joy.current.last = Date.now(); pathRef.current = []; move(...d[k]!);
+        const direction = d[k]; if (!direction || e.repeat) return;
+        keyDir.current = k; joy.current.dir = direction; pathRef.current = [];
+        if (Date.now() - joy.current.last >= Math.round(170 * 100 / Math.max(60, playerSpd()))) { joy.current.last = Date.now(); move(...direction); }
       }
       if (k === "escape") setPanel(null);
     };
@@ -362,7 +363,7 @@ function GameSession({ userId }: { userId: string }) {
       <div className="game-map-area relative min-h-0 flex-1">
         <div className="map-wrap touch-none select-none" onPointerDown={onDown}>
           <div className={`map-grid ${inV ? `map-village town-${townThemeOf(s.char.race)}` : "map-dungeon"}`} style={{ ["--view" as string]: VW }}>
-            <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}{inV && <div aria-hidden className="town-tint" />}</div>
+            <div ref={innerRef} className="map-inner" style={{ gridTemplateColumns: `repeat(${VW + 2}, 1fr)`, width: `${((VW + 2) / VW) * 100}%`, left: `${-100 / VW}%`, top: `${-100 / VH}%`, ["--cols" as string]: VW + 2 }}>{cells}</div>
             {inV && <div aria-hidden className="town-air" />}
             {!inV && <div aria-hidden className={`torchlight amb-${ambience(themeIndex(s.dungeon!.floor)) ?? "none"}`} style={{ background: `radial-gradient(circle at ${((s.pos.x - cx + 0.5) / VW) * 100}% ${((s.pos.y - cy + 0.5) / VH) * 100}%, transparent 22%, rgba(8,6,12,.16) 48%, rgba(8,6,12,.42) 90%)` }} />}
           </div>
@@ -565,7 +566,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
       if (x === Math.max(bx, cx) && y === Math.max(by, cy)) {
         bldg = (
           <span className="bldg" style={{ left: `${-(x - bx) * 100}%`, top: `${-(y - by) * 100}%` }}>
-            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} stage={SPOT_TILES[t] ? spotStage(spotLevel(s.spots, SPOT_TILES[t]!)) : 0} />
+            <Building kind={t} name={BUILDINGS[t]?.name ?? "Building"} townTheme={townThemeOf(s.char.race)} stage={SPOT_TILES[t] ? spotStage(spotLevel(s.spots, SPOT_TILES[t]!)) : 0} />
           </span>
         );
       }

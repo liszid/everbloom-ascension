@@ -41,19 +41,19 @@
 - [x] Skip to the next Guardian floor with a warning
 
 # Prison, profile codex, living world (Nov 23)
-- [ ] Movement: held arrow keys walk at a steady pace (no superspeed)
-- [ ] Rename Tavern → Adventurers Guild
-- [ ] Player Market moves into the Market building
-- [ ] Town tiles around the Fishing Pond aligned
-- [ ] Prison building: cell-block view, deposit/withdraw, level up and skill upgrades for companions
-- [ ] Captures with a full party go to the Prison
-- [ ] Journal: each achievement shows how to earn it + progress
-- [ ] Classes: collapsible Evolution History
-- [ ] Class Codex lists discovered classes; non-ascended heroes can pick their class; playstyle suggestion
-- [ ] Slower affinity from mass actions (gathering/refining/crafting) unless higher-tier materials
-- [ ] More specializations (miner, farmer, angler, tamer…) and synergies for all races; collapsible lists
-- [ ] Town look follows the hero's race family
-- [ ] Tower info: map type, monsters, loot per level; picker shows "Level - Map"
-- [ ] Tutorial NPC with yellow "!" — building guide, starter tips, missions
-- [ ] Step and idle animations for hero and monsters (bats flap)
-- [ ] Monsters move by habit (patrol, wander, ambush) instead of always chasing
+- [x] Movement: held arrow keys walk at a steady pace (no superspeed)
+- [x] Rename Tavern → Adventurers Guild
+- [x] Player Market moves into the Market building
+- [x] Town tiles around the Fishing Pond aligned
+- [x] Prison building: cell-block view, deposit/withdraw, level up and skill upgrades for companions
+- [x] All new Tower captures go to the Prison
+- [x] Journal: each achievement shows how to earn it + progress
+- [x] Classes: collapsible Evolution History
+- [x] Class Codex lists discovered classes; non-ascended heroes can pick their class; playstyle suggestion
+- [x] Slower affinity from mass actions (gathering/refining/crafting) unless higher-tier materials
+- [x] More specializations (miner, farmer, angler, tamer…) and synergies for all races; collapsible lists
+- [x] Town look follows the hero's race family (shared artwork, palette and architectural details)
+- [x] Tower info: map type, monsters, loot per level; picker shows "Level - Map"
+- [x] Tutorial NPC with yellow "!" — building guide, starter tips, missions
+- [x] Step and idle animations for hero and monsters (bats flap)
+- [x] Monsters move by habit (patrol, wander, ambush) instead of always chasing

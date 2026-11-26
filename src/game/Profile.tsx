@@ -13,10 +13,11 @@ import { ClassCodex, PlaystyleBlock, SpecBlock, SynergyBlock } from "./ClassPath
 import { nextStarAt, starStr, titleKit, titleStars, lockTurns } from "./titles";
 import { BADGES, badgeEarned } from "./town";
 import { decoArt } from "./art";
+import { ACH_HOW } from "./journal";
 
 const time = (s: number) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 
-export function ProfilePanel({ s, onClose, onTitle, onEquip, onSpec = () => {} }: { s: GameState; onClose: () => void; onTitle: (t: string | undefined) => void; onEquip: (id: string) => void; onSpec?: (id: string | undefined) => void }) {
+export function ProfilePanel({ s, onClose, onTitle, onEquip, onSpec = () => {}, onPickClass = () => {} }: { s: GameState; onClose: () => void; onTitle: (t: string | undefined) => void; onEquip: (id: string) => void; onSpec?: (id: string | undefined) => void; onPickClass?: (id: string | undefined) => void }) {
   const [tab, setTab] = useState<"info" | "stats" | "equip" | "aff" | "skills" | "class" | "journal">("info");
   const p = playerStats(s); const L = charLevel(s.xp); const c = computeClass(s);
   const race = raceOf(s); const bg = BACKGROUNDS.find((b) => b.id === s.char.bg);
@@ -122,11 +123,11 @@ export function ProfilePanel({ s, onClose, onTitle, onEquip, onSpec = () => {} }
           <div>Top affinities: {ci.affs.map((a) => `${AFFINITIES.find((x) => x.id === a.id)?.name} ${a.l}`).join(", ") || "none"}</div>
           <div>Title: {ci.title ? `"${ci.title}" (${AFFINITIES.find((x) => x.id === ci.titleAff)?.name})` : "none"}</div>
         </div>; })()}
-        <h3 className="text-accent">Evolution history</h3>
+        <details><summary className="cursor-pointer text-accent">Evolution history</summary>
         {!s.classHistory.length && <p className="text-muted-foreground">Your path has not yet diverged.</p>}
         {s.classHistory.slice().reverse().map((h, i) => <div key={i} className="border-b border-border/30 py-1 text-sm">{h.from} → <b className="text-primary">{h.to}</b> <span className="text-muted-foreground">· floor {h.floor} · {new Date(h.at).toLocaleDateString()}</span></div>)}
-        <p className="mt-2 text-sm text-muted-foreground">Classes discovered: {s.classesSeen.length}</p>
-        <ClassCodex s={s} />
+        </details><p className="mt-2 text-sm text-muted-foreground">Classes discovered: {s.classesSeen.length}</p>
+        <ClassCodex s={s} onPick={onPickClass} />
       </div>}
       {tab === "journal" && <Journal s={s} />}
     </Sheet>
@@ -157,6 +158,8 @@ function Journal({ s }: { s: GameState }) {
       {ACHIEVEMENTS.map((a) => { const got = s.ach[a.id] ?? 0; const next = a.tiers[got]; const val = statValue(s, a.stat); return (
         <div key={a.id} className="border-b border-border/30 py-1">
           <div className="flex justify-between"><span>{got === a.tiers.length ? "🏅" : "▫️"} {a.name} {"★".repeat(got)}{"☆".repeat(a.tiers.length - got)}</span><span className="text-sm text-muted-foreground">{next !== undefined ? `${fmt(val)}/${fmt(next)}` : "Complete"}</span></div>
+          <p className="text-xs text-muted-foreground">{ACH_HOW[a.stat]?.[0] ?? `Improve ${a.stat} through gameplay.`}</p>
+          <p className="text-xs">Requirements: {a.tiers.map((n) => ACH_HOW[a.stat]?.[1](fmt(n)) ?? `${fmt(n)} ${a.stat}`).join(" · ")}</p>
           {next !== undefined && <div className="text-xs text-muted-foreground">Reward: {Object.entries(a.rewards[got] ?? {}).map(([k, r]) => k === "mat" ? `material` : k === "gold" ? `${r}g` : `${k} ${r}`).join(", ")}</div>}
         </div>); })}
     </div>

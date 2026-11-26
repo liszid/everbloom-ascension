@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Facing } from "./Avatar";
+import { isFlyer } from "./habits";
 
 const ART = import.meta.glob("../assets/art/m_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 type Pixel = [number, number, number, number, string];
@@ -16,7 +17,7 @@ export function MonsterSprite({ kind: id, name, dir = "d", moving = false, motio
   const kind = id;
   const view = dir === "u" ? "_back" : dir === "l" || dir === "r" ? "_side" : "";
   const art = ART[`../assets/art/m_${id}${view}.webp`] ?? ART[`../assets/art/m_${id}.webp`];
-  const cls = `monster-art ${walking ? "monster-moving" : "monster-resting"} ${boss >= 2 ? "monster-warden" : boss ? "monster-guardian" : ""}`;
+  const cls = `${isFlyer(id) ? "monster-flying" : ""} monster-art ${walking ? "monster-moving" : "monster-resting"} ${boss >= 2 ? "monster-warden" : boss ? "monster-guardian" : ""}`;
   if (art) return <span className={`${cls} monster-cartoon`} data-facing={dir}>
     <img src={art} alt={name ?? id} width={256} height={256} loading="lazy" draggable={false} style={{ transform: `${dir === "l" ? "scaleX(-1) " : ""}translateY(${walking && frame ? -6 : 0}%) rotate(${walking ? (frame ? -4 : 4) : 0}deg)` }} />
   </span>;

@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
+import type { TownTheme } from "./townTheme";
 
 // All facades share a 32-pixel footprint but have their own architecture and signs.
 const ART = import.meta.glob("../assets/art/b_*.webp", { eager: true, import: "default" }) as Record<string, string>;
 const artFor = (k: string) => ART[`../assets/art/b_${k}.webp`];
 
-export function Building({ kind, name, stage = 0 }: { kind: string; name: string; stage?: number }) {
+export function Building({ kind, name, stage = 0, townTheme = "citadel" }: { kind: string; name: string; stage?: number; townTheme?: TownTheme }) {
   const art = artFor(kind);
-  if (art) return <span className="building-art building-cartoon" data-stage={stage}><img src={art} alt={name} width={256} height={256} loading="lazy" draggable={false} /></span>;
+  if (art) return <span className="building-art building-cartoon" data-stage={stage}><img src={art} alt={name} width={256} height={256} loading="lazy" draggable={false} />{townTheme !== "citadel" && <TownCrest theme={townTheme} />}</span>;
   const shapes: ReactNode[] = [];
   const r = (x: number, y: number, w: number, h: number, c: string) => shapes.push(<rect key={shapes.length} x={x} y={y} width={w} height={h} fill={`var(--sprite-${c})`} />);
   const roof = (points: string, c: string) => shapes.push(<polygon key={shapes.length} points={points} fill={`var(--sprite-${c})`} />);
@@ -76,4 +77,16 @@ export function Building({ kind, name, stage = 0 }: { kind: string; name: string
       r(7, 6, 18, 24, "stone"); r(4, 8, 5, 22, "ink"); r(23, 8, 5, 22, "ink"); roof("9,7 16,0 23,7", "violet"); r(4, 5, 2, 4, "stone"); r(7, 5, 2, 4, "stone"); r(23, 5, 2, 4, "stone"); r(26, 5, 2, 4, "stone"); r(12, 21, 8, 9, "ink"); r(13, 22, 6, 1, "ice"); r(12, 23, 1, 7, "ice"); r(19, 23, 1, 7, "ice"); r(14, 9, 4, 3, "ice"); r(6, 13, 3, 6, "violet"); r(23, 13, 3, 6, "violet"); break;
   }
   return <svg className="building-art" viewBox="0 0 32 32" role="img" aria-label={name} shapeRendering="crispEdges">{shapes}</svg>;
+}
+function TownCrest({ theme }: { theme: TownTheme }) {
+  const fill = "var(--sprite-silver)"; const edge = "var(--sprite-ink)";
+  return <svg className="town-crest" viewBox="0 0 64 64" aria-hidden="true" fill={fill} stroke={edge} strokeWidth="2">
+    {theme === "undead" ? <><path d="M3 59V45a7 7 0 0 1 14 0v14zM47 59V45a7 7 0 0 1 14 0v14z"/><path d="M7 48h7m-3-4v11M51 48h7m-3-4v11"/><path d="M28 14h8v9h-8zM25 17h14"/></> :
+    theme === "sylvan" ? <><path d="M6 61Q1 25 18 10M58 61Q63 25 46 10" fill="none" stroke="var(--sprite-leaf)" strokeWidth="5"/><path d="M8 39Q-3 25 12 28Q27 19 18 34M54 39Q67 25 52 28Q37 19 46 34" fill="var(--sprite-moss)"/></> :
+    theme === "celestial" ? <><path d="M4 58V30h9v28M51 58V30h9v28"/><path d="M32 4l3 7 8 1-6 5 2 8-7-4-7 4 2-8-6-5 8-1z" fill="var(--sprite-gold)"/></> :
+    theme === "infernal" ? <><path d="M9 32Q-3 15 10 6Q4 23 20 27M55 32Q67 15 54 6Q60 23 44 27" fill="var(--sprite-flame)"/><path d="M23 57l9-12 9 12z" fill="var(--sprite-flame)"/></> :
+    theme === "forge" ? <><path d="M2 52h17v7H2zM45 52h17v7H45zM23 11h18l-3 7H26zM29 18h6v6h-6z"/><path d="M6 52V32h8v20M50 52V32h8v20"/></> :
+    theme === "tide" ? <><path d="M3 54q7-10 14 0t15 0t15 0t14 0" stroke="var(--sprite-ice)" fill="none" strokeWidth="5"/><path d="M9 48V28m-6 5h12M55 48V28m-6 5h12" stroke="var(--sprite-teal)" strokeWidth="4"/></> :
+    <><path d="M32 2l8 10-8 10-8-10zM6 32l5 8-5 8-5-8zM58 32l5 8-5 8-5-8z" fill="var(--sprite-ice)"/></>}
+  </svg>;
 }

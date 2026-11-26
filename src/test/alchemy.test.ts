@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { POTIONS, OIL_BATTLES, TONIC_FLOORS } from "@/game/alchemy";
 import { MATERIALS } from "@/game/data";
 import { brewPotion, usePotion, newGame, playerStats, combatTurn, startCombat, makeMonster, enterDungeon, climbUp } from "@/game/engine";
@@ -29,7 +29,8 @@ describe("alchemy", () => {
     expect(s.oil).toEqual({ id: "oil_flame", left: OIL_BATTLES }); expect(s.tonic?.floors).toBe(TONIC_FLOORS);
     expect(playerStats(s).element).toBe("fire");
     enterDungeon(s, 1); s.hp = 1e9;
-    for (let i = 0; i < 3; i++) { const m = makeMonster(1, 1, 1); m.hp = 1; m.maxHp = 1; m.dodge = -1000; startCombat(s, m); combatTurn(s, "attack"); s.result = undefined; }
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    try { for (let i = 0; i < 3; i++) { const m = makeMonster(1, 1, 1); m.hp = 1; m.maxHp = 1; m.dodge = -1000; startCombat(s, m); combatTurn(s, "attack"); s.result = undefined; } } finally { random.mockRestore(); }
     expect(s.oil).toBeUndefined();
     s.dungeon!.bossAlive = false; climbUp(s);
     expect(s.tonic?.floors).toBe(TONIC_FLOORS - 1);

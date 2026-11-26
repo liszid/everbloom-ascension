@@ -143,7 +143,7 @@ function SellList({ s, busy, onList }: { s: GameState; busy: boolean; onList: (k
   const [qty, setQty] = useState<Record<string, number>>({});
   const mats = Object.entries(s.inv).filter(([, q]) => q > 0).sort((a, b) => getMat(b[0]).tier - getMat(a[0]).tier);
   const gear = freeGear(s).sort((a, b) => b.grade - a.grade);
-  const mons = (s.companions ?? []).filter((c) => c.kind === "monster" && c.rentLeft === undefined);
+  const mons = [...(s.companions ?? []), ...(s.prison ?? [])].filter((c) => c.kind === "monster" && c.rentLeft === undefined);
   return <>
     <div className="mb-2 flex gap-1">{([["mat", "Materials"], ["gear", "Equipment"], ["monster", "Monsters"]] as const).map(([k, l]) => <button key={k} className={`pixel-btn flex-1 py-1 text-xs ${kind === k ? "pixel-btn-active" : ""}`} onClick={() => setKind(k)}>{l}</button>)}</div>
     {s.loc !== "village" && <p className="text-sm text-muted-foreground">List items from the village.</p>}

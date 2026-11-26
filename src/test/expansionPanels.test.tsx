@@ -23,7 +23,7 @@ describe("expansion screens", () => {
     fireEvent.click(screen.getByRole("button", { name: "Classes" }));
     expect(screen.getByText("Playstyle class")).toBeTruthy();
     expect(screen.getAllByText("Druid").length).toBeGreaterThan(0);
-    expect(screen.getByText("Specialization")).toBeTruthy();
+    expect(screen.getByText("Specializations")).toBeTruthy();
     expect(screen.getByText("Build synergies")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Class codex/ }));
     expect(screen.getByText(/Phantom Assassin/)).toBeTruthy();
