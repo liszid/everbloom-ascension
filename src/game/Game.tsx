@@ -34,7 +34,8 @@ import { SPEED_MS, loadSettings, sfx, unlockAudio, useSettings, viewTiles } from
 import { ArenaPanel, PlayerMarketPanel } from "./TownPanels";
 import { SKIP_WARNING, nextBossFloor } from "./town";
 import { PrisonPanel } from "./PrisonPanel";
-import { ELDER, ElderPanel } from "./ElderPanel";
+import { ElderPanel } from "./ElderPanel";
+import { ElderSprite } from "./ElderSprite";
 import { townThemeOf } from "./townTheme";
 
 type PanelT = "forge" | "kitchen" | "carve" | "smelt" | "tan" | "plot" | "house" | "tower" | "bag" | "profile" | "settings" | "shop" | "market" | "tavern" | "casino" | "warehouse" | "church" | "magic" | "craftery" | "gather" | "guildshop" | "training" | "companions" | "party" | "arena" | "pmarket" | "prison" | "elder";
@@ -591,7 +592,7 @@ function renderTile(s: GameState, x: number, y: number, avatar: React.ReactNode,
   return (
     <div key={k} data-x={x} data-y={y} className={`tile ${cls}`} style={tileBg}>
       {bldg}
-      {elder && <span className="tile-mover tile-elder"><span className="elder-sprite"><Avatar race={ELDER.race} gender={ELDER.gender} classId={ELDER.classId} /></span><span className="elder-mark" aria-label="Elder Rowan has advice">!</span></span>}
+      {elder && <span className="tile-mover tile-elder"><span className="elder-sprite"><ElderSprite /></span><span className="elder-mark" aria-label="Elder Rowan has advice">!</span></span>}
       {isP ? <span className="tile-mover tile-mover-p"><span className={`tile-player h-[90%] w-[90%] ${walking ? "walking" : ""}`}>{avatar}</span></span>
         : mon ? <span className="tile-mover tile-mover-m" data-slide={mon.movedAt === s.step ? mon.face ?? "d" : undefined}><MonsterSprite kind={mon.def} name={mon.name} dir={mon.face ?? "d"} moving={mon.movedAt === s.step} motionTick={s.step} boss={mon.boss || (mon.affix ? 1 : 0)} /></span>
         : art ? <img src={art} alt={glyph || "fence"} draggable={false} loading="lazy" width={256} height={256} className={`tile-obj ${dim ? (mon ? "" : "tile-dim") : ""} ${cls.includes("tile-water") ? "tile-fish" : ""}`} />

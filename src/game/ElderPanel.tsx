@@ -3,7 +3,7 @@ import { useState } from "react";
 import { TUTOR_BUILDINGS, TUTOR_MISSIONS, TUTOR_TIPS } from "./tutorial";
 import { tutorProgress, type GameState } from "./engine";
 import { Sheet, Tabs, fmt } from "./Panels";
-import { Avatar } from "./Avatar";
+import { ElderSprite } from "./ElderSprite";
 
 export const ELDER = { name: "Elder Rowan", race: "human", gender: "Male", classId: "light:2" };
 
@@ -13,7 +13,7 @@ export function ElderPanel({ s, onClose, onClaim }: { s: GameState; onClose: () 
   return (
     <Sheet title={`❗ ${ELDER.name}`} onClose={onClose}>
       <div className="mb-2 flex items-center gap-2">
-        <span className="h-14 w-14 shrink-0"><Avatar race={ELDER.race} gender={ELDER.gender} classId={ELDER.classId} /></span>
+        <span className="h-14 w-14 shrink-0"><ElderSprite /></span>
         <p className="text-sm italic text-muted-foreground">"Welcome, climber. The Tower has a thousand floors — let an old man show you how to reach the top."</p>
       </div>
       <Tabs tabs={[["mission", "📜 Missions"], ["bldg", "🏘️ Buildings"], ["tips", "💡 Tips"]]} cur={tab} set={setTab} />

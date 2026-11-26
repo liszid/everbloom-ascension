@@ -4,3 +4,5 @@
 - Journal instructions, tutorial missions, mass-action pacing and monster habits are browser-safe data modules; the engine applies rules while panels only present them.
 - Manual class selection stores a discovered class ID, but race ladders take priority; the Codex resolves saved names for compatibility.
 - Town family themes reuse existing artwork with scoped palette and architectural treatments, preserving map coordinates and gameplay across race changes.
+- Filtered village tiles create stacking contexts: building anchors must sit above ground tiles, with hero and Elder anchors above buildings, so two-tile sprites remain visible.
+- ElderSprite shares dedicated NPC artwork between the map and mission portrait; it must not change human player avatars.
