@@ -521,8 +521,11 @@ function camera(s: GameState, VW: number, VH: number) {
 function groundKind(x: number, y: number): "grass" | "path" | "water" | "soil" | null {
   const t = VILLAGE[y]?.[x];
   if (t === undefined) return null;
-  if (SPOT_TILES[t]) return "grass";
-  return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : t === "G" ? "soil" : "grass";
+  // The pond counts as water so its shoreline meets the stream cleanly; crop fields keep straight edges (no rounding against grass);
+  // the Prison stands in the meadow, so it is grass-backed instead of a stray path island.
+  if (t === "P") return "water";
+  if (SPOT_TILES[t] || t === "G" || t === "C") return "grass";
+  return t === "," || BUILDINGS[t] ? "path" : t === "W" ? "water" : "grass";
 }
 const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
 /** Rounds grass where it meets paths, water and soil: grass bulges get round tips, inner bends get soft fillets. */
