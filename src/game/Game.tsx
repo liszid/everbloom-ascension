@@ -232,7 +232,7 @@ function GameSession({ userId }: { userId: string }) {
       const after = ref.current!;
       if (after.pos.x !== nx.x || after.pos.y !== nx.y || after.loc !== c.loc) { pathRef.current = []; pathAction.current = null; return; }
       if (!pathRef.current.length && pathAction.current) { const a = pathAction.current; pathAction.current = null; setTimeout(a, 0); }
-    }, 110);
+    }, 200);
     return () => clearInterval(id);
   }, [move, panel]);
 
@@ -242,11 +242,12 @@ function GameSession({ userId }: { userId: string }) {
   const stickRef = useRef(false); stickRef.current = !!stick;
   const keyDir = useRef<string | null>(null);
   useEffect(() => {
-    const ms = Math.round(170 * 100 / Math.max(60, playerSpd()));
-    const id = setInterval(() => { const d = joy.current.dir; if (d && Date.now() - joy.current.last >= ms - 20) { joy.current.last = Date.now(); pathRef.current = []; move(d[0], d[1]); } }, 40);
+    const id = setInterval(() => { const d = joy.current.dir; if (d && Date.now() - joy.current.last >= stepMs() - 20) { joy.current.last = Date.now(); pathRef.current = []; move(d[0], d[1]); } }, 40);
     return () => clearInterval(id);
   }, [move, s?.skills?.["mobility"]]);
   const playerSpd = () => (ref.current ? playerStats(ref.current).spd : 100);
+  // Walking pace: speed helps a little, but held keys/joystick never go faster than one tile per 200ms.
+  const stepMs = () => Math.min(320, Math.max(200, Math.round(240 * 100 / Math.max(60, playerSpd()))));
   const onDown = (e: RPE<HTMLDivElement>) => {
     unlockAudio();
     const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -272,7 +273,7 @@ function GameSession({ userId }: { userId: string }) {
         const od = joy.current.dir;
         joy.current.dir = nd;
         // step immediately on a new direction so short flicks and bumps register on the first try
-        if ((!od || od[0] !== nd[0] || od[1] !== nd[1]) && Date.now() - joy.current.last >= Math.round(170 * 100 / Math.max(60, playerSpd()))) { pathRef.current = []; joy.current.last = Date.now(); move(nd[0], nd[1]); }
+        if ((!od || od[0] !== nd[0] || od[1] !== nd[1]) && Date.now() - joy.current.last >= stepMs()) { pathRef.current = []; joy.current.last = Date.now(); move(nd[0], nd[1]); }
       }
     };
     const onUp = (ev: PointerEvent) => {
@@ -296,7 +297,7 @@ function GameSession({ userId }: { userId: string }) {
         // Holding a key walks at the hero's normal pace (the joystick timer), never at the OS key-repeat rate.
         const direction = d[k]; if (!direction || e.repeat) return;
         keyDir.current = k; joy.current.dir = direction; pathRef.current = [];
-        if (Date.now() - joy.current.last >= Math.round(170 * 100 / Math.max(60, playerSpd()))) { joy.current.last = Date.now(); move(...direction); }
+        if (Date.now() - joy.current.last >= stepMs()) { joy.current.last = Date.now(); move(...direction); }
       }
       if (k === "escape") setPanel(null);
     };
